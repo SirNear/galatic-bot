@@ -39,6 +39,6 @@ module.exports.run = async (client, message, args) => {
 
 exports.config = {
   name: 'clearwarn',
-  aliases: ['limparwarn','cwarn','limparavisos',clearavisos','la'],
+  aliases: ['limparwarn','cwarn','limparavisos','clearavisos','la'],
   category: 'moderation'
 }
