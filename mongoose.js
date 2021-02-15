@@ -1,4 +1,4 @@
-require('dotenv/config');
+require('dotenv');
 
 const mongoose = require('mongoose')
 mongoose.connect(process.env.MONGOOSE, { useNewUrlParser: true}, (err) => { //Vamos fazer o bot se conectar no banco de dados
