@@ -153,8 +153,6 @@ if(message.mentions.has(client.user.id)) {
   
 })
 
-require('dotenv');
-
-client.login(process.env.TOKEN).then(() => {
+client.login(config.token).then(() => {
   console.log("Acordei!!")
 })
