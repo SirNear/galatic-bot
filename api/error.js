@@ -290,7 +290,7 @@ module.exports.noStaffRole = (message) => {
   let embed = new Discord.MessageEmbed()
   .setColor(color.green)
   .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
-  .setDescription(`**Você não possui o cargo da staff e não tem autorização para este processo.**)
+  .setDescription(`**Você não possui o cargo da staff e não tem autorização para este processo.**`)
 
   message.channel.send(embed)
 
