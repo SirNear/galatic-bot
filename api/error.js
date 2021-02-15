@@ -1,5 +1,6 @@
 const Discord = require("discord.js");
 const color = require('../api/colors.json')
+const server = await client.database.Guilds.findById(message.guild.id)
 
 
 //permissões
@@ -281,6 +282,17 @@ module.exports.autoClerWarn = (message) => {
   .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
   .setDescription('**Você não pode limpar os próprios avisos!**')
   
+  message.channel.send(embed)
+
+}
+
+module.exports.noStaffRole = (message) => {
+  
+  let embed = new Discord.MessageEmbed()
+  .setColor(color.green)
+  .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
+  .setDescription(`**Você não possui o cargo ${server.staffRole} e não tem autorização para este processo.**)
+
   message.channel.send(embed)
 
 }
