@@ -287,5 +287,5 @@ coletor6.on("collect", em => {
 exports.config = {
     name: 'painel',
     aliases: [],
-    category: 'moderation'
+    category: 'config'
 }
