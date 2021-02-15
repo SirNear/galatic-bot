@@ -273,3 +273,14 @@ module.exports.hasnotRole = (message) => {
   message.channel.send(embed)  
   
 }
+
+module.exports.autoClerWarn = (message) => {
+  
+  let embed = new Discord.MessageEmbed()
+  .setColor(color.green)
+  .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
+  .setDescription('**Você não pode limpar os próprios avisos!**')
+  
+  message.channel.send(embed)
+
+}
