@@ -286,13 +286,11 @@ module.exports.autoClerWarn = (message) => {
 }
 
 module.exports.noStaffRole = (message) => {
-  
-  const server = await client.database.Guilds.findById(message.guild.id)
-  
+    
   let embed = new Discord.MessageEmbed()
   .setColor(color.green)
   .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
-  .setDescription(`**Você não possui o cargo ${server.staffRole} e não tem autorização para este processo.**)
+  .setDescription(`**Você não possui o cargo da staff e não tem autorização para este processo.**)
 
   message.channel.send(embed)
 
