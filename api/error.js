@@ -1,6 +1,5 @@
 const Discord = require("discord.js");
 const color = require('../api/colors.json')
-const server = await client.database.Guilds.findById(message.guild.id)
 
 
 //permissões
@@ -287,6 +286,8 @@ module.exports.autoClerWarn = (message) => {
 }
 
 module.exports.noStaffRole = (message) => {
+  
+  const server = await client.database.Guilds.findById(message.guild.id)
   
   let embed = new Discord.MessageEmbed()
   .setColor(color.green)
