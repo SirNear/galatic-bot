@@ -13,7 +13,7 @@ module.exports.run = async (client, message, args) => {
   const mb = message.guild.members.cache.get(message.author.id)
   const canal = message.guild.roles.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))
   
-  let modRole = message.guild.roles.cache.get(`${server.staffRole}`.replace(/[<@&>]/g, ""))
+  let modRole = message.guild.roles.cache.get(`${server.staffRole}`)
   
    if(!mb.roles.cache.has(modRole)) return error.noStaffRole(message)
    if(wUser === mb) return error.autoClearWarn(message)
