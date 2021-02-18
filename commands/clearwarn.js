@@ -15,7 +15,7 @@ module.exports.run = async (client, message, args) => {
   
   let rolestaff = server.staffRole
 
-  let modRole = message.guild.roles.cache.get(staffRole.replace(/[<@&>]/g, ""))
+  let modRole = message.guild.roles.cache.get(rolestaff.replace(/[<@&>]/g, ""))
   
    if(!mb.roles.cache.has(modRole)) return error.noStaffRole(message)
    if(wUser === mb) return error.autoClearWarn(message)
