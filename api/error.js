@@ -274,7 +274,7 @@ module.exports.hasnotRole = (message) => {
   
 }
 
-module.exports.autoClerWarn = (message) => {
+module.exports.autoClearWarn = (message) => {
   
   let embed = new Discord.MessageEmbed()
   .setColor(color.green)
