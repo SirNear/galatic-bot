@@ -13,7 +13,7 @@ module.exports.run = async (client, message, args) => {
   const mb = message.guild.members.cache.get(message.author.id)
   const canal = message.guild.roles.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))
   
-  let re = /<@&>/
+  let re = /[<@&>]/
 
   let modRole = message.guild.roles.cache.get(`${server.staffRole}`.replace(re, ""))
   
