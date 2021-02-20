@@ -31,7 +31,7 @@ module.exports.run = async (client, message, args) => {
    .setImage('https://cdn.discordapp.com/attachments/462634982175932428/675871123094634526/C.gif')
    .setFooter('Galatic Bot - Punições');
 
-  warn.warnNumber = 0
+  warn.warnNumber = '0'
   warn.save()
   
   
