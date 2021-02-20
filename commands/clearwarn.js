@@ -17,11 +17,7 @@ module.exports.run = async (client, message, args) => {
 
   let modRole = message.guild.roles.cache.get(rolestaff.replace(/[<@&>]/g, ""))
   
-   if(!message.member.roles.cache.has(modRole)) { 
-
-	error.noStaffRole(message)
-
-   }else {
+   if(!message.member.roles.cache.has(modRole.id)) return error.noStaffRole(message)
 
    if(wUser === mb) return error.autoClearWarn(message)
    if(warn.warnNumber == '0') return error.noWarn(message)
@@ -41,7 +37,6 @@ module.exports.run = async (client, message, args) => {
   message.channel.send(`***Todos os avisos de ${wUser} Foram retirados !***`)
   canal.send(embed)
   
-   }
 }
 
 exports.config = {
