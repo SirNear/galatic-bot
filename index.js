@@ -32,6 +32,45 @@ fs.readdir('./commands', function (err, file) {
     })
 });
 
+fs.readdir('./events', function (err, file) {
+    if (err) console.log
+    let jsfile = file.filter(f => f.split('.')
+    .pop() === 'js')   
+    if (jsfile.length < 0) {
+        console.log("Não foi encontrado nenhum evento")
+        
+    }
+    
+    module.exports = class eventManager {
+        
+        events = [];
+     
+        add (name, fun) {
+            client.on(name, (..args) => handleEvent(name, args))   
+             events.push({name, fun})
+                 
+        }
+    
+        handleEvent (name, args) {
+            events.filter(a => a.name === name).forEach((e) => e.fun.run(..args))
+        
+        }       
+      }
+        
+        
+    }
+           
+    events = new eventManager(this)
+    
+    file.forEach(em => {
+          
+      const event = new (require(`./events/${em}`))
+      events.add(em.split(".")[0], event)
+      
+      })
+        
+    })
+
 client.on("ready", async () => {
   let status = [
     {name:`Meu poder a ${client.users.size} pessoas em todo o Galatic Coffe!`, type: 'STREAMING', url: 'https://twitch.tv/galatic'},
