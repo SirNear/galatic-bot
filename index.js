@@ -46,7 +46,7 @@ fs.readdir('./events', function (err, file) {
         events = [];
      
         add (name, fun) {
-            client.on(name, (..args) => handleEvent(name, args))   
+            client.on(name, (args) => handleEvent(name, args))   
              events.push({name, fun})
                  
         }
