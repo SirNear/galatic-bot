@@ -2,8 +2,7 @@ const Discord = require('discord.js')
 const client = new Discord.Client();
 client.commands = new Discord.Collection()
 client.aliases = new Discord.Collection()
-const Event = require('./structures/Event.js')
-this.events = new Discord.Collection()
+const Util = require('./Utils.js')
 const config = require('./config.json')
 client.owners = config.owners
 const active = new Map ();
@@ -42,6 +41,16 @@ fs.readdir('./events', function (err, file) {
     }
    })
 
+    constructor(options = {}) {
+     super({
+       disableMentions: 'everyone'  
+     })
+     this.utils = new Util(this);
+      
+     this.events = new Collection()
+        
+    }
+
 
 
 client.on("ready", async () => {
@@ -63,28 +72,9 @@ client.on("ready", async () => {
   setInterval(() => setStatus(), 7000)
 })
 
-    async loadEvent() {
-     return glob(`${this.directory}events/*.js`).then(events => {
-         for (const eventFile of events) {
-            delete require.cache(eventFile);
-             const {name} = path.parse(eventFile)
-             const File = require(eventFile)
-             if (!this.isClass(File)) throw new TypeError(`Evento ${name} não exporta nenhuma classe!`)
-             const event = new File(this.client, name.toLowerCase())
-             if (!event instaceof Event)) throw new TypeError(`Evento ${name} não está na pasta de eventos`)
-             this.client.events.set(event.name, event)
-             event.emitter[event.type](name, (..args) => event.run(..args))
-             
-         }
-     }  
-    }
-                                                      
-  this.loadEvent()
-
 client.on("message", async message => {    
  
    
-    
     if(message.author.bot) return;
    
   
@@ -189,5 +179,8 @@ if(message.mentions.has(client.user.id)) {
 })
 
 client.login(config.token).then(() => {
+    
+  this.utils.loadEvents()  
+    
   console.log("Acordei!!")
 })
