@@ -17,6 +17,7 @@
     "discord.js": "^12.5.1",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
+    "glob": "^7.1.6",
     "jquery": "^3.5.1",
     "moment": "^2.29.1",
     "mongodb": "^3.6.2",
@@ -28,7 +29,8 @@
     "parse": "^2.19.0",
     "parse-duration": "^0.4.4",
     "quick.hook": "^1.5.1",
-    "sql": "^0.78.0"
+    "sql": "^0.78.0",
+    "util": "^0.12.3"
   },
   "devDependencies": {
     "eslint": "^7.20.0",
