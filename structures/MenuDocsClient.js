@@ -1,5 +1,6 @@
 const Util = require('./Util.js')
 const { Client, Collection } = require('discord.js');
+const config = require('../config.json)
 
 module.exports = class MenuDocsClient extends Client {
 
@@ -36,7 +37,7 @@ module.exports = class MenuDocsClient extends Client {
 	async start(token = this.token) {
 		this.utils.loadCommands();
 		this.utils.loadEvents();
-		super.login(token);
+		super.login(config.token);
 	}
     
 }
