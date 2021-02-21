@@ -26,22 +26,6 @@ module.exports = class MenuDocsClient extends Client {
         
     }
 	
-    async(message) {
-	    
-	 let server = await client.database.Guilds.findById(message.guild.id)
-	 if(!server) {
-	     if (!server) {
-              server = client.database.Guilds({
-              _id: message.guild.id,
-             })
-     
-             server.save()
-           }   	 
-		 
-		 
-		 
-		 
-	 }
 	 
     
     validate(options) {
@@ -56,7 +40,7 @@ module.exports = class MenuDocsClient extends Client {
     
     }
 	    
-    }
+   
     
 	async start(token = config.token) {
 		this.utils.loadCommands();
