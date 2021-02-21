@@ -1,6 +1,8 @@
 const Util = require('./Util.js')
 const { Client, Collection } = require('discord.js');
 const config = require('../config.json')
+const db = require('../mongoose.js')
+client.database = db
 
 module.exports = class MenuDocsClient extends Client {
 
