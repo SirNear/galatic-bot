@@ -34,10 +34,10 @@ module.exports = class MenuDocsClient extends Client {
     
     }
     
-	async start(token = this.token) {
+	async start(token = config.token) {
 		this.utils.loadCommands();
 		this.utils.loadEvents();
-		super.login(config.token);
+		super.login(token);
 	}
     
 }
