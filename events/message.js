@@ -1,40 +1,42 @@
-const Discord = require('discord.js')
-const Event = require('../structures/Event.js')
+const Event = require('../Structures/Event');
+let db = require('../mongoose')
+client.database = db
 
-module.exports = class extends Event
-    
-  async run(message) => {
-    
-       if(message.author.bot) return;
-   
-  let server = await client.database.Guilds.findById(message.guild.id)
-  let userData = await client.database.userData.findById(message.author.id)
-  
-    if (!server) {
-    server = client.database.Guilds({
-      _id: message.guild.id
-    })
-    
-    server.save()
-  }
+module.exports = class extends Event {
 
-  if(!userData) {
-    uD = client.database.userData({
-      _id: message.author.id,
-      uid: message.author.id,
-      uName: message.author.username,
-      uServer: message.guild.id
-    })
+	async run(message) {
+        
+        if (!message.guild || message.author.bot) return;
+        
+        const server = await client.database.Guilds.findById(message.guild.id)
+        let userData = await client.database.userData.findById(message.author.id)
 
-    uD.save()
+        
+          if (!server) {
+              server = client.database.Guilds({
+              _id: message.guild.id
+             })
+     
+             server.save()
+           }   
+        
+         if(!userData) {
+              uD = client.database.userData({
+                 _id: message.author.id,
+                  uid: message.author.id,
+                  uName: message.author.username,
+                 uServer: message.guild.id
+             })
 
-  }
+                 uD.save()
 
-  if(userData.monitor == 'ativado') {
+         }
+        
+     if(userData.monitor == 'ativado') {
 
-    if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
-      userData.monitor = 'desativado'
-      userData.save()
+        if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
+         userData.monitor = 'desativado'
+         userData.save()
 
     }else {
 
@@ -46,12 +48,51 @@ module.exports = class extends Event
       .setTimestamp()
 
 
-    message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
+       message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
 
-  }
+        }
+     }
+        
+     
+        if(message.mentions.has(client.user.id)) {
+         message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
+        }
 
-  }
+
+        if (!message.content.startsWith(server.prefix)) return; 
+       
+		const [cmd, ...args] = message.content.slice(server.prefix.length).trim().split(/ +/g);
+
+		const command = this.client.commands.get(cmd.toLowerCase()) || this.client.commands.get(this.client.aliases.get(cmd.toLowerCase()));
+		if (command) {
+            
+             message.channel.startTyping()
+			command.run(message, args);
+		}.then(() => {
+          message.channel.stopTyping()  
+        }).catch(err => {
+            
+            const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
-    })
+             if(!bt.hasPermission("ADMINISTRATOR")) {
+      
+                let dono = message.guild.owner
+      
+                const embed = new Discord.MessageEmbed()
+                .setColor('RANDOM')
+                .setTitle(`<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>`)
+                .setDescription(`Olá ${dono.user}, estou no seu servidor ${message.guild.name} porém meu cargo está sem a permissão \`ADMINISTRADOR\` e preciso dela para funcionar.`)
+      
+                 dono.send(embed)
+        
+            }
+            
+          message.channel.stopTyping()
+          console.error(err.stack)
+          message.channel.send(`Ocorreu um erro \`${err}\``)
+        
+        })
+	}
 
-}
+};
+  
