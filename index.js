@@ -2,7 +2,8 @@ const Discord = require('discord.js')
 const client = new Discord.Client();
 client.commands = new Discord.Collection()
 client.aliases = new Discord.Collection()
-client.events = new Discord.Collection()
+const Event = require('./structures/Event.js')
+this.events = new Discord.Collection()
 const config = require('./config.json')
 client.owners = config.owners
 const active = new Map ();
@@ -61,6 +62,24 @@ client.on("ready", async () => {
   setStatus();
   setInterval(() => setStatus(), 7000)
 })
+
+    async loadEvent() {
+     return glob(`${this.directory}events/*.js`).then(events => {
+         for (const eventFile of events) {
+            delete require.cache(eventFile);
+             const {name} = path.parse(eventFile)
+             const File = require(eventFile)
+             if (!this.isClass(File)) throw new TypeError(`Evento ${name} não exporta nenhuma classe!`)
+             const event = new File(this.client, name.toLowerCase())
+             if (!event instaceof Event)) throw new TypeError(`Evento ${name} não está na pasta de eventos`)
+             this.client.events.set(event.name, event)
+             event.emitter[event.type](name, (..args) => event.run(..args))
+             
+         }
+     }  
+    }
+                                                      
+  this.loadEvent()
 
 client.on("message", async message => {    
  
@@ -164,7 +183,7 @@ if(message.mentions.has(client.user.id)) {
     console.error(err.stack)
     message.channel.send(`Ocorreu um erro \`${err}\``)
   })
-  
+
   
   
 })
