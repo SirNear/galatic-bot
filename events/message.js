@@ -1,4 +1,4 @@
-const Event = require('../../structures/Event');
+const Event = require('../structures/Event');
 let db = require('../mongoose')
 client.database = db
 
