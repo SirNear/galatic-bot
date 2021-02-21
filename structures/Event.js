@@ -4,12 +4,12 @@ module.exports = class Event {
     this.name = name;
     this.client = client;
     this.type = options.once ? 'once' : 'on'
-    this.emitter = (typeof options.emitter === 'string' ? this.client[options.emitter] : 'options.emitter') || this.client
+    this.emitter = (typeof options.emitter === 'string' ? this.client[options.emitter] : options.emitter) || this.client;
    
   }
   
   
-  async run(..args) {
+  async run(...args) {
     throw new Error(`O método de execução não foi implementado em ${this.name}`);
   
   }
