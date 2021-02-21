@@ -1,10 +1,9 @@
 const Discord = require('discord.js')
+const Event = require('../structures/Event.js')
 
-module.exports = {
-  name: 'message',
-  run: async (client) => {
+module.exports = class extends Event
     
-    client.on("message", async message => {
+  async run(message) => {
     
        if(message.author.bot) return;
    
@@ -54,7 +53,5 @@ module.exports = {
   }
     
     })
-  
-  }
 
 }
