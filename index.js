@@ -44,8 +44,8 @@ fs.readdir('./events', function (err, file) {
             active: active
         }
         
-        let events = require(`./events/${f}`)
-        client.events.set(events.config.name, events, ops)
+        let pull = require(`./events/${f}`)
+        client.events.set(pull.config.name, pull, ops)
         
       })  
     })
