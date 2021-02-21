@@ -2,7 +2,6 @@ const Discord = require('discord.js')
 const client = new Discord.Client();
 client.commands = new Discord.Collection()
 client.aliases = new Discord.Collection()
-const Util = require('./structures/Utils.js')
 const config = require('./config.json')
 client.owners = config.owners
 const active = new Map ();
@@ -10,6 +9,7 @@ const fs = require('fs')
 let guildCf = require('./mongoose')
 const { readdirSync } = require('fs')
 client.database = guildCf
+const MenuDocsClient = require('./structures/MenuDocsClient')
 
 fs.readdir('./commands', function (err, file) { 
     if (err) console.log(err) 
@@ -40,20 +40,6 @@ fs.readdir('./events', function (err, file) {
         console.log("Não foram encontrados nenhum comando")
     }
    })
-
-module.exports = class MenuDocsClient extends Client {
-
-    constructor(options = {}) {
-     super({
-       disableMentions: 'everyone'  
-     })
-     this.utils = new Util(this);
-      
-     this.events = new Collection()
-        
-    }
-    
-}
 
 
 
@@ -182,9 +168,8 @@ if(message.mentions.has(client.user.id)) {
   
 })
 
-client.login(config.token).then(() => {
-    
-  this.utils.loadEvents()  
-    
-  console.log("Acordei!!")
+const client = new MenuDocsClient(config);
+
+client.start().then(() => {  
+   console.log("Acordei!!")
 })
