@@ -64,13 +64,15 @@ client.on("ready", async () => {
 
 client.on("message", async message => {    
  
-    /*
+   
     
     if(message.author.bot) return;
    
   
   let server = await client.database.Guilds.findById(message.guild.id)
   let userData = await client.database.userData.findById(message.author.id)
+  
+  /*
   
     if (!server) {
     server = client.database.Guilds({
