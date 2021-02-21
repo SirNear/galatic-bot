@@ -1,15 +1,16 @@
 const Util = require('./Util.js')
-const { Client, Collection } = require('discord.js');
+const { Client, Collection } = require("discord.js")
+const { readdir } = require("fs")
 const config = require('../config.json')
-const db = require('../mongoose.js')
-client.database = db
+const EventManager = require('./EventManager.js')
 
-module.exports = class MenuDocsClient extends Client {
+module.exports = class GalaticClient extends Client {
 
     constructor(options = {}) {
-     super({
-       disableMentions: 'everyone'  
-     })
+     super(options)
+	    
+     this.client.database = require('../mongoose.js')
+	    
      this.validate(options);
 	    
      this.utils = new Util(this);
@@ -22,30 +23,50 @@ module.exports = class MenuDocsClient extends Client {
 	    
      this.owners = options.owners;
       
-     this.events = new Collection()
+     this.events = new EventManager(this)
         
     }
+
+	login(token) {
+		return super.login(token)
+	}
 	
-	 
-    
-    validate(options) {
-		if (typeof options !== 'object') throw new TypeError('Options deve ser um tipo de objeto');
+	
+	loadCommands(path) {
+		readdir(`${__dirname}/commands/`, (err, files) => {
+			if (err) console.error(err)
+			files.forEach(category => {
+				readdir(`${__dirname}/commands/${category}`, (err, cmd) => {
+					cmd.forEach(async cmd => {
+						const command = new (require(`${__dirname}/commands/${category}/${cmd}`))(this)
+						command.dir = `${__dirname}/commands/${category}/${cmd}`
+						this.commands.set(command.config.name, command)
+						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
+						let c = await this.database.Bots.findById(command.config.name)
+						if (!c) {
+							c = new this.database.Bots({
+								_id: command.config.name
+							})
+							c.save()
+						}
+					})
+				})
+			})
+		})
 
-		if (!options.token) throw new Error('Você precisa de um token para o bot');
-		this.token = options.token;
+		return this
+	}
+	loadEvents(path) {
+		readdir(path, (err, files) => {
+			if (err) console.error(err)
 
-		if (!options.prefix) throw new Error('Você precisa de um prefixo para o bot.');
-		if (typeof options.prefix !== 'string') throw new TypeError('Prefix precisa ser um tipo de texto.');
-		this.prefix = server.prefix;
-    
-    }
-	    
-   
-    
-	async start(token = config.token) {
-		this.utils.loadCommands();
-		this.utils.loadEvents();
-		super.login(token);
+			files.forEach(em => {
+				const event = new (require(`../${path}/${em}`))(this)
+				this.events.add(em.split(".")[0], event)
+			})
+		})
+
+		return this
 	}
     
 }
