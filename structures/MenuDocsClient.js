@@ -1,4 +1,4 @@
-const Util = require('./Utils.js')
+const Util = require('./Util.js')
 const { Client, Collection } = require('discord.js');
 
 module.exports = class MenuDocsClient extends Client {
