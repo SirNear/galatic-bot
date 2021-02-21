@@ -8,6 +8,8 @@ module.exports = class MenuDocsClient extends Client {
      super({
        disableMentions: 'everyone'  
      })
+     this.validate(options);
+	    
      this.utils = new Util(this);
 	    
      this.commands = new Collection();
