@@ -1,10 +1,12 @@
-const MenuDocsClient = require('./structures/MenuDocsClient')
-const config = require('./config.json')
+const client = require('./structures/GalaticClient')
+const config = require('./config')
+const client = new Client({
+   disableMentions: "everyone"
+})
 
 
-
-const client = new MenuDocsClient(config);
-
-client.start().then(() => {  
+client.loadCommands('./commands')
+client.loadEvents('./events')
+client.login(config.token)
    console.log("Acordei!!")
 })
