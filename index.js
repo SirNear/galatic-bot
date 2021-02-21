@@ -32,6 +32,25 @@ fs.readdir('./commands', function (err, file) {
     })
 });
 
+fs.readdir('./events', function (err, file) {
+    if (err) console.log(err)
+    let jsfile = file.filter(f=> f.split('.').pop() === 'js')
+    if(jsfile.length < 0) {
+        console.log("Não foram encontrados nenhum comando")
+    }
+    jsfile.forEach(async function (f, i)  {
+        
+        let ops = {
+            active: active
+        }
+        
+        let events = require(`./events/${f}`)
+        client.events.set(events, ops)
+        
+      })  
+    })
+  })
+
 
 client.on("ready", async () => {
   let status = [
