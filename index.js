@@ -41,6 +41,8 @@ fs.readdir('./events', function (err, file) {
     }
    })
 
+module.exports = class MenuDocsClient extends Client {
+
     constructor(options = {}) {
      super({
        disableMentions: 'everyone'  
@@ -50,6 +52,8 @@ fs.readdir('./events', function (err, file) {
      this.events = new Collection()
         
     }
+    
+}
 
 
 
