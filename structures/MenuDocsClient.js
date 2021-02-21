@@ -23,6 +23,24 @@ module.exports = class MenuDocsClient extends Client {
      this.events = new Collection()
         
     }
+	
+    async(message) {
+	    
+	 let server = await client.database.Guilds.findById(message.guild.id)
+	 if(!server) {
+	     if (!server) {
+              server = client.database.Guilds({
+              _id: message.guild.id,
+             })
+     
+             server.save()
+           }   	 
+		 
+		 
+		 
+		 
+	 }
+	 
     
     validate(options) {
 		if (typeof options !== 'object') throw new TypeError('Options deve ser um tipo de objeto');
@@ -32,8 +50,10 @@ module.exports = class MenuDocsClient extends Client {
 
 		if (!options.prefix) throw new Error('Você precisa de um prefixo para o bot.');
 		if (typeof options.prefix !== 'string') throw new TypeError('Prefix precisa ser um tipo de texto.');
-		this.prefix = options.prefix;
+		this.prefix = server.prefix;
     
+    }
+	    
     }
     
 	async start(token = config.token) {
