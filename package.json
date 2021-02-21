@@ -29,5 +29,9 @@
     "parse-duration": "^0.4.4",
     "quick.hook": "^1.5.1",
     "sql": "^0.78.0"
+  },
+  "devDependencies": {
+    "eslint": "^7.20.0",
+    "eslint-config-tesseract": "0.0.3"
   }
 }
