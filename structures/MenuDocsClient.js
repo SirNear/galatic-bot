@@ -8,6 +8,14 @@ module.exports = class MenuDocsClient extends Client {
        disableMentions: 'everyone'  
      })
      this.utils = new Util(this);
+	    
+     this.commands = new Collection();
+	   
+     this.aliases = new Collection();
+	    
+     this.utils = new Util(this);
+	    
+     this.owners = options.owners;
       
      this.events = new Collection()
         
@@ -26,6 +34,7 @@ module.exports = class MenuDocsClient extends Client {
     }
     
 	async start(token = this.token) {
+		this.utils.loadCommands();
 		this.utils.loadEvents();
 		super.login(token);
 	}
