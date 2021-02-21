@@ -49,7 +49,7 @@ fs.readdir('./events', function (err, file) {
         
       })  
     })
-  })
+
 
 
 client.on("ready", async () => {
