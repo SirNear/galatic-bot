@@ -39,17 +39,7 @@ fs.readdir('./events', function (err, file) {
     if(jsfile.length < 0) {
         console.log("Não foram encontrados nenhum comando")
     }
-    jsfile.forEach(async function (f, i)  {
-        
-        let ops = {
-            active: active
-        }
-        
-        let pull = require(`./events/${f}`)
-        client.events.set(pull.config.name, pull, ops)
-        
-      })  
-    })
+   })
 
 
 
