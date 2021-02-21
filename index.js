@@ -2,6 +2,7 @@ const Discord = require('discord.js')
 const client = new Discord.Client();
 client.commands = new Discord.Collection()
 client.aliases = new Discord.Collection()
+client.events = new Discord.Collection()
 const config = require('./config.json')
 client.owners = config.owners
 const active = new Map ();
