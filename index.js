@@ -1,4 +1,4 @@
-const client = require('./structures/GalaticClient')
+const Client = require('./structures/GalaticClient')
 const config = require('./config')
 const client = new Client({
    disableMentions: "everyone"
