@@ -4,16 +4,16 @@ client.database = db
 
 module.exports = class extends Event {
 
-	async run(message) {
+	async run(message, database) {
         
         if (!message.guild || message.author.bot) return;
         
-        const server = await client.database.Guilds.findById(message.guild.id)
-        let userData = await client.database.userData.findById(message.author.id)
+        const server = await database.Guilds.findById(message.guild.id)
+        let userData = await database.userData.findById(message.author.id)
 
         
           if (!server) {
-              server = client.database.Guilds({
+              server = database.Guilds({
               _id: message.guild.id
              })
      
@@ -21,7 +21,7 @@ module.exports = class extends Event {
            }   
         
          if(!userData) {
-              uD = client.database.userData({
+              uD = database.userData({
                  _id: message.author.id,
                   uid: message.author.id,
                   uName: message.author.username,
