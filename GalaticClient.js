@@ -9,7 +9,7 @@ module.exports = class GalaticClient extends Client {
     constructor(options = {}) {
      super(options)
 	    
-     this.database = require('../mongoose.js')
+     client.database = require('./mongoose.js')
   
      this.utils = new Util(this);
 	    
