@@ -3,6 +3,7 @@ const { Client, Collection } = require("discord.js")
 const { readdir } = require("fs")
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
+const client = new Discord.Client()
 
 module.exports = class GalaticClient extends Client {
 
