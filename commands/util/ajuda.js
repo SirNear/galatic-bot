@@ -14,9 +14,9 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-	run({message, args, client}, t) {
+	run({message, args, client, database}, t) {
   
-    const server = await client.database.Guilds.findById(message.guild.id)
+    const server = await database.Guilds.findById(message.guild.id)
     
     const embed = new Discord.MessageEmbed() 
     .setColor('#bc42f4')
