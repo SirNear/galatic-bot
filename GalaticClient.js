@@ -59,7 +59,7 @@ module.exports = class GalaticClient extends Client {
 			if (err) console.error(err)
 
 			files.forEach(em => {
-				const event = new (require(`./${path}/${em}`))(this)
+				const event = new (require(`./${em}`))(this)
 				this.events.add(em.split(".")[0], event)
 			})
 		})
