@@ -1,8 +1,8 @@
-const Util = require('./Util.js')
+const Util = require('./structures/Util.js')
 const { Client, Collection } = require("discord.js")
 const { readdir } = require("fs")
 const config = require('../config.json')
-const EventManager = require('./EventManager.js')
+const EventManager = require('./structures/EventManager.js')
 
 module.exports = class GalaticClient extends Client {
 
