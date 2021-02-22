@@ -36,7 +36,7 @@ module.exports = class GalaticClient extends Client {
 			files.forEach(category => {
 				readdir(`${__dirname}/commands/${category}`, (err, cmd) => {
 					cmd.forEach(async cmd => {
-						const command = new (require(${__dirname}/commands/${category}/${cmd}`))(this)
+						const command = new (require(`${__dirname}/commands/${category}/${cmd}`))(this)
 						command.dir = `${__dirname}/commands/${category}/${cmd}`
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
