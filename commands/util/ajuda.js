@@ -1,18 +1,20 @@
 const { MessageEmbed } = require('discord.js');
 const Command = require('../../structures/Command');
 
-module.exports = class extends Command {
+module.exports = class ajuda extends Command {
 
-	constructor(...args) {
-		super(...args, {
-			aliases: ['help','comandos','cmds'],
-			description: 'Ver todos os comandos do bot',
-			category: 'util',
-			usage: '[command]'
-		});
+	constructor(client) {
+		super(client, {
+			name: "ajuda",
+			category: "util",
+			aliases: ["ajuda", 'help', 'comandos','cmds'],
+			UserPermission: null,
+			clientPermission: null,
+			OnlyDevs: false
+		})
 	}
   
-	async run(message, [command]) {
+	run({message, args, client}, t) {
   
     const server = await client.database.Guilds.findById(message.guild.id)
     
@@ -20,46 +22,20 @@ module.exports = class extends Command {
     .setColor('#bc42f4')
     .setTimestamp()
     .setThumbnail(client.user.displayAvatarURL)
-    .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true }))
-    
-    if (command) {
-			const cmd = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command));
+    .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true })	       
+    .addField(`${t(commands:help.util}`, this.getCategory("util", server.prefix))
 
-			if (!cmd) return message.channel.send(`Nome de Comando Inválido. \`${command}\``);
-
-			embed.setAuthor(`${this.client.utils.capitalise(cmd.name)} Comando de Ajuda`, this.client.user.displayAvatarURL());
-			embed.setDescription([
-				`**❯ Encurtamentos:** ${cmd.aliases.length ? cmd.aliases.map(alias => `\`${alias}\``).join(' ') : 'Sem encurtamentos'}`,
-				`**❯ Descrição:** ${cmd.description}`,
-				`**❯ Categoria:** ${cmd.category}`,
-				`**❯ Uso:** ${cmd.usage}`
-			]);
-
-			return message.channel.send(embed);
-		}else {
-			embed.setDescription([
-				`Estes são os coamndos para ${message.guild.name}`,
-				`O prefixo do bot é ${server.prefix}`,
-				`Parametros: \`<>\` é restrito & \`[]\` é opcional`
-			]);
-			let categories;
-			if (!this.client.owners.includes(message.author.id)) {
-				categories = this.client.utils.removeDuplicates(this.client.commands.filter(cmd => cmd.category !== 'Owner').map(cmd => cmd.category));
-			} else {
-				categories = this.client.utils.removeDuplicates(this.client.commands.map(cmd => cmd.category));
-			}
-
-			for (const category of categories) {
-				embed.addField(`**${this.client.utils.capitalise(category)}**`, this.client.commands.filter(cmd =>
-					cmd.category === category).map(cmd => `\`${cmd.name}\``).join(' '));
-			}
-			return message.author.send(embed);
-      message.channel.send('**Verifique sua DM**')
-		}
-	}
-
+     message.author.send(embed).then(() => {
+	message.reply('**Verifique sua DM**')
+}).catch(( => {
+	message.reply('**Erro: Talvez sua DM esteja fechada, pois não consegui lhe enviar mensagem =c**')
 
 })
-  
+
+
+	getCategory(category, prefix) {
+		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${server.prefix}${c.config.name}\``).join(", ")
+	}
+
   
   }
