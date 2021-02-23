@@ -5,34 +5,30 @@ module.exports = class MessageReceive {
 		this.client = client
 	}
 
-	async run(message, database) {
-        
-        if (!message.guild || message.author.bot) return;
-        
-        const server = await database.Guilds.findById(message.guild.id)
-        let userData = await database.userData.findById(message.author.id)
+	async run(message) {
 
+		if (message.channel.type === "dm") return
+		if (message.author.bot) return
+		let server = await this.client.database.Guilds.findById(message.guild.id)
+		if (!server) {
+			this.client.database.Guilds({
+				_id: message.guild.id
+			}).save()
+		}
         
-          if (!server) {
-              server = database.Guilds({
-              _id: message.guild.id
-             })
-     
-             server.save()
-           }   
-        
+	let userData = await this.client.database.userData.findById(message.author.id)
+
+		
          if(!userData) {
               uD = database.userData({
                  _id: message.author.id,
                   uid: message.author.id,
                   uName: message.author.username,
                  uServer: message.guild.id
-             })
-
-                 uD.save()
+             }).save()
 
          }
-        
+      /*  
      if(userData.monitor == 'ativado') {
 
         if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
@@ -54,6 +50,8 @@ module.exports = class MessageReceive {
        message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
 
         }       
+     
+     */
      
         if(message.mentions.has(client.user.id)) return message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
         
