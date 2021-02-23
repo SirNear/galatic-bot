@@ -4,7 +4,7 @@ client.database = db
 
 module.exports = class extends Event {
 
-	async run(message, database) {
+	async run(client, message, database) {
         
         if (!message.guild || message.author.bot) return;
         
@@ -37,6 +37,8 @@ module.exports = class extends Event {
         if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
          userData.monitor = 'desativado'
          userData.save()
+		
+	}
 
     }else {
 
