@@ -1,10 +1,11 @@
 const Event = require('../../structures/Event');
-let db = require('../mongoose')
-client.database = db
 
-module.exports = class extends Event {
+module.exports = class MessageReceive {
+	constructor(client) {
+		this.client = client
+	}
 
-	async run(client, message, database) {
+	async run(message, database) {
         
         if (!message.guild || message.author.bot) return;
         
@@ -64,7 +65,6 @@ module.exports = class extends Event {
 		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))	
 	
 		try {
-			comando.setT(t)
 			new Promise((res, rej) => {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }, t))
@@ -92,4 +92,3 @@ module.exports = class extends Event {
             }		
 	}     
      }		
-}
