@@ -1,3 +1,4 @@
+const i18next = require("i18next")
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -66,16 +67,12 @@ module.exports = class MessageReceive {
       new Promise((res, rej) => {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }, t))
-			}).then(() => message.channel.stopTyping()).catch(err => {
-				
-				
-		message.channel.stopTyping()
-		message.channel.send(`**ERRO:**\`${err}\``)
+			}).then(() => message.channel.stopTyping())
 			
 				
 			})
 			
-            /*
+           
           	  const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
           	   if(!bt.hasPermission("ADMINISTRATOR")) {
@@ -89,11 +86,12 @@ module.exports = class MessageReceive {
       
                 	 dono.send(embed)
         
-            }		
-	    
-	    */
-    
-    
-    }
-    
-    }
+		  }
+    		} catch(err) {
+				
+				
+		message.channel.stopTyping()
+		message.channel.send(`**ERRO:**\`${err}\``)
+				
+		}
+	    }
