@@ -62,19 +62,17 @@ module.exports = class MessageReceive {
 		const command = args.shift().toLowerCase()
 		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))	
 	
-		try {
 			new Promise((res, rej) => {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }, t))
-			}).then(() => message.channel.stopTyping())
-			
-			
-		} catch(err) {
+			}).then(() => message.channel.stopTyping()).catch(err => {
+				
+				
 		message.channel.stopTyping()
 		message.channel.send(`**ERRO:**\`${err}\``)
 			
-			
-		}
+				
+			})
 			
             /*
           	  const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
