@@ -85,7 +85,7 @@ module.exports = class extends Event {
       
                 const embed = new Discord.MessageEmbed()
                 .setColor('RANDOM')
-                .setTitle(`<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>`)
+                .setTitle('<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>')
                 .setDescription(`Olá ${dono.user}, estou no seu servidor ${message.guild.name} porém meu cargo está sem a permissão \`ADMINISTRADOR\` e preciso dela para funcionar.`)
       
                  dono.send(embed)
