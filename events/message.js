@@ -95,7 +95,7 @@ module.exports = class extends Event {
           message.channel.send(`Ocorreu um erro \`${err}\``)
         
         })
-	}
+	
 
 };
   
