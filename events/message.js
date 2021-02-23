@@ -59,18 +59,23 @@ module.exports = class extends Event {
         }
 
 
-        if (!message.content.startsWith(server.prefix)) return; 
-       
-		const [cmd, ...args] = message.content.slice(server.prefix.length).trim().split(/ +/g);
-
-		const command = this.client.commands.get(cmd.toLowerCase()) || this.client.commands.get(this.client.aliases.get(cmd.toLowerCase()));
-		if (command) {
-            
-             message.channel.startTyping()
-			command.run(message, args);
-		}.then(() => {
-          message.channel.stopTyping()  
-        }).catch(err => {
+	if (!message.content.startsWith(server.prefix)) return
+		const args = message.content.slice(server.prefix.length).trim().split(/ +/g)
+		const command = args.shift().toLowerCase()
+		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))	
+	
+		try {
+			comando.setT(t)
+			new Promise((res, rej) => {
+				message.channel.startTyping()
+				res(comando.run({ message, args, server }, t))
+			}).then(() => message.channel.stopTyping()).catch(err => {
+				
+				console.log(err)
+				message.channel.send(`**Erro:** \`{err}\`)
+				message.channel.stopTyping()
+	
+			})
             
             const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
