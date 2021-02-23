@@ -14,7 +14,7 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-	run({message, args, client, database}, t) {
+	async run({message, args, client, database}, t) {
   
     const server = await database.Guilds.findById(message.guild.id)
     
