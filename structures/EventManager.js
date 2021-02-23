@@ -4,7 +4,7 @@ module.exports = class EventManager {
 
   constructor(client) {
     this.client = client;
-    this.event = []
+    this.events = []
    
   }
   
