@@ -90,7 +90,8 @@ module.exports = class extends Event {
       
                 	 dono.send(embed)
         
-            }
-			
-	}
-         
+            }		
+	}     
+     }		
+}
+        
