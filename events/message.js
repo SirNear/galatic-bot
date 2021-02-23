@@ -72,10 +72,8 @@ module.exports = class extends Event {
 			}).then(() => message.channel.stopTyping()).catch(err => {
 				
 				console.log(err)
-				message.channel.send(`**Erro:** \`{err}\`)
+				message.channel.send(`**Erro:** \`{err}\``)
 				message.channel.stopTyping()
-	
-			})
             
             const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
