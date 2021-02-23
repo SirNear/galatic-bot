@@ -85,5 +85,4 @@ module.exports = class MessageReceive {
                 	 dono.send(embed)
         
             }		
-	}     
-     }		
+	}    	
