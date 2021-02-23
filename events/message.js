@@ -50,13 +50,10 @@ module.exports = class extends Event {
 
        message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
 
-        }
-     }
-        
+        }       
      
-        if(message.mentions.has(client.user.id)) {
-         message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
-        }
+        if(message.mentions.has(client.user.id)) return message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
+        
 
 
 	if (!message.content.startsWith(server.prefix)) return
@@ -74,25 +71,26 @@ module.exports = class extends Event {
 				console.log(err)
 				message.channel.send(`**Erro:** \`{err}\``)
 				message.channel.stopTyping()
+				
+				
+				      
+        		})
+	
             
-            const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
+          	  const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
-             if(!bt.hasPermission("ADMINISTRATOR")) {
+          	   if(!bt.hasPermission("ADMINISTRATOR")) {
       
-                let dono = message.guild.owner
+              		  let dono = message.guild.owner
       
-                const embed = new Discord.MessageEmbed()
-                .setColor('RANDOM')
-                .setTitle('<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>')
-                .setDescription(`Olá ${dono.user}, estou no seu servidor ${message.guild.name} porém meu cargo está sem a permissão \`ADMINISTRADOR\` e preciso dela para funcionar.`)
+           	         const embed = new Discord.MessageEmbed()
+             		   .setColor('RANDOM')
+               		   .setTitle('<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>')
+                	   .setDescription(`Olá ${dono.user}, estou no seu servidor ${message.guild.name} porém meu cargo está sem a permissão \`ADMINISTRADOR\` e preciso dela para funcionar.`)
       
-                 dono.send(embed)
+                	 dono.send(embed)
         
             }
-            
-          message.channel.stopTyping()
-          console.error(err.stack)
-          message.channel.send(`Ocorreu um erro \`${err}\``)
-        
-        })
-	
+			
+	}
+         
