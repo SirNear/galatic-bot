@@ -69,9 +69,6 @@ module.exports = class MessageReceive {
 				res(comando.run({ message, args, server }, t))
 			}).then(() => message.channel.stopTyping())
 			
-				
-			})
-			
            
           	  const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
     
