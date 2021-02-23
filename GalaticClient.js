@@ -31,13 +31,13 @@ module.exports = class GalaticClient extends Client {
 	
 	
 	loadCommands(path) {
-		readdir(`${__dirname}/commands/`, (err, files) => {
+		readdir(`./commands/`, (err, files) => {
 			if (err) console.error(err)
 			files.forEach(category => {
-				readdir(`${__dirname}/commands/${category}`, (err, cmd) => {
+				readdir(`./commands/${category}`, (err, cmd) => {
 					cmd.forEach(async cmd => {
-						const command = new (require(`${__dirname}/commands/${category}/${cmd}`))(this)
-						command.dir = `${__dirname}/commands/${category}/${cmd}`
+						const command = new (require(`./commands/${category}/${cmd}`))(this)
+						command.dir = `./commands/${category}/${cmd}`
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
 						let c = await this.database.Bots.findById(command.config.name)
