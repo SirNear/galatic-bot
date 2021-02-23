@@ -1,5 +1,3 @@
-const i18next = require("i18next")
-
 module.exports = class MessageReceive {
 	constructor(client) {
 		this.client = client
