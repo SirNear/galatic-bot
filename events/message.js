@@ -66,15 +66,12 @@ module.exports = class extends Event {
 			new Promise((res, rej) => {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }, t))
-			}).then(() => message.channel.stopTyping()).catch(err => {
-				
-				console.log(err)
-				message.channel.send(`**Erro:** \`{err}\``)
-				message.channel.stopTyping()
-				
-				
-				      
-        		})
+			}).then(() =>
+				message.channel.stopTyping() 
+        		}).catch(err => {
+			 	console.log(err)
+				message.channel.send(`**ERRO:** \`${err}\``)
+			})
 	
             
           	  const bt = message.guild.member(message.guild.members.cache.get(client.user.id))
@@ -94,4 +91,3 @@ module.exports = class extends Event {
 	}     
      }		
 }
-        
