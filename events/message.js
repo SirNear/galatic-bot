@@ -87,11 +87,11 @@ module.exports = class MessageReceive {
                 	 dono.send(embed)
         
 		  }
-    		} catch(err) {
+    		} catch (err) {
 				
-				
-		message.channel.stopTyping()
+			
 		message.channel.send(`**ERRO:**\`${err}\``)
+		console.error(err.stack)
 				
 		}
 	    }
