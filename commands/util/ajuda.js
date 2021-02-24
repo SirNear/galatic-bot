@@ -14,14 +14,14 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-	run({ message, args, client, server }, t) {
+	run({ message, args, client, server }) {
       
     const embed = new MessageEmbed() 
     .setColor('#bc42f4')
     .setTimestamp()
     .setThumbnail(this.client.user.displayAvatarURL())
     .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true }))	       
-    .addField(`${t("commands:help.util")}`, this.getCategory("util", server.prefix))
+    .addField(`${("commands:help.util")}`, this.getCategory("util", server.prefix))
 
      message.author.send(embed).then(() => {
 	message.reply('**Verifique sua DM**')
