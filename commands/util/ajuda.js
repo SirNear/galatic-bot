@@ -34,8 +34,8 @@ module.exports = class ajuda extends Command {
 
 	}
 	
-	getCategory(category, server) {
-		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${server.prefix}${c.config.name}\``).join(", ")
+	getCategory(category, prefix) {
+		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${prefix}${c.config.name}\``).join(", ")
 	}
 	
 	
