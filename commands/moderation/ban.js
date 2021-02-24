@@ -16,7 +16,7 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-run({ message, args, client, server}) {
+ async run({ message, args, client, server}) {
      
      const embedh = new Discord.MessageEmbed()
 .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO BAN** | <:DuvidaMario:566084477114384387>`)
