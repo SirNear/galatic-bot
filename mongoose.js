@@ -42,6 +42,12 @@ let uD = new mongoose.Schema({
 
 })
 
+let Bot = new mongoose.Schema({
+	_id: { type: String },
+	maintenance: { type: Boolean, default: false },
+	maintenanceReason: { type: String, default: "" }
+})
+
 
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
@@ -51,3 +57,6 @@ module.exports.Punish = Punish
 
 let userData = mongoose.model("userData", uD)
 module.exports.userData = userData
+
+let Bots = mongoose.model("Bots", Bot)
+module.exports.Bots = Bots
