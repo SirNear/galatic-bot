@@ -8,7 +8,7 @@ module.exports = class extends Event {
 		});
 	}
 
-	run() {
+	async run() {
 		
 		this.client.owner = await this.client.users.fetch("395788326835322882")
 
