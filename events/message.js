@@ -18,7 +18,7 @@ module.exports = class MessageReceive {
 
 		
          if(!userData) {
-              uD = this.client.database.userData({
+              this.client.database.userData({
                  _id: message.author.id,
                   uid: message.author.id,
                   uName: message.author.username,
