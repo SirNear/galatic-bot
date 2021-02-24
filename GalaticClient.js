@@ -30,7 +30,7 @@ module.exports = class GalaticClient extends Client {
 	}
 	
 	
-	loadCommands(path) {
+	loadCommands(path, client) {
 		readdir(`./commands/`, (err, files) => {
 			if (err) console.error(err)
 			files.forEach(category => {
@@ -40,9 +40,9 @@ module.exports = class GalaticClient extends Client {
 						command.dir = `./commands/${category}/${cmd}`
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
-						let c = await this.database.Bots.findById(command.config.name)
+						let c = await client.database.Bots.findById(command.config.name)
 						if (!c) {
-							c = new this.database.Bots({
+							c = new client.database.Bots({
 								_id: command.config.name
 							})
 							c.save()
