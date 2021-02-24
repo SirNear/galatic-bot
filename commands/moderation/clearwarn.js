@@ -7,11 +7,11 @@ module.exports = class ajuda extends Command {
 
 	constructor(client) {
 		super(client, {
-			name: "ban",
+			name: "clearwarn",
 			category: "moderation",
-			aliases: ["banir"],
-			UserPermission: ['BAN_MEMBERS'],
-			clientPermission: ["BAN_MEMBERS", "EMBED_LINKS"],
+			aliases: ["limparavisos","clearavisos"],
+			UserPermission: ['MANAGE_MESSAGES'],
+			clientPermission: null,
 			OnlyDevs: false
 		})
 	}
