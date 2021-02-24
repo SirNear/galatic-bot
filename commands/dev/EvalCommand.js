@@ -22,7 +22,7 @@ module.exports = class EvalCommand extends Command {
    
    try {
 			const util = require("util")
-			let evaled = await eval(args.join(" "))
+			let evaled = eval(args.join(" "))
 			evaled = util.inspect(evaled, { depth: 1 })
 			evaled = evaled.replace(new RegExp(`${this.client.token}`, "g"), undefined)
 
