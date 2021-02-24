@@ -19,7 +19,7 @@ module.exports = class ajuda extends Command {
     const embed = new MessageEmbed() 
     .setColor('#bc42f4')
     .setTimestamp()
-    .setThumbnail(client.user.displayAvatarURL)
+    .setThumbnail(this.client.user.displayAvatarURL())
     .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true }))	       
     .addField(`${t("commands:help.util")}`, this.getCategory("util", server.prefix))
 
