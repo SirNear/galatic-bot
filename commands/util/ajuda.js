@@ -14,8 +14,10 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-	run({ message, args, client, server }) {
+	async run({ message, args, client }) {
       
+	const server = await client.database.Guilds.findById(message.guild.id)
+		
     const embed = new MessageEmbed() 
     .setColor('#bc42f4')
     .setTimestamp()
