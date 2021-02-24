@@ -17,6 +17,10 @@ module.exports = class ajuda extends Command {
 	}
   
  async run({ message, args, client, server}) {
+	 
+	 
+ if (!message.member.hasPermission('BAN_MEMBERS')) return error.Adm(message)
+
      
      const embedh = new Discord.MessageEmbed()
 .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO BAN** | <:DuvidaMario:566084477114384387>`)
