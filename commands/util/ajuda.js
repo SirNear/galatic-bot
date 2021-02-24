@@ -35,5 +35,10 @@ module.exports = class ajuda extends Command {
 	getCategory(category, server) {
 		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${server.prefix}${c.config.name}\``).join(", ")
 	}
+	
+	
+	getCommmandSize(category) {
+		return this.client.commands.filter(c => c.config.category === category).size
+	}
 
 }
