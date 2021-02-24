@@ -3,7 +3,7 @@ const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
 
-module.exports = class ajuda extends Command {
+module.exports = class eval extends Command {
 
 	constructor(client) {
 		super(client, {
