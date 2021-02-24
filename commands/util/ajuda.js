@@ -1,5 +1,5 @@
 const { MessageEmbed } = require('discord.js');
-const Command = require('../../structures/Command');
+const Command = require('./../structures/Command');
 
 module.exports = class ajuda extends Command {
 
@@ -14,9 +14,9 @@ module.exports = class ajuda extends Command {
 		})
 	}
   
-	run({message, args, client, server}, t) {
+	run({ message, args, client, server }, t) {
       
-    const embed = new Discord.MessageEmbed() 
+    const embed = new MessageEmbed() 
     .setColor('#bc42f4')
     .setTimestamp()
     .setThumbnail(client.user.displayAvatarURL)
