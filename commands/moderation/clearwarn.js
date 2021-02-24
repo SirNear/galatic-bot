@@ -21,7 +21,7 @@ module.exports = class ajuda extends Command {
    let wUser = message.guild.member(message.mentions.users.first()) || message.guild.members.cache.get(args[0]);
   if(!wUser) return error.noUser(message)
   
-  let warn = await client.database.Punish.find({uid: wUser.id, servidor: message.guild.id })
+  let warn = await this.client.database.Punish.find({uid: wUser.id, servidor: message.guild.id })
   if(!warn) return message.channel.send('**Este usuário não possui nenhum aviso**')
   
   const mb = message.guild.members.cache.get(message.author.id)
