@@ -65,7 +65,7 @@ module.exports = class MessageReceive {
     try {
       new Promise((res, rej) => {
 				message.channel.startTyping()
-				res(comando.run({ message, args, server }, t))
+				res(comando.run({ message, args, server }))
 			}).then(() => message.channel.stopTyping())
 			
            
