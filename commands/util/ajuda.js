@@ -27,7 +27,7 @@ module.exports = class ajuda extends Command {
 
      message.author.send(embed).then(() => {
 	message.reply('**Verifique sua DM**')
-}).catch(( => {
+}).catch(() => {
 	message.reply('**Erro: Talvez sua DM esteja fechada, pois não consegui lhe enviar mensagem =c**')
 
 })
