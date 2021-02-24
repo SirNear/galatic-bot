@@ -22,6 +22,7 @@ module.exports = class ajuda extends Command {
     .setThumbnail(this.client.user.displayAvatarURL())
     .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true }))	       
     .addField(`Utilitário | (${this.getCommmandSize("util")})`, this.getCategory("util", server.prefix))
+    .addField(`Desenvolvedor | (${this.getCommmandSize("dev")})`, this.getCategory("dev", server.prefix))
 
      message.author.send(embed).then(() => {
 	message.reply('**Verifique sua DM**')
