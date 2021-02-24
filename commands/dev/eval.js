@@ -1,7 +1,9 @@
-const Discord = require('discord.js');
+const { MessageEmbed } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
+const { inspect } = require('util')
+
 
 module.exports = class eval extends Command {
 
@@ -9,7 +11,7 @@ module.exports = class eval extends Command {
 		super(client, {
 			name: "eval",
 			category: "dev",
-			aliases: ["banir"],
+			aliases: ["e"],
 			UserPermission: null,
 			clientPermission: null,
 			OnlyDevs: true
