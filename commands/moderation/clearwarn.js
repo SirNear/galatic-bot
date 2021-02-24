@@ -23,7 +23,6 @@ module.exports = class ajuda extends Command {
   
   let warn = await client.database.Punish.find({uid: wUser.id, servidor: message.guild.id })
   if(!warn) return message.channel.send('**Este usuário não possui nenhum aviso**')
-  let server = await client.database.Guilds.findById(message.guild.id)
   
   const mb = message.guild.members.cache.get(message.author.id)
   const canal = message.guild.roles.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))
