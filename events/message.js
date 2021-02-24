@@ -51,11 +51,12 @@ module.exports = class MessageReceive {
         }       
      
      */
+		
+	if (message.content.replace(/!/g, "") === message.guild.me.toString().replace(/!/g, "")) {
+		message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
+	}
      
-        if(message.mentions.has(client.user.id)) return message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
-        
-
-
+   
 	if (!message.content.startsWith(server.prefix)) return
 		const args = message.content.slice(server.prefix.length).trim().split(/ +/g)
 		const command = args.shift().toLowerCase()
