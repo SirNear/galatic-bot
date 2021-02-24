@@ -39,3 +39,4 @@ module.exports = class ajuda extends Command {
 
   
   }
+}
