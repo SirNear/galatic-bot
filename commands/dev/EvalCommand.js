@@ -38,3 +38,4 @@ module.exports = class EvalCommand extends Command {
 			message.channel.send(embed)
 		}
   }
+}
