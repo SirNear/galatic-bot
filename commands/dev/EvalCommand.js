@@ -5,7 +5,7 @@ const color = require('../../api/colors.json')
 const { inspect } = require('util')
 
 
-module.exports = class eval extends Command {
+module.exports = class EvalCommand extends Command {
 
 	constructor(client) {
 		super(client, {
