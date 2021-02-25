@@ -16,13 +16,11 @@ module.exports = class ping extends Command {
   
 async run({ message, args, client, server}) {
 
-  const msg = await message.channel.send('**Calculando..**') 
-  
-  const embed = new Discord.MessageEmbed() 
-    .setAuthor('Ping? Pong!')
-    .setDescription(`Ping: \`\`${Math.round(client.ws.ping)}\`\`ms! \n Latência da API: \`\`${msg.createdTimestamp - message.createdTimestamp}\`\`ms! `)
-    .setColor('36393e');
-  
-      msg.edit(embed)
+	let ping = `Ping: \`${Math.round(this.client.ws.ping)}\`ms! | API: \`${Date.now() - message.createdTimestamp}\`ms`
+	
+	message.channel.send('Pong!').then(msg => {
+		msg.edit(`**Latência:** \`${ping}\``)
+		
+	})
   }
 }
