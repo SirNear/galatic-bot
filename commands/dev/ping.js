@@ -14,9 +14,9 @@ module.exports = class ping extends Command {
 		})
 	}
   
-async run({ message, args, server}) {
+async run({ message, args, client, server}) {
 
-  message.channel.send('**Calculando..**').then(msg => {
+  const msg = await message.channel.send('**Calculando..**') 
   
   const embed = new Discord.MessageEmbed() 
     .setAuthor('Ping? Pong!')
@@ -24,7 +24,5 @@ async run({ message, args, server}) {
     .setColor('36393e');
   
       msg.edit(embed)
-  
-   })
   }
 }
