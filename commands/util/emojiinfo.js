@@ -17,14 +17,14 @@ module.exports = class emojiinfo extends Command {
 	 run({ message, args, client, server}) {
       let arg = args[0]
 
-      const emojis = client.emojis.cache.find(emoji => emoji.toString() == arg) || client.emojis.cache.find(emoji => emoji.name == arg)
+      const emojis = this.client.emojis.cache.find(emoji => emoji.toString() == arg) || this.client.emojis.cache.find(emoji => emoji.name == arg)
 
         if(!arg) return message.channel.send('***Digite o nome do emoji ou mencione-o***')
 
 
          if(!emojis) {
 
-          const embed = new Discord.MessageEmbed()
+          const embed = new MessageEmbed()
           .setColor('RANDOM')
           .setTitle('❌ | ***Erro***')
           .setDescription('Eu tentei encontrar em todos os servidores em que estou, porém não encontrei este emoji. Desculpe a incoveniencia. :c')
@@ -37,7 +37,7 @@ module.exports = class emojiinfo extends Command {
 
 
 
-        const embeds = new Discord.MessageEmbed()
+        const embeds = new MessageEmbed()
         .setColor('RANDOM')
         .setTitle(`${emojis} | ***${emojis.name}***`)
         .addField('<:notificacaopwp:566085275323727893> | **Menção**', `\`<:${emojis.identifier}>\``)
@@ -47,7 +47,7 @@ module.exports = class emojiinfo extends Command {
         .addField('<:Link:573931602636308500> | ***Link do emoji***', emojis.url)
         .setTimestamp();
 
-         const embeda = new Discord.MessageEmbed()
+         const embeda = new MessageEmbed()
         .setColor('RANDOM')
         .setTitle(`${emojis} | ***${emojis.name}***`)
         .addField('<:notificacaopwp:566085275323727893> | **Menção**', `\`<a:${emojis.identifier}>\``)
