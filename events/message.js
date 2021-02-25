@@ -1,3 +1,5 @@
+const Discord = require('discord.js')
+
 module.exports = class MessageReceive {
 	constructor(client) {
 		this.client = client
@@ -27,7 +29,7 @@ module.exports = class MessageReceive {
 
          }
          
-         /*  
+  
      if(userData.monitor == 'ativado') {
 
         if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
@@ -50,7 +52,7 @@ module.exports = class MessageReceive {
 
         }       
      
-     */
+ 
 		
 	if (message.content.replace(/!/g, "") === message.guild.me.toString().replace(/!/g, "")) {
 		message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
