@@ -16,10 +16,10 @@ module.exports = class MessageReceive {
 			}).save()
 		}
         
-	let userData = await this.client.database.userData.findById(message.author.id)
+	let userDb = await this.client.database.userData.findById(message.author.id)
 
 		
-         if(!userData) {
+         if(!userDb) {
               this.client.database.userData({
                  _id: message.author.id,
                   uid: message.author.id,
@@ -30,11 +30,11 @@ module.exports = class MessageReceive {
          }
          
   
-     if(userData.monitor == 'ativado') {
+     if(userDb.monitor == 'ativado') {
 
-        if(!message.guild.channels.cache.get(`${userData.monitorChannelId}`)) {
-         userData.monitor = 'desativado'
-         userData.save()
+        if(!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {
+         userDb.monitor = 'desativado'
+         userDb.save()
 		
 	}
 
@@ -48,7 +48,7 @@ module.exports = class MessageReceive {
       .setTimestamp()
 
 
-       message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
+       message.guild.channels.cache.get(`${userDb.monitorChannelId}`).send(embedMonitor)
 
     }       
      
