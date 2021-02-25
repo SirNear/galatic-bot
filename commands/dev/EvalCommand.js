@@ -21,21 +21,17 @@ module.exports = class EvalCommand extends Command {
  async run({ message, args, client, server}) {
    
    try {
-			const util = require("util")
-			let evaled = eval(args.join(" "))
-			evaled = util.inspect(evaled, { depth: 1 })
-			evaled = evaled.replace(new RegExp(`${this.client.token}`, "g"), undefined)
+        let codein = args.join(" ");
+        let code = eval(codein);
 
-			if (evaled.length > 1800) evaled = `${evaled.slice(0, 1800)}...`
-			message.channel.send(evaled, { code: "js" })
-		} catch (err) {
-			const errorMessage = err.stack.length > 1800 ? `${err.stack.slice(0, 1800)}...` : err.stack
-			const embed = new MessageEmbed()
-			embed.setColor('RANDOM')
-			embed.setTitle(`**ERRO**`)
-			embed.setDescription(`\`\`\`js\n${errorMessage}\`\`\``)
-
-			message.channel.send(embed)
-		}
-  }
+        if (typeof code !== 'string')
+            code = require('util').inspect(code, { depth: 0 });
+        let embed = new MessageEmbed()
+        .setColor('#2EFE64')   
+        .addField('📥 Entrada:', `\`\`\`js\n${codein}\`\`\``)
+        .addField(':outbox_tray: Saida:', `\`\`\`js\n${code}\n\`\`\``)
+        message.channel.send(embed)
+    } catch(e) {
+        message.channel.send(`\`\`\`js\n${e}\n\`\`\``);
+    }
 }
