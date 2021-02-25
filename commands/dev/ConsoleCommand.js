@@ -21,10 +21,8 @@ module.exports = class ConsoleCommand extends Command {
  async run({ message, args, client, server}) {
 	 
 let y = process.openStdin()
-y.addListener("data", res => {
-    let x = res.toString().trim().split(/ +/g)
-    message.channel.send(x)
-}); 
+
+message.channel.send(y)
 
 
 	 
