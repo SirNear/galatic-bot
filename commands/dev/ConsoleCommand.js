@@ -20,7 +20,7 @@ module.exports = class ConsoleCommand extends Command {
   
  async run({ message, args, client, server}) {
 
-message.channel.send(console.stdlog.apply(console, arguments))
+message.channel.send(console.debugs.push(Array.from(arguments)))
 	 
 	 
    
