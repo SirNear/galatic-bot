@@ -50,6 +50,7 @@ module.exports = class MessageReceive {
        message.guild.channels.cache.get(`${userDb.monitorChannelId}`).send(embedMonitor)
 
     }       
+   }
      
  
 		
