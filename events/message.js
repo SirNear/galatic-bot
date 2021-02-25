@@ -24,7 +24,7 @@ module.exports = class MessageReceive {
                  _id: message.author.id,
                   uid: message.author.id,
                   uName: message.author.username,
-                 uServer: message.guild.id
+                 uServer: message.guild.id,
              }).save()
 
          }
@@ -50,7 +50,7 @@ module.exports = class MessageReceive {
 
        message.guild.channels.cache.get(`${userData.monitorChannelId}`).send(embedMonitor)
 
-        }       
+    }       
      
  
 		
