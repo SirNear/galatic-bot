@@ -20,14 +20,10 @@ module.exports = class ConsoleCommand extends Command {
   
  async run({ message, args, client, server}) {
 
-  console.stdlog = console.log.bind(console);
-  console.logs = [];
-  console.log = function(){
-      console.logs.push(Array.from(arguments));
-      console.stdlog.apply(console, arguments);
-  }
+message.channel.send(console.stdlog.apply(console, arguments))
+	 
+	 
    
-   message.channel.send(console.log)
    
  }
 }
