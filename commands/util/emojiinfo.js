@@ -1,5 +1,8 @@
 const { MessageEmbed } = require('discord.js');
 const Command = require('../../structures/Command');
+const moment = require('moment')
+moment.locale("pt-BR");
+
 
 module.exports = class emojiinfo extends Command {
 
