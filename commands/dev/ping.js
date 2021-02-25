@@ -14,7 +14,7 @@ module.exports = class ping extends Command {
 		})
 	}
   
-async run({ message, args, client, server}) {
+async run({ message, args, server}) {
 
   message.channel.send('**Calculando..**').then(msg => {
   
