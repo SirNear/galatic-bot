@@ -1,0 +1,110 @@
+const Discord = require('discord.js');
+const Command = require('../../structures/Command');
+const error = require('../../api/error.js')
+
+module.exports = class {nome do cmd} extends Command {
+	constructor(client) {
+		super(client, {
+			name: "",
+			category: "",
+			aliases: [''],
+			UserPermission: [""],
+			clientPermission: null,
+			OnlyDevs: false
+		})
+	}
+  
+async run({ message, args, client, server}) {
+    const embedh = new Discord.MessageEmbed()
+  .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO MUTE** | <:DuvidaMario:566084477114384387>`)
+  .setDescription(`Utilize \`${server.prefix}mute <usuario> <tempo> <motivo>\``)
+  .setColor('RANDOM');
+
+  if(!args[0]||args[0].includes("help")||args[0].includes("ajuda")) return message.channel.send(embedh)
+
+    if(!message.member.hasPermission("MUTE_MEMBERS")) return error.Mute(message)
+
+    let wUser = message.guild.member(message.mentions.users.first()) || message.guild.members.cache.get(args[0])
+    if(!wUser) return error.noUser(message)
+
+    let warn = await this.client.database.Punish.find({uid: wUser.user.id, servidor: message.guild.id})
+
+    let reason = args.slice(1).join(" ");
+    if (!reason) return error.noReason(message)
+
+      warn = new client.database.Punish({
+          _id: mongoose.Types.ObjectId(),
+          usuario: wUser.displayName,
+          uid: wUser.user.id,
+          motivo: reason,
+          staff: message.author.username,
+          staffid: message.author.id,
+          servidor: message.guild.id,
+          punicao: 'aviso',
+          data: moment.utc(message.createdAt).format('LLLL'),
+
+      })
+
+    warn.save()
+
+    let warnEmbed = new Discord.MessageEmbed()
+    .setTitle("***Punição | Aviso***")
+    .setColor(color.moderation)
+    .setThumbnail(message.author.displayAvatarURL)
+    .addField("***Usuário avisado***", `${wUser.user}`)
+    .addField("***Avisado por***",`${message.author}`)
+    .addField("***Avisado no canal***", message.channel)
+    .addField("***Motivo***", reason)
+    .setFooter(`Usuário avisado ${wUser.id}`);
+
+   let warnchannel = message.guild.channels.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))  
+  if(!warnchannel) return message.reply('***O canal ' + `${server.cPunicoes}` + ' não foi encontrado. Crie-o para que eu possa registrar os eventos de punição por lá. ***')
+
+    warnchannel.send(warnEmbed)
+    message.reply('***O usuário foi avisado com  sucesso!***')
+    wUser.send(warnEmbed);
+
+  if(server.warnTag === 'Ativado'){ 
+    if(warn.warnNumber === server.warnNumber) {
+
+          warn = new client.database.Punish({
+          _id: wUser.user.id,
+          usuario: wUser.nickname,
+          motivo: `Excedeu ${server.warnNumber} avisos`,
+          staff: 'auto',
+          staffid: 'auto',
+          servidor: message.guild.name,
+          data: moment.utc(message.createdAt).format('LLLL'),
+
+
+      })
+
+      warn.save()
+
+      let muterole = message.guild.roles.cache.find(`name`, "muted");
+
+      if(!muterole) {
+
+          muterole = await message.guild.createRole({
+            name: "Mutado",
+            color: "#070a0f",
+            permissions:[]
+
+          })
+
+    }
+
+
+
+      let mutetime = "2h";
+      await(wUser.addRole(muterole.id));
+      message.channel.send(`<@${wUser.id}> foi temporariamente mutado.`);
+
+      setTimeout(function(){
+        wUser.removeRole(muterole.id)
+        message.channel.send(`<@${wUser.id}> foi desmutado.`)
+      }, ms(mutetime))
+
+
+  }
+}
