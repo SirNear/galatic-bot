@@ -21,11 +21,13 @@ module.exports = class ConsoleCommand extends Command {
  async run({ message, args, client, server}) {
 	 
 	function log() {
-	console.stdlog = console.log.bind(console);
-	console.logs = [];
-	console.log = function(){
-	   console.logs.push(Array.from(arguments));
-	   console.stdlog.apply(console, arguments);
+		console.defaultLog = console.log.bind(console);
+		console.logs = [];
+		console.log = function(){
+		    // default &  console.log()
+		    console.defaultLog.apply(console, arguments);
+		    // new & array data
+		    console.logs.push(Array.from(arguments));
 		}			
 	}
 		 
