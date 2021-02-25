@@ -25,7 +25,7 @@ module.exports = class ajuda extends Command {
     .addField(`<:3223_ComfyAmongus:810735118615314443> Desenvolvedor | (${this.getCommmandSize("dev")})`, this.getCategory("dev", server.prefix))
     .addField(`<:7992_AmongUs_Investigate:810735122462670869> Moderação | (${this.getCommmandSize("moderation")})`, this.getCategory("moderation", server.prefix))
     .addField(`<:PeepoPing:810735232918487091> Configuração do Servidor | (${this.getCommmandSize("config")})`, this.getCategory("config", server.prefix))
-    .setFooter(`CLIQUE AQUI PARA ADICIONAR O BOT EM SEU SERVIDOR['https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8']`)
+    .setFooter(`(CLIQUE AQUI PARA ADICIONAR O BOT EM SEU SERVIDOR)['https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8']`)
 
      message.author.send(embed).then(() => {
 	message.reply('**Verifique sua DM**')
