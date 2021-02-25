@@ -36,7 +36,6 @@ module.exports = class MessageReceive {
          userDb.monitor = 'desativado'
          userDb.save()
 		
-	}
 
     }else {
 
@@ -48,9 +47,7 @@ module.exports = class MessageReceive {
       .setTimestamp()
 
 
-       let chm = message.guild.channels.cache.get(`${userDb.monitorChannelId}`)
-       
-       chm.send(embedMonitor)
+       message.guild.channels.cache.get(`${userDb.monitorChannelId}`).send(embedMonitor)
 
     }       
      
