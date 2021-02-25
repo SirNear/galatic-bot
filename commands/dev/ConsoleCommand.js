@@ -20,7 +20,7 @@ module.exports = class ConsoleCommand extends Command {
   
  async run({ message, args, client, server}) {
 	 
-	function log() {
+	function* log() {
 		console.defaultLog = console.log.bind(console);
 		console.logs = [];
 		console.log = function(){
