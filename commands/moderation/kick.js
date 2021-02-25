@@ -15,7 +15,7 @@ module.exports = class kick extends Command {
 		})
 	}
   
-	 run({ message, args, client, server}) {
+async run({ message, args, client, server}) {
      
        let canal = server.cPunicoes
 
