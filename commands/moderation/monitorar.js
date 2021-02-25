@@ -91,10 +91,11 @@ module.exports = class monitorar extends Command {
 
       }else {
 
-        message.guild.channels.create(`${monitored.displayName}`).then(channel => {
-              let category = message.guild.channels.cache.find(c => c.id == server.monitorCategory && c.type == "category");
+	let category = message.guild.channels.cache.find(c => c.id == server.monitorCategory && c.type == "category");
 
-              if(!category) return message.channel.send(`**ERRO: Configure a categoria de monitoramento através do comando \`${server.prefix}painel ver\` e tente novamente.**`)
+         if(!category) return message.channel.send(`**ERRO: Configure a categoria de monitoramento através do comando \`${server.prefix}painel ver\` e tente novamente.**`)
+	      
+        message.guild.channels.create(`${monitored.displayName}`).then(channel => {
 
               channel.setParent(category.id)
 
