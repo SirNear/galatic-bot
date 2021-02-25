@@ -2,7 +2,7 @@ const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
-module.exports = class prefix} extends Command {
+module.exports = class prefix extends Command {
 	constructor(client) {
 		super(client, {
 			name: "prefix",
