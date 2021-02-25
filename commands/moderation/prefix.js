@@ -2,13 +2,13 @@ const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
-module.exports = class {nome do cmd} extends Command {
+module.exports = class prefix} extends Command {
 	constructor(client) {
 		super(client, {
-			name: "",
-			category: "",
+			name: "prefix",
+			category: "moderation",
 			aliases: [''],
-			UserPermission: [""],
+			UserPermission: ["ADMINISTRATOR"],
 			clientPermission: null,
 			OnlyDevs: false
 		})
