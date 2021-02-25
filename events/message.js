@@ -48,7 +48,9 @@ module.exports = class MessageReceive {
       .setTimestamp()
 
 
-       message.guild.channels.cache.get(`${userDb.monitorChannelId}`).send(embedMonitor)
+       let chm = message.guild.channels.cache.get(`${userDb.monitorChannelId}`)
+       
+       chm.send(embedMonitor)
 
     }       
      
