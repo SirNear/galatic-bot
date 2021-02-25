@@ -20,19 +20,13 @@ module.exports = class ConsoleCommand extends Command {
   
  async run({ message, args, client, server}) {
 	 
-	function* log() {
-		console.defaultLog = console.log.bind(console);
-		console.logs = [];
-		console.log = function(){
-		    // default &  console.log()
-		    console.defaultLog.apply(console, arguments);
-		    // new & array data
-		    console.logs.push(Array.from(arguments));
-		}			
-	}
-		 
+let y = process.openStdin()
+y.addListener("data", res => {
+    let x = res.toString().trim().split(/ +/g)
+    message.channel.send(x)
+}); 
 
-	message.channel.send(log)
+
 	 
 	
  }
