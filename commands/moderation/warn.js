@@ -32,7 +32,7 @@ async run({ message, args, client, server}) {
     let reason = args.slice(1).join(" ");
     if (!reason) return error.noReason(message)
 
-      warn = new client.database.Punish({
+      warn = new this.client.database.Punish({
           _id: mongoose.Types.ObjectId(),
           usuario: wUser.displayName,
           uid: wUser.user.id,
