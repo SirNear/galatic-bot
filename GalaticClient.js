@@ -24,6 +24,40 @@ module.exports = class GalaticClient extends Client {
      this.events = new EventManager(this)
         
     }
+	
+	reloadCommand(commandName) {
+		const command = this.commands.get(commandName) || this.commands.get(this.aliases.get(commandName))
+		if (!command) return false
+		const dir = command.dir
+		this.commands.delete(command.name)
+		delete require.cache[require.resolve(`${dir}`)]
+		try {
+			const Command = require(`${dir}`)
+			const cmd = new Command(this)
+			cmd.dir = dir
+			this.commands.set(cmd.name, cmd)
+			return true
+		} catch (e) {
+			return e
+		}
+	}
+	reloadEvent(eventName) {
+		const event = this.events.events.includes(eventName)
+		if (!event) return false
+
+		const dir = `./events/${eventName}.js`
+		const status = this.events.remove(eventName)
+		if (!status) return status
+		delete require.cache[require.resolve(`${dir}`)]
+		try {
+			const Event = require(`${dir}`)
+			const event = new Event(this)
+			this.events.add(eventName, event)
+			return true
+		} catch (e) {
+			return e
+		}
+	}
 
 	login(token) {
 		return super.login(token)
