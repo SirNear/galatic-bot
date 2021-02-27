@@ -52,7 +52,7 @@ async run({ message, args, client, server}) {
     warn.save()
 
     let warnEmbed = new Discord.MessageEmbed()
-    .setTitle("***Punição | Aviso***")
+    .setTitle(`***Punição | Aviso - ${message.guild.name}***`)
     .setColor(color.moderation)
     .setThumbnail(message.author.displayAvatarURL)
     .addField("***Usuário avisado***", `${wUser.user}`)
