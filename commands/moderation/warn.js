@@ -1,6 +1,7 @@
 const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
+const color = require('../../api/colors.json')
 const mongoose = require('mongoose')
 const moment = require('moment')
 moment.locale('pt-br')
