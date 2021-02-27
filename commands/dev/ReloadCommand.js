@@ -1,3 +1,6 @@
+const Command = require("../../structures/command")
+
+
 module.exports = class ReloadCommand extends Command {
 	constructor(client) {
 		super(client, {
