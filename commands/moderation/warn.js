@@ -2,7 +2,8 @@ const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const mongoose = require('mongoose')
-
+const moment = require('moment')
+moment.locale('pt-br')
 
 module.exports = class warn extends Command {
 	constructor(client) {
