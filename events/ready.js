@@ -1,6 +1,4 @@
-const Event = require('../structures/EventManager');
-
-module.exports = class extends Event {
+module.exports = class  {
 
 	constructor(client) {
 		this.client = client
