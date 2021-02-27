@@ -20,3 +20,4 @@ module.exports = class ReloadCommand extends Command {
 
 		message.channel.send(`${type} recarregado com sucesso!`)
 	}
+}
