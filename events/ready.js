@@ -16,7 +16,7 @@ module.exports = class extends Event {
 			`${this.client.events.size} eventos carregados!`
 		].join('\n'));
 		
-		let status [ 	
+		let status = [ 	
 			{name: `Pó de café na pia`, type: 'PLAYING'},
 			{name: 'Me mencione para saber mais sobre mim!', type: 'PLAYING'},
 			{name: `${this.client.guilds.size} universos diferentes!`, type: 'WATCHING'},
