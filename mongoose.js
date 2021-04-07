@@ -48,6 +48,20 @@ let Bot = new mongoose.Schema({
 	maintenanceReason: { type: String, default: "" }
 })
 
+let charUser = new mongoose.Schema({
+	_id: {type: String},
+	charName: {type: String},
+	yens: {type: Number, default: 350},
+	sleeping: {type: Boolean, default: false},
+	
+})
+
+let charJutsus = new mongoose.Schema({
+	_id: {type: String},
+	charName: {type: 
+	
+})
+
 
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
