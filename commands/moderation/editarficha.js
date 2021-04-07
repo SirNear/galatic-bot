@@ -1,4 +1,8 @@
 const Command = require('../../structures/Command');
+const Discord = require('discord.js')
+const error = require('../../api/error.js')
+
+
 module.exports = class editarficha extends Command {
 
 	constructor(client) {
@@ -25,7 +29,7 @@ module.exports = class editarficha extends Command {
    if(!char) {
 	   
 	   	   
-	   let embedA = new MessageEmbed()
+	   let embedA = new Discord.MessageEmbed()
 	   .setTitle('**Digite o nome do avatar que está na ficha**')
 	   .setDescription('Verfique a aba "aparência" e digite exatamente o que estiver escrito lá, respeitando ortografia.')
 	   .setFooter('OBS.: Pode demorar até 15s para confirmar.')
@@ -36,6 +40,20 @@ module.exports = class editarficha extends Command {
                     const coletorWN2 = message.channel.awaitMessages(fWN2, {time:20000}).then(collected => {
 			    
 			    let avatar = collected.first()
+			    
+			    embedA.setTitle('**Digite o clã/familia pertencente**')
+			    embedA.setDescription('Verifique a aba "clã/familia" e digite exatamente o que estiver escrito lá, respeitando ortografia.')
+			    
+			    msg.edit(embedA).then(msg => {
+				    
+				    const f2 = m => m.author.id === message.author.id
+				    const coletor2 = message.channel.awaitMessages(f2, {time: 20000}.then(collected => {
+					    
+					    
+				    let cla = collected.first()
+				    
+				    
+			   
 			
 
 	   
@@ -43,12 +61,13 @@ module.exports = class editarficha extends Command {
 		   _id: player.id,
 		   charName: personagem,
 		   aparencia: avatar,
+		   cla: cla,
 		   
 	   })
 	   
 	   char.save()
 			    
-	   let embed = new MessageEmbed()
+	   let embed = new Discord.MessageEmbed()
 	   .setTitle('<:pepeOK:810735233309474876> | **Ficha Aprovada**')
 	   .addField('**Player**:', player, true)
 	   .addField('**Nome do Personagem**:', personagem, true)
@@ -63,7 +82,9 @@ module.exports = class editarficha extends Command {
 	   })
 		   
 	 })
-	})	   
+	})			    
+      })
+    })
    }
    
    
