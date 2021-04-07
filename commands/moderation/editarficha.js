@@ -56,8 +56,8 @@ module.exports = class editarficha extends Command {
 	   .addField('**Yens**:' + ` ${char.yens}`)
 	   .addField('**Nível do personagem:**' + ` ${char.nivel}`)
 	   .addField('**Rank do personagem**:' + ` ${char.rank}`)
+	   .setFooter(player.id)
 
-	   
 	   message.channel.send(embed).then(msg => {
 		player.send(embed)   
 	   })
