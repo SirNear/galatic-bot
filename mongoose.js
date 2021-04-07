@@ -55,7 +55,8 @@ let charUser = new mongoose.Schema({
 	sleeping: {type: Boolean, default: false},
 	avatar: {type: String},
 	nivel: {type: Number, default: 1},
-	rank: {type: String, default: 'Gennin'}
+	rank: {type: String, default: 'Gennin'},
+	clã: {type: String}
 	
 })
 
