@@ -41,4 +41,5 @@ module.exports = class dormir extends Command {
      
      
      
-   })
+   }
+}
