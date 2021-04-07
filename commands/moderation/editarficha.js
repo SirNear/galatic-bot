@@ -80,7 +80,8 @@ module.exports = class editarficha extends Command {
 	   message.channel.send(embed).then(msg => {
 		player.send(embed)   
 	   })
-		   
+				    })
+										   })
 	 })
 	})			    
       })
