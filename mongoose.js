@@ -58,7 +58,7 @@ let charUser = new mongoose.Schema({
 
 let charJutsus = new mongoose.Schema({
 	_id: {type: String},
-	charName: {type: 
+	charName: {type: String}, 
 	
 })
 
@@ -74,3 +74,6 @@ module.exports.userData = userData
 
 let Bots = mongoose.model("Bots", Bot)
 module.exports.Bots = Bots
+
+let Char = mongoose.model("Char", charUser)
+module.exports.Char = Char
