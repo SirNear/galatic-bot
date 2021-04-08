@@ -74,6 +74,7 @@ module.exports = class editarficha extends Command {
 
 	   message.channel.send(embed).then(msg => {//77
 		player.send(embed)   
+	   })
 	   })//75
 	 })//50
 	})//47		    
