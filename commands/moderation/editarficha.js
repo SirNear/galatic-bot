@@ -79,7 +79,6 @@ module.exports = class editarficha extends Command {
 	 })//50
 	})//47		    
       })//40
-    }) //37
    } //29
    
    
