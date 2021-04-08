@@ -16,7 +16,7 @@ module.exports = class editarficha extends Command {
 		})
 	}
   
- async run({ message, args, client, server}) {
+ async run({ message, args, client, server}) { //92
 	 
     let personagem = args.slice(1).join(" ")
     let player = message.guild.member(message.mentions.users.first()) || message.guild.members.cache.get(args[0])
@@ -26,7 +26,7 @@ module.exports = class editarficha extends Command {
    
    let char = await this.client.database.Char.find({_id: player.id, charName: personagem})
    
-   if(!char) {
+   if(!char) { //89
 	   
 	   	   
 	   let embedA = new Discord.MessageEmbed()
@@ -34,36 +34,31 @@ module.exports = class editarficha extends Command {
 	   .setDescription('Verfique a aba "aparência" e digite exatamente o que estiver escrito lá, respeitando ortografia.')
 	   .setFooter('OBS.: Pode demorar até 15s para confirmar.')
 		  
-	   message.channel.send(embedA).then(msg => {
+	   message.channel.send(embedA).then(msg => { //88
 		   
                     const fWN2 = m => m.author.id === message.author.id 
-                    const coletorWN2 = message.channel.awaitMessages(fWN2, {time:20000}).then(collected => {
+                    const coletorWN2 = message.channel.awaitMessages(fWN2, {time:20000}).then(collected => { //87
 			    
 			    let avatar = collected.first()
 			    
 			    embedA.setTitle('**Digite o clã/familia pertencente**')
 			    embedA.setDescription('Verifique a aba "clã/familia" e digite exatamente o que estiver escrito lá, respeitando ortografia.')
 			    
-			    msg.edit(embedA).then(msg => {
+			    msg.edit(embedA).then(msg => { //86
 				    
 				    const f2 = m => m.author.id === message.author.id
-				    const coletor2 = message.channel.awaitMessages(f2, {time: 20000}.then(collected => {
-					    
-					    
-				    let cla = collected.first()
+				    const coletor2 = message.channel.awaitMessages(f2, {time: 20000}.then(collected => {// 85
+					  let cla = collected.first()
 				    
-				    
-			   
-			
 
 	   
-	   char = new this.client.database.Char({
+	   char = new this.client.database.Char({ // 61
 		   _id: player.id,
 		   charName: personagem,
 		   aparencia: avatar,
 		   cla: cla,
 		   
-	   })
+	   }) //55
 	   
 	   char.save()
 			    
@@ -77,17 +72,15 @@ module.exports = class editarficha extends Command {
 	   .addField('**Rank do personagem**:' + ` ${char.rank}`)
 	   .setFooter(player.id)
 
-	   message.channel.send(embed).then(msg => {
+	   message.channel.send(embed).then(msg => {//77
 		player.send(embed)   
-	   })
-				    })
-										   })
-	 })
-	})			    
-      })
-    })
-   }
+	   })//75
+	 })//50
+	})//47		    
+      })//40
+    }) //37
+   } //29
    
    
- }
+ } // 19
 }
