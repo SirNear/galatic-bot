@@ -14,7 +14,7 @@ module.exports = class ficha extends Command {
 		})
 	}
   
-async run({ message, args, client, server}) {
+async run({ message, args, client, server}) { //86
   
   let embed = new Discord.MessageEmbed()
   .setTitle('<:passe:713845479691124867> | **Ficha de Personagem')
@@ -22,7 +22,7 @@ async run({ message, args, client, server}) {
   .setDescription('**Qual é o nome do seu personagem?**')
   .setFooter('Envie em uma só mensagem e espere 30s sem responder para cancelar.')
   
-  message.author.send(embed).then(msg => { //82
+  message.author.send(embed).then(msg => { //85
     let f = m => m.author.id === message.author.id
     const coletor = message.channel.awaitMessages(f, {time: 20000}.then(collected => { //81
       let name = collected.first()
@@ -45,8 +45,8 @@ async run({ message, args, client, server}) {
               
               embed.setDescription(`Ficha de Personagem de ${message.author} | ${message.author.id}`)
               embed.addField('**Clã/Familia**: ', cla, true)
-              .setThumbnail(message.author.avatarURL)
-              .setFooter('Confirma?')
+              embed.setThumbnail(message.author.avatarURL)
+              embed.setFooter('Confirma?')
               
               msg.edit(embed).then(msg => { //76
                 msg.react('757662908548382740')
@@ -70,10 +70,10 @@ async run({ message, args, client, server}) {
                coletor2.on("collect", em => {//74
                  msg.delete()
                  
-                 message.channel.send('**Ação cancelada.**')                 
+                 msg.channel.send('**Ação cancelada.**')                 
               })    //70 
                  
-              })//51
+              })//51w
             })//43
           })//41
         })//35
