@@ -1,6 +1,6 @@
 const Discord = require('discord.js')
 
-module.exports = class newGuild {
+module.exports = class NewGuild {
 	constructor(client) {
 		this.client = client
 	}
