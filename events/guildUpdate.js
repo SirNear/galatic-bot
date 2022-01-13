@@ -74,10 +74,7 @@ module.exports = class newGuild {
             })
 
         })
-	
+	*/
 
     }
-    
-    */
-
 }
