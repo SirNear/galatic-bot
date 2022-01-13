@@ -5,8 +5,7 @@ module.exports = class readyEvent {
 	}
 
 	async run() {
-
-	
+		
 		const guildR = await this.client.database.gReacts.findById()
 
 		if(!guildR) return
