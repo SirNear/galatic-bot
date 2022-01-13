@@ -6,6 +6,11 @@ module.exports = class newGuild {
 	}
 
     async run() {
+	    
+	   let lab = this.client.guilds.cache.get('930871020557062162')
+	   lab.channels.cache.get('931334789322129438').send('Evento guildUpdate funcionando corretamente.')
+	    
+	    /*
 
         const guildR = await this.client.database.gReacts.findById(this.client.guild.id)
         this.client.guildCreate(async(guild) => {
@@ -69,7 +74,10 @@ module.exports = class newGuild {
             })
 
         })
+	
 
     }
+    
+    */
 
 }
