@@ -8,7 +8,7 @@ module.exports = class newGuild {
     async run() {
 
         const guildR = await this.client.database.gReacts.findById(this.client.guild.id)
-        this.client.on("guildCreate", async(guild) => {
+        this.client.guildCreate(async(guild) => {
 		
             const server = await this.client.database.Guilds.findById(guild.id)
 
