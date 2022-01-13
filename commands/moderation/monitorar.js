@@ -103,7 +103,10 @@ module.exports = class monitorar extends Command {
                 VIEW_CHANNEL: false
               })
 
-              channel.updateOverwrite(`${server.staffRole}`.replace(/[<@&>]/g, ""), {
+              let staff = server.staffRole
+              if(staff = 'Não definido') channel.send(`**O cargo de moderação não está definido, então o chat está apenas para administradores. Configure usando \`${server.prefix}painel ver\`.**`)
+
+              channel.updateOverwrite(staffRole.replace(/[<@&>]/g, ""), {
                 VIEW_CHANNEL: true
               })
 

@@ -16,6 +16,16 @@ let Guild = new mongoose.Schema({
   monitorCategory: {type: String, default: 'Não definido'}
 })
 
+let guildReact = new mongoose.Schema({
+  _id: {type: String},
+  ownerId: {type: String},
+  msgId: {type: String},
+  excludeDBFil: {type: String, default: 'let filtroExcluir = (reaction, usuario) => reaction.emoji.name === "blackcheck" && usuario.id === message.author.id;'},
+  excludeDBCol: {type: String, default: 'const coletorExcluir = msg.createReactionCollector(filtroExcluir, {max: 1, time: 360000});'},
+  cancelExFil: {type: String, default: 'let filtroCancelar = (reaction, usuario) => reaction.emoji.name === "errorYaro" && usuario.id === message.author.id;'},
+  cancelExCol: {type: String, default: 'const coletorCancelar = msg.createReactionCollector(filtroCancelar, {max: 1, time: 360000});'}
+})
+
 let Puni = new mongoose.Schema({
   _id: {type: String},
   usuario: {type: String},
@@ -48,27 +58,12 @@ let Bot = new mongoose.Schema({
 	maintenanceReason: { type: String, default: "" }
 })
 
-let charUser = new mongoose.Schema({
-	_id: {type: String},
-	charName: {type: String},
-	yens: {type: Number, default: 350},
-	sleeping: {type: Boolean, default: false},
-	avatar: {type: String},
-	nivel: {type: Number, default: 1},
-	rank: {type: String, default: 'Gennin'},
-	clã: {type: String}
-	
-})
-
-let charJutsus = new mongoose.Schema({
-	_id: {type: String},
-	charName: {type: String}, 
-	
-})
-
 
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
+
+let gReacts = mongoose.model("gReacts", guildReact)
+module.exports.gReacts = gReacts
 
 let Punish = mongoose.model("Punish", Puni)
 module.exports.Punish = Punish
@@ -78,6 +73,3 @@ module.exports.userData = userData
 
 let Bots = mongoose.model("Bots", Bot)
 module.exports.Bots = Bots
-
-let Char = mongoose.model("Char", charUser)
-module.exports.Char = Char
