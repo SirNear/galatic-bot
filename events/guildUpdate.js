@@ -5,7 +5,9 @@ module.exports = class NewGuild {
 		this.client = client
 	}
 
-    async run() {
+    async run(message) {
+	    
+	    
 	    
 	   let lab = this.client.guilds.cache.get('930871020557062162')
 	   lab.channels.cache.get('931334789322129438').send('Evento guildUpdate funcionando corretamente.')
