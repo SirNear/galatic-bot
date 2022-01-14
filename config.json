@@ -2,6 +2,7 @@
     "prefix": "g!",
     "token": "NjM0MjE2Mjk0NzEwNzcxNzEz.Xay-9Q.EyvkWAxc3bX13Q8X-NMmiE3Z4Vg",
     "mongoose": "mongodb+srv://neear:hbj123@cluster0.srmeb.mongodb.net/test?retryWrites=true:27017",
+    "dbrpgplay": "mongodb+srv://neear:hbj123@cluster0.srmeb.mongodb.net/rpg/players?retryWrites=true:27017",
     "owners": ["540725346241216534"],
     "block": [""]
 }
