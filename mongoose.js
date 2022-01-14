@@ -58,6 +58,15 @@ let Bot = new mongoose.Schema({
 	maintenanceReason: { type: String, default: "" }
 })
 
+let rpgFicha = new mongoose.Schema({
+	_id:{type: String},
+	nome: {type: String},
+	idade: {type: String},
+	coins: {type: String},
+	moradia: {type: String},
+	pokemons: {type: Map, of: String}
+})
+
 
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
@@ -73,3 +82,6 @@ module.exports.userData = userData
 
 let Bots = mongoose.model("Bots", Bot)
 module.exports.Bots = Bots
+
+let Ficha = mongoose.model("Ficha", rpgFicha)
+module.exports.Ficha = Ficha
