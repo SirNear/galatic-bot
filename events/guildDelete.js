@@ -16,7 +16,7 @@ module.exports = class GuildDelete {
             const leaveMessage = new Discord.MessageEmbed()
             .setColor('RANDOM')
             .setTitle('<:GadgetLeave:821521172956053513> | **Espero que não seja um adeus...**')
-            .setDescription(`Percebi que me expulsou de seu servidor ${this.client.guild.name}, espero que não seja eterno e que eu não tenha feito nada de errado.`)
+            .setDescription(`Percebi que me expulsou de seu servidor ${guild.name}, espero que não seja eterno e que eu não tenha feito nada de errado.`)
             .addField('**Excluir configurações do banco de dados?**', 'Reaja com "<:blackcheck:757662908548382740>" para excluir o servidor do banco de dados do bot. Caso adicione novamente, você terá que configurar novamente.', 'Reaja com "<:errorYaro:816811156512440331>" para cancelar a operação.')
             .addField(`**Convite do Bot**`, "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8)")
 
@@ -27,7 +27,7 @@ module.exports = class GuildDelete {
                 if(!guildR) {
                     this.client.database.gReacts({
                         _id: guild.id,
-                        ownerId: guild.ownerId,
+                        ownerId: guild.owner,
                         msgId: msg.id,
                     }).save()
                 }
