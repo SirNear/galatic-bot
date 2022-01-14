@@ -1,4 +1,4 @@
-module.exports = class GuildCreate = {
+module.exports = class GuildCreate {
   constructor(client) {
     this.client = client
   }
