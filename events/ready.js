@@ -1,10 +1,11 @@
-module.exports = class readyEvent {
+module.exports = class {
 
 	constructor(client) {
 		this.client = client
 	}
 
 	async run() {
+		/*
 		
 		const guildR = await this.client.database.gReacts.findById()
 
@@ -46,6 +47,8 @@ module.exports = class readyEvent {
 			})
 
 		})
+		
+		*/
 		
 		this.client.owner = await this.client.users.fetch("395788326835322882")
 
