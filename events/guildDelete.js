@@ -6,29 +6,11 @@ module.exports = class GuildDelete {
 	}
 
     async run(guild) {
+            const guildR = await this.client.database.gReacts.findById(this.client.guild.id)
+	    const server = await this.client.database.Guilds.findById(guild.id)
 	    
+	    if(!server) return
 	    
-	   let lab = this.client.guilds.cache.get('682332156273492050')
-	   lab.channels.cache.get('682332156755705870').send('Evento guildUpdate funcionando corretamente.')
-	    
-	    /*
-
-        const guildR = await this.client.database.gReacts.findById(this.client.guild.id)
-        this.client.guildCreate(async(guild) => {
-		
-            const server = await this.client.database.Guilds.findById(guild.id)
-
-            if (!server) {
-                this.client.database.Guilds({
-                    _id: guild.id
-                }).save().then(msg =>{
-                    console.log('Deu certo bro')
-                })
-            }
-            
-        })
-
-        this.client.on("guildDelete", guild => {
             let dono = this.client.guild.ownerId
 
             const leaveMessage = new Discord.MessageEmbed()
