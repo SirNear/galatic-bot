@@ -10,6 +10,8 @@ module.exports = class GalaticClient extends Client {
      super(options)
 	    
      this.database = require('./mongoose.js')
+	    
+     this.dbrpg = require('./dbrpg/dataPlayers.js')
   
      this.utils = new Util(this);
 	    
