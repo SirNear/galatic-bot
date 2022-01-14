@@ -6,7 +6,7 @@ module.exports = class GuildDelete {
 	}
 
     async run(guild) {
-            const guildR = await this.client.database.gReacts.findById(this.client.guild.id)
+            const guildR = await this.client.database.gReacts.findById(guild.id)
 	    const server = await this.client.database.Guilds.findById(guild.id)
 	    
 	    if(!server) return
@@ -26,8 +26,8 @@ module.exports = class GuildDelete {
 
                 if(!guildR) {
                     this.client.database.gReacts({
-                        _id: this.client.guild.id,
-                        ownerId: this.client.guild.ownerId,
+                        _id: guild.id,
+                        ownerId: guild.ownerId,
                         msgId: msg.id,
                     }).save()
                 }
@@ -55,9 +55,6 @@ module.exports = class GuildDelete {
 
                 
             })
-
-        })
-	*/
 
     }
 }
