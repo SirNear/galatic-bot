@@ -8,8 +8,8 @@ module.exports = class GuildDelete {
     async run(guild) {
 	    
 	    
-	   let lab = this.client.guilds.cache.get('930871020557062162')
-	   lab.channels.cache.get('931334789322129438').send('Evento guildUpdate funcionando corretamente.')
+	   let lab = this.client.guilds.cache.get('682332156273492050')
+	   lab.channels.cache.get('682332156755705870').send('Evento guildUpdate funcionando corretamente.')
 	    
 	    /*
 
