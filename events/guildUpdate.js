@@ -1,11 +1,11 @@
 const Discord = require('discord.js')
 
-module.exports = class GuildUpdates {
+module.exports = class GuildDelete {
 	constructor(client) {
 		this.client = client
 	}
 
-    async run(message) {
+    async run(guild) {
 	    
 	    
 	   let lab = this.client.guilds.cache.get('930871020557062162')
