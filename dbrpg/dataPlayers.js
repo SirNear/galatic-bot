@@ -11,7 +11,7 @@ let ficha = new mongoose.Schema({
   região: {type: String},
   time: {type: String},
   aparencia: {type: String},
-  isPoke: {type: Boolean, default: no},
+  isPoke: {type: Boolean, default: 0},
   pokeType: {type: String},
   pokeName: {type: String},
   pokeMoves: {type: String}
