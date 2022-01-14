@@ -11,7 +11,7 @@ module.exports = class GuildDelete {
 	    
 	    if(!server) return
 	    
-            let dono = this.client.guild.ownerId
+            let dono = guild.owner.id
 
             const leaveMessage = new Discord.MessageEmbed()
             .setColor('RANDOM')
