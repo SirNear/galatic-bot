@@ -61,11 +61,11 @@ let Bot = new mongoose.Schema({
 let rpgFicha = new mongoose.Schema({
 	_id:{type: String},
 	nome: {type: String},
-	idade: {type: String},
-	coins: {type: String},
+	idade: {type: Number},
+	coins: {type: Number},
 	moradia: {type: String},
 	pokemons: {type: Map, of: String},
-	aprovada:{type: String, default: 'nao'}
+	aprovada:{type: Boolean, default: 0}
 })
 
 
