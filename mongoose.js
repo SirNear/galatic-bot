@@ -65,6 +65,7 @@ let rpgFicha = new mongoose.Schema({
 	coins: {type: Number},
 	moradia: {type: String},
 	pokemons: {type: Map, of: String},
+	aparencia: {type: String},
 	aprovada:{type: Boolean, default: 0}
 })
 
