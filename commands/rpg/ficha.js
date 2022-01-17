@@ -31,7 +31,7 @@ async run({ message, args, client, server, dataPlayer}){
 		    .setTitle('<:aboutme:820342728931672085> | **CRIAÇÃO DE FICHA**')
 		    .setDescription('**Nome do personagem** \n envie o nome do personagem no chat')
 		    
-		    message.author.send(dmMessage).then(msg1 => {
+		    message.author.send(dmMessage).then(msg => {
 			    const filtroName = m => m.author.id === message.author.id
               		    const collectorNome = msg1.channel.awaitMessages(filtroName, { idle: 10000}).then(collected => {
 				    let charName = collected.first();
@@ -39,7 +39,7 @@ async run({ message, args, client, server, dataPlayer}){
 				    dataPlayer.save()
 				    
 				    dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n **Quantos anos seu personagem tem?** \n envie no chat`)
-				    msg1.edit(dmMessage).then(msg2 => {
+				    msg.edit(dmMessage).then(msg2 => {
 					    const filtroIdade = m => m.author.id === msg2.author.id
 					    const collectorIdade = msg2.channel.awaitMessages(filtroIdade, {idle: 10000}).then(collected => {
 						    let charAge = collected.first(Number)
