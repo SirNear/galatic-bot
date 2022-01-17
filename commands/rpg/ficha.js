@@ -19,11 +19,11 @@ async run({ message, args, client, server, dataPlayer}){
     var dataPlayer = await this.client.database.Ficha.findById(message.author.id)
     
     if(dataPlayer)  {
-	    
+	    /*
 	    this.client.database.Ficha({
 		    _id: message.author.id,
 	    }).save()
-	    
+	    */
 	    message.channel.send('<:blackcheck:757662908548382740> | **Verifique a sua DM para cadastrar a ficha**').then(msg => {
 	    
 		    let dmMessage = new Discord.MessageEmbed()
