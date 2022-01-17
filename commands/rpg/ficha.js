@@ -14,9 +14,9 @@ module.exports = class ficha extends Command {
 		})
 	}
   
-async run({ message, args, client, server}) {
+async run({ message, args, client, server, dataPlayer}){
   if (message.guild.id == '931441522950434906') {
-    let dataPlayer = await this.client.database.Ficha.findById(message.author.id)
+    const dataPlayer = await this.client.database.Ficha.findById(message.author.id)
     
     if(!dataPlayer)  {
 	    
@@ -107,6 +107,7 @@ async run({ message, args, client, server}) {
 												    
 												    msg5.send('**Ficha cancelada. Digite o comando novamente no servidor para fazer novamente.**')
 											    })
+										   
 										    })
 
 									    })
