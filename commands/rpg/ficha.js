@@ -35,8 +35,7 @@ async run({ message, args, client, server, dataPlayer}){
 			    const filtroName = m => m.author.id === message.author.id
               		    const collectorNome = msg.channel.awaitMessages(filtroName, { idle: 10000}).then(collected => {
 				    let charName = collected.first();
-				    console.log(charName.content)
-				    dataPlayer.nome = charName
+				    dataPlayer.nome = charName.content
 				    dataPlayer.save()
 				    
 				    dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n **Quantos anos seu personagem tem?** \n envie no chat`)
@@ -44,7 +43,7 @@ async run({ message, args, client, server, dataPlayer}){
 					    const filtroIdade = m => m.author.id === msg2.author.id
 					    const collectorIdade = msg2.channel.awaitMessages(filtroIdade, {idle: 10000}).then(collected => {
 						    let charAge = collected.first(Number)
-						    dataPlayer.idade = charAge
+						    dataPlayer.idade = charAge.content
 						    dataPlayer.save()
 						    
 				   	            dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n <:medalha:713868705481752578> | **Idade de ${charName}** \n ${charAge} \n \n **Onde ele mora?** \n <:emoji_azul:850198594882371594> | Kanto \n <:emoji_branco:850197858761441361> | Johto \n <:emoji_ciano:850197799248068618> | Hoenn \n <:emoji_preto:850198674679660544> | Sinnoh \n <:emoji_rosa:850198716223717398> | Unova \n <:emoji_roxo:850198774970187816> | Kalos`)
@@ -85,7 +84,7 @@ async run({ message, args, client, server, dataPlayer}){
 									    const coletorAparencia = msg4.channel.awaitMessages(filtroAparencia, {idle: 10000}).then(collected => {
 										    let charAvatar = colleted.first()
 										    
-										    dataPlayer.aparencia = charAvatar
+										    dataPlayer.aparencia = charAvatar.content
 					                                            dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n <:medalha:713868705481752578> | **Idade de ${charName}** \n ${charAge} \n \n <:passe:713845479691124867> |**Onde ele mora?** \n Kanto \n \n <:background:820342540091654155> | **Qual a aparência do personagem?** \n ${charAvatar}`)
 										    dmMessage.setFooter('Confirmar ficha? Se cancelar terá que dar o comando novamente.')
 										    msg4.edit(dmMessage).then(msg5 => {
