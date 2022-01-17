@@ -18,7 +18,7 @@ async run({ message, args, client, server, dataPlayer}){
   if (message.guild.id == '931441522950434906') {
     var dataPlayer = await this.client.database.Ficha.findById(message.author.id)
     
-    if(!dataPlayer)  {
+    if(dataPlayer)  {
 	    
 	    this.client.database.Ficha({
 		    _id: message.author.id,
