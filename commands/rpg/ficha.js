@@ -69,7 +69,7 @@ async run({ message, args, client, server}) {
 							    const coletorSinnoh = msg3.createReactionCollector(filtroSinnoh, {max: 1, time: 360000})
 							    
 							    let filtroUnova = (reaction, usuario) => reaction.emoji.id === '850198716223717398' && usuario.id === msg3.author.id
-							    const coletorUnova = msg3.createReactionCollector(filtroUnova, {max: 1, time 360000})
+							    const coletorUnova = msg3.createReactionCollector(filtroUnova, {max: 1, time: 360000})
 							    
 							    let filtroKalos = (reaction, usuario) => reaction.emoji.id === '850198774970187816' && usuario.id === msg3.author.id
 							    const coletorKalos = msg3.createReactionCollector(filtroKalos, {max: 1, time: 360000})
