@@ -124,11 +124,11 @@ async run({ message, args, client, server}) {
 	     		    })
 			     
 		    
-		    })
+		    }) //msg1
     
-	    })
+	    }) //msg
       
-    }
+    } //dataPlayer
     
   
   
