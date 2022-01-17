@@ -35,7 +35,7 @@ async run({ message, args, client, server, dataPlayer}){
 			    const filtroName = m => m.author.id === msg1.author.id
               		    const collectorNome = msg1.channel.awaitMessages(filtroName, { idle: 10000}).then(collected => {
 				    let charName = collected.first()
-				    dataPlayer.nome = charName
+				    dataPlayer.nome = `${charName}`
 				    dataPlayer.save()
 				    
 				    dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n **Quantos anos seu personagem tem?** \n envie no chat`)
@@ -44,7 +44,7 @@ async run({ message, args, client, server, dataPlayer}){
 					    const collectorIdade = msg2.channel.awaitMessages(filtroIdade, {idle: 10000}).then(collected => {
 						    let charAge = collected.first(Number)
 						    dataPlayer.idade = charAge
-						    dataPlayer.save
+						    dataPlayer.save()
 						    
 				   	            dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n <:medalha:713868705481752578> | **Idade de ${charName}** \n ${charAge} \n \n **Onde ele mora?** \n <:emoji_azul:850198594882371594> | Kanto \n <:emoji_branco:850197858761441361> | Johto \n <:emoji_ciano:850197799248068618> | Hoenn \n <:emoji_preto:850198674679660544> | Sinnoh \n <:emoji_rosa:850198716223717398> | Unova \n <:emoji_roxo:850198774970187816> | Kalos`)
 						    msg2.edit(dmMessage).then(msg3 => {
