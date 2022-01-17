@@ -31,7 +31,7 @@ async run({ message, args, client, server}) {
 		    .setTitle('<:aboutme:820342728931672085> | **CRIAÇÃO DE FICHA**')
 		    .setDescription('**Nome do personagem** \n envie o nome do personagem no chat')
 		    
-		    msg.author.send(dmMessage).then(msg1 => {
+		    message.author.send(dmMessage).then(msg1 => {
 			    const filtroName = m => m.author.id === msg1.author.id
               		    const collectorNome = msg1.channel.awaitMessages(filtroNome, { idle: 10000}).then(collected => {
 				    let charName = collected.first()
