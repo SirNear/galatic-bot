@@ -35,6 +35,7 @@ async run({ message, args, client, server, dataPlayer}){
 			    const filtroName = m => m.author.id === message.author.id
               		    const collectorNome = msg.channel.awaitMessages(filtroName, { idle: 10000}).then(collected => {
 				    let charName = collected.first();
+				    console.log(charName)
 				    dataPlayer.nome = charName
 				    dataPlayer.save()
 				    
