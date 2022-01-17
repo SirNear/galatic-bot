@@ -34,9 +34,9 @@ async run({ message, args, client, server, dataPlayer}){
 		    message.author.send(dmMessage).then(msg1 => {
 			    const filtroName = m => m.author.id === msg1.author.id
               		    const collectorNome = msg1.channel.awaitMessages(filtroName, { idle: 10000}).then(collected => {
-				    let charName = collected.first()
-				    dataPlayer.nome = `${charName}`
-				    dataPlayer.save()
+				    let charName = collected.first();
+				    await dataPlayer.nome = charName
+				    await dataPlayer.save()
 				    
 				    dmMessage.setDescription(`<:membroCDS:713866588398288956> | **Nome do personagem** \n ${charName} \n \n **Quantos anos seu personagem tem?** \n envie no chat`)
 				    msg1.edit(dmMessage).then(msg2 => {
