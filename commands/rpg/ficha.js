@@ -26,7 +26,7 @@ async run({ message, args, client, server}) {
 	    
 	    message.channel.send('<:blackcheck:757662908548382740> | **Verifique a sua DM para cadastrar a ficha**').then(msg => {
 	    
-		    let dmMessage = Discord.MessageEmbed()
+		    let dmMessage = new Discord.MessageEmbed()
 		    .setColor('RANDOM')
 		    .setTitle('<:aboutme:820342728931672085> | **CRIAÇÃO DE FICHA**')
 		    .setDescription('**Nome do personagem** \n envie o nome do personagem no chat')
