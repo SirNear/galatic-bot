@@ -16,7 +16,7 @@ module.exports = class ficha extends Command {
   
 async run({ message, args, client, server, dataPlayer}){
   if (message.guild.id == '931441522950434906') {
-    const dataPlayer = await this.client.database.Ficha.findById(message.author.id)
+    var dataPlayer = await this.client.database.Ficha.findById(message.author.id)
     
     if(!dataPlayer)  {
 	    
