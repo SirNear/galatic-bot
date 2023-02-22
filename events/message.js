@@ -5,7 +5,7 @@ module.exports = class MessageReceive {
 		this.client = client
 	}
 
-	async run(message) {
+	async run(message, guild) {
 
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return
