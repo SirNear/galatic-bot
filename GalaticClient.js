@@ -100,4 +100,5 @@ module.exports = class GalaticClient extends Client {
 
 	  return this
 	}
-
+	
+}
