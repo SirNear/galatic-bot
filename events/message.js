@@ -71,12 +71,11 @@ module.exports = class MessageReceive {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }))
 			}).then(() => message.channel.stopTyping())
-     
-    
+	    
+	          const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
+
           	   if(!bt.hasPermission("ADMINISTRATOR")) {
 			   
-			 const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
-
       
               		  let dono = message.guild.owner
       
