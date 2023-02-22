@@ -10,6 +10,13 @@ module.exports = class MessageReceive {
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return
         let server = await this.client.database.Guilds.findById(message.guild.id)
+	 if (!server) {
+      this.client.database.Guilds({
+          _id: guild.id
+      }).save().then(msg =>{
+          console.log('Deu certo bro')
+      })
+    }
 		
 	let userDb = await this.client.database.userData.findById(message.author.id)
 
