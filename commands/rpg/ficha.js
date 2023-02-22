@@ -60,7 +60,7 @@ module.exports = class ficha extends Command {
 					    }) // collectorNome
 				    })
 
-			    }) //ms
+			    }) //msg
 		    })
 	    }
     	}
