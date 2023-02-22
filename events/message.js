@@ -67,7 +67,6 @@ module.exports = class MessageReceive {
 		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))
     
     try {
-      const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
       new Promise((res, rej) => {
 				message.channel.startTyping()
 				res(comando.run({ message, args, server }))
@@ -75,6 +74,9 @@ module.exports = class MessageReceive {
      
     
           	   if(!bt.hasPermission("ADMINISTRATOR")) {
+			   
+			 const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
+
       
               		  let dono = message.guild.owner
       
