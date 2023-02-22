@@ -1,4 +1,4 @@
-/* const Discord = require('discord.js');
+/* const Discord = require('discord.js')
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
