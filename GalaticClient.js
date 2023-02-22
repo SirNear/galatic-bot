@@ -64,29 +64,29 @@ module.exports = class GalaticClient extends Client {
 	}
 	
 	
-	async loadCommands(path) {
-  readdir(`./commands/`, (err, files) => {
-    if (err) console.error(err)
-    files.forEach(category => {
-      readdir(`./commands/${category}`, async (err, cmd) => {
-        for (const commandFile of cmd) {
-          const command = new (require(`./commands/${category}/${commandFile}`))(this)
-          command.dir = `./commands/${category}/${commandFile}`
-          this.commands.set(command.config.name, command)
-          command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
-          let c = await this.database.Bots.findById(command.config.name)
-          if (!c) {
-            c = new this.database.Bots({
-              _id: command.config.name
-            })
-            c.save()
-          }
-        }
-      })
-    })
-  })
+	loadCommands(path) {
+		readdir(`./commands/`, (err, files) => {
+			if (err) console.error(err)
+			files.forEach(category => {
+				readdir(`./commands/${category}`, (err, cmd) => {
+					cmd.forEach(async cmd => {
+						const command = new (require(`./commands/${category}/${cmd}`))(this)
+						command.dir = `./commands/${category}/${cmd}`
+						this.commands.set(command.config.name, command)
+						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
+						let c = await this.database.Bots.findById(command.config.name)
+						if (!c) {
+							c = new this.database.Bots({
+								_id: command.config.name
+							})
+							c.save()
+						}
+					})
+				})
+			})
+		})
 
-  return this
+		return this
 }
 	
 	loadEvents(path) {
