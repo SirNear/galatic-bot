@@ -90,12 +90,14 @@ module.exports = class GalaticClient extends Client {
 }
 	
 	async loadEvents(path) {
-		const file = await readdir(path)
-		
-		await Promisse.all(files.map(async (em) => {
-			const event = new (require(`./events/${em}`))(this)
-			await this.events.add(em.split(".")[0], event)
-		}))
-		
-		return this
+	  const files = await readdir(path)
+
+	  await Promise.all(files.map(async (em) => {
+	    const event = new (require(`./events/${em}`))(this)
+	    await this.events.add(em.split(".")[0], event)
+		  
+	  }))
+
+	  return this
 	}
+
