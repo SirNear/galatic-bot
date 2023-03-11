@@ -11,7 +11,6 @@ module.exports = class GalaticClient extends Client {
       intents: [
         GatewayIntentBits.GUILD_MESSAGES,
         GatewayIntentBits.GUILDS,
-        GatewayIntentBits.GUILD_EMOJIS_AND_STICKERS
       ],
       partials: [
         Partials.CHANNEL,
