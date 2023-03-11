@@ -138,7 +138,7 @@ module.exports = class painel extends Command {
 										.setLabel("<a:a:moderacao:569064320156172299>")
 										.setStyle("PRIMARY");
 									const row3 = new Discord.MessageActionRow().addComponents(warnnumberb)
-									message.channel.send({'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
+									message.channel.send({'**Envie o novo número de warns máximos(Apenas números)**'), components: [row3] }).then((m) => {
 										const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
 										const collectorwn = msg.createMessageComponentCollector({ filterwarnnumber, time: 360000 });
 										collectorwn.on("collect", (interaction) => {
