@@ -1,4 +1,5 @@
 const Client = require('./GalaticClient')
+const GatewayIntentBits = require('discord.js')
 const config = require('./config')
 const client = new Client({
    disableMentions: "everyone",
