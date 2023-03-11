@@ -7,7 +7,7 @@ const EventManager = require('./structures/EventManager.js')
 module.exports = class GalaticClient extends Client {
 
     constructor(options = {}) {
-       const intents = new Discord.intents(['GUILDS', 'GUILD_MESSAGES', 'GUILD_EMOJIS_AND_STICKERS']);
+       const intents = new Discord.intents(['GUILDS', 'GUILD_MESSAGES']);
        super({ ...options, intents })
 	    
      this.database = require('./mongoose.js')
