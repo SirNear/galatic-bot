@@ -79,7 +79,7 @@ module.exports = class painel extends Command {
 					message.channel.send('***Mencione o novo canal de punições***')
 					const filter1 = (m) => m.author.id === message.author.id;
 					const collector1 = message.channel.createMessageCollector({filter1,time: 2000})
-					collector1.on"collect", (collected) => {
+					collector1.on("collect", (collected) => {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
 						let cf1 = collected.first()
 						
