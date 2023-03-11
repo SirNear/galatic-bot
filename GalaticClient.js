@@ -8,7 +8,7 @@ module.exports = class GalaticClient extends Client {
 
     constructor(options = {}) {
      super(options),
-     intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_EMOJIS_AND_STICKERS:']
+     intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_EMOJIS_AND_STICKERS']
 	    
      this.database = require('./mongoose.js')
   
