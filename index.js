@@ -2,8 +2,6 @@ const Client = require('./GalaticClient')
 const config = require('./config')
 const client = new Client({
    disableMentions: "everyone",
-   intents: this.intents,
-   partials: ['CHANNEL']
 })
 
 
