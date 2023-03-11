@@ -5,8 +5,9 @@ const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
 
 module.exports = class GalaticClient extends Client {
-  constructor() {
+  constructor(options = {}) {
     super({
+      options,
       intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
       partials: ['CHANNEL']
     });
