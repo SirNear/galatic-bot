@@ -1,5 +1,5 @@
 const Util = require('./structures/Util.js')
-const { Client, Collection, Discord, GatewayIntentBits, Partials } = require("discord.js")
+const { Client, Collection, Discord, Intents, Partials } = require("discord.js")
 const { readdir } = require("fs")
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
