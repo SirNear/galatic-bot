@@ -5,11 +5,11 @@ const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
 
 module.exports = class GalaticClient extends Client {
-  constructor(options) {
-	  super(options);
-	  const intents = new Intents(Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS);
-	  this.options = { ...options, intents };
-
+  constructor() {
+    super({
+      intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
+      partials: ['CHANNEL']
+    });
     this.validateOptions(options);
 	    
      this.database = require('./mongoose.js')
