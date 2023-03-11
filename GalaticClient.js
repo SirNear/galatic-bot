@@ -7,13 +7,19 @@ const EventManager = require('./structures/EventManager.js')
 module.exports = class GalaticClient extends Client {
 
     constructor(options = {}) {
-       super({ ...options, intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS
+   super({
+      intents: [
+        GatewayIntentBits.GUILD_MESSAGES,
+        GatewayIntentBits.GUILDS,
+        GatewayIntentBits.GUILD_EMOJIS_AND_STICKERS
       ],
-      partials: ['CHANNEL']
-	     })
+      partials: [
+        Partials.CHANNEL,
+        Partials.MESSAGE,
+        Partials.REACTION
+      ],
+      ...options
+    });
 	    
      this.database = require('./mongoose.js')
   
