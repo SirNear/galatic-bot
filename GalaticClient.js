@@ -1,24 +1,14 @@
 const Util = require('./structures/Util.js')
-const { Client, Collection, Discord,  GatewayIntentBits, Partials } = require("discord.js")
+const { Client, Collection, Discord, GatewayIntentBits, Partials } = require("discord.js")
 const { readdir } = require("fs")
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
 
 module.exports = class GalaticClient extends Client {
-
-    constructor(options = {}) {
-   super({
-      intents: [
-        GatewayIntentBits.GUILD_MESSAGES,
-        GatewayIntentBits.GUILDS,
-      ],
-      partials: [
-        Partials.CHANNEL,
-        Partials.MESSAGE,
-        Partials.REACTION
-      ],
-      ...options
-    });
+  constructor(options = {}) {
+    const intents = new GatewayIntentBits(['GUILDS', 'GUILD_MESSAGES', 'GUILD_EMOJIS_AND_STICKERS']);
+    const partials = [Partials.CHANNEL];
+    super({ ...options, intents, partials });
 	    
      this.database = require('./mongoose.js')
   
