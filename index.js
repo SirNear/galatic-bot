@@ -2,6 +2,7 @@ const Client = require('./GalaticClient')
 const config = require('./config')
 const client = new Client({
    disableMentions: "everyone",
+   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildEmojisAndStickers, GatewayIntentBits.MessageContent]
 })
 
 
