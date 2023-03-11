@@ -1,6 +1,5 @@
 const Util = require('./structures/Util.js')
-const { Collection, Discord, Intents } = require("discord.js")
-const { Client } = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+const { Client, Collection, Discord } = require("discord.js")
 const { readdir } = require("fs")
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
