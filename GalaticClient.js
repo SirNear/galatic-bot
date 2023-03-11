@@ -8,7 +8,7 @@ module.exports = class GalaticClient extends Client {
   constructor(options = {}) {
     super({
       options,
-      intents: [GatewayIntentBits.GUILDS, GatewayIntentBits.GUILD_MESSAGES]
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildEmojisAndStickers]
     });
     this.validateOptions(options);
 	    
