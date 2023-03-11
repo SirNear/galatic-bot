@@ -73,10 +73,6 @@ module.exports = class MessageReceive {
 	  })
 	    .then(() => message.channel.stopTyping())
 	    .catch((err) => console.error(err))
-	} catch (err) {
-	  console.error(err)
-	}
-
 	    
 	          const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
 
