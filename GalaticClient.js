@@ -10,7 +10,6 @@ module.exports = class GalaticClient extends Client {
       options,
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildEmojisAndStickers]
     });
-    this.validateOptions(options);
 	    
      this.database = require('./mongoose.js')
   
