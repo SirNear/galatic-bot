@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { EmbedBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
@@ -16,7 +16,7 @@ module.exports = class mute extends Command {
   
 async run({ message, args, client, server}) {
   
-   const embedh = new Discord.MessageEmbed()
+   const embedh = new EmbedBuilder()
   .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO MUTE** | <:DuvidaMario:566084477114384387>`)
   .setDescription(`Utilize \`${server.prefix}mute <usuario> <tempo> <motivo>\``)
   .setColor('RANDOM');
@@ -69,38 +69,38 @@ async run({ message, args, client, server}) {
       }
 
 
-      const dmembed = new Discord.MessageEmbed()
+      const dmembed = new EmbedBuilder()
           .setThumbnail(message.guild.iconURL)
           .setAuthor(message.guild.name)
           .setDescription(`Você foi punido por desrespeitar as regras do servidor ${message.guild.name}`)
-          .addField("***Punição | Mutado***")
-          .addField("*** Staff***", `${message.author.username}`)
-          .addField("**Tempo**", `${mutetime}`)
-          .addField(" ***ID do staff***", `${message.author.id}`)
-          .addField(" ***Motivo***", reason)
+          .addFields("***Punição | Mutado***")
+          .addFields("*** Staff***", `${message.author.username}`)
+          .addFields("**Tempo**", `${mutetime}`)
+          .addFields(" ***ID do staff***", `${message.author.id}`)
+          .addFields(" ***Motivo***", reason)
           .setColor(color.moderation)
 
 
-    const unmutem = new Discord.MessageEmbed()
+    const unmutem = new EmbedBuilder()
     .setThumbnail(member.user.avatarURL)
     .setTitle('***Punição | Desmutado***')
-    .addField('***Usuário***', member)
-    .addField('***ID do Usuário***', member.id)
-    .addField('***Motivo***', ' AUTO')
+    .addFields('***Usuário***', member)
+    .addFields('***ID do Usuário***', member.id)
+    .addFields('***Motivo***', ' AUTO')
     .setColor(color.moderation)
 
 
 
-      const muteembed = new Discord.MessageEmbed()
+      const muteembed = new EmbedBuilder()
           .setThumbnail(member.user.avatarURL)
           .setDescription(`O usuário foi punido(a) por desrespeitar as regras do servidor!`)
-          .addField("🚫 |*** Punição | Mute***")
-          .addField("👮🏻 | ***Staff***", `${message.author.username}`)
-          .addField("🔧 | ***ID do staff***", `${message.author.id}`)
-          .addField("👤 | ***Usuário***", `${member}`)
-          .addField("⚙️ | ***ID do usuário***:", `${member.id}`)
-          .addField("**Tempo**", `${mutetime}`)
-          .addField("📑 | ***Motivo***", reason)
+          .addFields("🚫 |*** Punição | Mute***")
+          .addFields("👮🏻 | ***Staff***", `${message.author.username}`)
+          .addFields("🔧 | ***ID do staff***", `${message.author.id}`)
+          .addFields("👤 | ***Usuário***", `${member}`)
+          .addFields("⚙️ | ***ID do usuário***:", `${member.id}`)
+          .addFields("**Tempo**", `${mutetime}`)
+          .addFields("📑 | ***Motivo***", reason)
           .setColor(color.moderation)
           .setTimestamp(new Date())
 
