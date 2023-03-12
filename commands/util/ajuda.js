@@ -28,7 +28,7 @@ module.exports = class ajuda extends Command {
    	    {name: `<:PeepoPing:810735232918487091> Configuração do Servidor | (${this.getCommmandSize("config")})`, value: this.getCategory("config", server.prefix)},
 	    {name: `**Convite do Bot**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8)"}
      )
-     client.users.send(message.author.id, embed).then(() => {
+     this.client.users.send(message.author.id, embed).then(() => {
 	message.reply('**Verifique sua DM**')
 }).catch(() => {
 	message.reply('**Erro: Talvez sua DM esteja fechada, pois não consegui lhe enviar mensagem =c**')
