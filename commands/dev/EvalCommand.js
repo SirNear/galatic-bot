@@ -1,4 +1,4 @@
-const { MessageEmbed } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
@@ -26,7 +26,7 @@ module.exports = class EvalCommand extends Command {
 
         if (typeof code !== 'string')
             code = require('util').inspect(code, { depth: 0 });
-        let embed = new MessageEmbed()
+        let embed = new EmbedBuilder()
         .setColor('#2EFE64')   
         .addField('📥 Entrada:', `\`\`\`js\n${codein}\`\`\``)
         .addField(':outbox_tray: Saida:', `\`\`\`js\n${code}\n\`\`\``)
