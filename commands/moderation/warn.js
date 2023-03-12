@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { EmbedBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
@@ -19,7 +19,7 @@ module.exports = class warn extends Command {
 	}
   
 async run({ message, args, client, server}) {
-    const embedh = new Discord.MessageEmbed()
+    const embedh = new EmbedBuilder()
   .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO MUTE** | <:DuvidaMario:566084477114384387>`)
   .setDescription(`Utilize \`${server.prefix}mute <usuario> <tempo> <motivo>\``)
   .setColor('RANDOM');
@@ -51,14 +51,14 @@ async run({ message, args, client, server}) {
 
     warn.save()
 
-    let warnEmbed = new Discord.MessageEmbed()
+    let warnEmbed = new EmbedBuilder()
     .setTitle(`***Punição | Aviso - ${message.guild.name}***`)
     .setColor(color.moderation)
     .setThumbnail(message.author.displayAvatarURL)
-    .addField("***Usuário avisado***", `${wUser.user}`)
-    .addField("***Avisado por***",`${message.author}`)
-    .addField("***Avisado no canal***", message.channel)
-    .addField("***Motivo***", reason)
+    .addFields("***Usuário avisado***", `${wUser.user}`)
+    .addFields("***Avisado por***",`${message.author}`)
+    .addFields("***Avisado no canal***", message.channel)
+    .addFields("***Motivo***", reason)
     .setFooter(`Usuário avisado ${wUser.id}`);
 
    let warnchannel = message.guild.channels.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))  
