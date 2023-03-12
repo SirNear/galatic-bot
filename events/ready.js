@@ -67,9 +67,9 @@ module.exports = class {
 			{name: 'Servidor de suporte em andamento.', type: ActivityType.Playing}
 		]
 		
-		setInterval(() => {
+		setInterval(function() => {
 			let randomStatus = status[Math.floor(Math.random() * status.length)]
-			this.client.user.setPresence({ activities: [randomStatus.name, {type: randomStatus.type}], status: 'idle' })
+			this.client.user.setActivity(randomStatus.name, {type: randomStatus.type})
 		}, 30000)
 		
 	}
