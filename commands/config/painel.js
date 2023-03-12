@@ -2,7 +2,7 @@ const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
-const { MessageButton } = require('discord.js');
+const { MessageButton, EmbedBuilder } = require('discord.js');
 
 
 module.exports = class painel extends Command {
@@ -23,7 +23,7 @@ module.exports = class painel extends Command {
      switch(args[0]) {
         case "ver":
         
-            const embedv = new Discord.MessageEmbed()
+            const embedv = new EmbedBuilder()
             .setColor('RANDOM')
             .setTitle('<:Servidor:564589119334776862> | ***Configurações do Servidor***')
             .addField('<:clipe:573934199862722562> | ***Prefix do Bot:***', server.prefix)
@@ -115,7 +115,7 @@ module.exports = class painel extends Command {
 					})//collector3
 				break;
 				case "4":
-				        const helpAutoMute = new Discord.MessageEmbed()
+				        const helpAutoMute = new EmbedBuilder()
 					    .setTitle('<:notificacaopwp:566085275323727893> | **Configuração do Sistema de Auto Silenciamento** | <:notificacaopwp:566085275323727893>>')
 					    .setColor('RANDOM')					
 					if(server.warnTag.includes === 'Desativado') {
@@ -199,7 +199,7 @@ module.exports = class painel extends Command {
 					//fim case "4"
 				break;
 				case "5":
-					const embedInit = new Discord.MessageEmbed()
+					const embedInit = new EmbedBuilder()
 						.setTitle('**Cargo de Moderação**')
 						.setDescription(`Aquele que possuir este cargo terá permissões em vários comandos exclusivos e configurações automáticas do bot. \n \n **Cargo Atual:** ${server.staffRole} \n \n Reaja com "<:lolipolice:669705464447107073>" para alterar. `)
 					const cargomodb = new Discord.MessageButton()
@@ -228,7 +228,7 @@ module.exports = class painel extends Command {
 					})//m cargo mod edit
 				break;
 				case "6":
-					const embedHelpC = new Discord.MessageEmbed()
+					const embedHelpC = new EmbedBuilder()
 						.setTitle('**Categoria de Monitoramento**')
 						.setDescription(`Definirá a categoria onde serão criados os canais de Monitoramento. Digite \`${server.prefix}monitor\` para saber mais. \n \n Reaja com "<:MotivosparaViver:572157111471964200>" para modificar a categoria.`)
 					const monicatb = new Discord.MessageButton()
@@ -267,7 +267,7 @@ module.exports = class painel extends Command {
 
 				break;
         			default: 
-					const embedd = new Discord.MessageEmbed()
+					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
 					    .setDescription(`<:dnd:572210462993940482> | Utilize \`${server.prefix}painel ver\` para editar o painel.`)
 					    .addField('**Padrões**','Os canais são definidos por padrões. \n ⠀\n **Exemplo:** `#avisos`, `#sugestões`, e assim por diante. \n Você pode editar isso através do painel. \n ⠀ \n Caso apareça a mensagem "***Canal de `xxxxx` alterado para `padrão`.***", é porque o canal foi definido com o padrão a cima.')
