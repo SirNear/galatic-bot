@@ -1,3 +1,5 @@
+const ActivityType = require('discord.js')
+
 module.exports = class {
 
 	constructor(client) {
