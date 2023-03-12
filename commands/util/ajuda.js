@@ -26,7 +26,7 @@ module.exports = class ajuda extends Command {
 	    {name: `<:3223_ComfyAmongus:810735118615314443> Desenvolvedor | (${this.getCommmandSize("dev")})`, value: this.getCategory("dev", server.prefix)},
 	    {name: `<:7992_AmongUs_Investigate:810735122462670869> Moderação | (${this.getCommmandSize("moderation")})`, value: this.getCategory("moderation", server.prefix)},
    	    {name: `<:PeepoPing:810735232918487091> Configuração do Servidor | (${this.getCommmandSize("config")})`, value: this.getCategory("config", server.prefix)},
-	    {name: `**Convite do Bot**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8)")}
+	    {name: `**Convite do Bot**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8)"}
      )
      message.author.send(embed).then(() => {
 	message.reply('**Verifique sua DM**')
