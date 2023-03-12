@@ -10,4 +10,5 @@ const client = new Client({
 client.loadCommands('./commands')
 client.loadEvents('./events')
 client.login(config.token)
-   console.log("Acordei!!")
+.then(() => console.log("Acordei"))
+.catch((err) => console.log(`Erro ao iniciar: ${err.message}`));
