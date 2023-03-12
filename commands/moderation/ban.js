@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { EmbedBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
@@ -22,7 +22,7 @@ module.exports = class ban extends Command {
  if (!message.member.hasPermission('BAN_MEMBERS')) return error.Adm(message)
 
      
-     const embedh = new Discord.MessageEmbed()
+     const embedh = new EmbedBuilder()
 .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO BAN** | <:DuvidaMario:566084477114384387>`)
 .setDescription(`Utilize \`${server.prefix}ban <usuario> <motivo>\``)
 .setFooter('Você sabia que se adicionar *force* ao final do motivo, não irá receber confirmação?')
@@ -46,43 +46,43 @@ if(!reason) reason = "Sem motivo";
   if(mb.roles.highest.rawPosition < member.roles.highest.rawPosition) return error.highRole(message)
   if(mb.roles.highest.rawPosition == member.roles.highest.rawPosition) return error.equalRole(message)
   
-  const sucesso = new Discord.MessageEmbed()
+  const sucesso = new EmbedBuilder()
   .setTitle("Ban | Sucesso!")
   .setDescription(`O membro ${member} foi banido com sucesso do servidor por ${message.author}`)
   .setColor(color.moderation)
   
-const reactembed = new Discord.MessageEmbed()
+const reactembed = new EmbedBuilder()
 .setDescription(`**Deseja banir permanentemente o(a) ${member} do servidor?**`)
-.addField('**Se sim, clique na reação:**', '**"<:sun_ban:589205510000082947>"**')
+.addFields('**Se sim, clique na reação:**', '**"<:sun_ban:589205510000082947>"**')
 .setColor(color.moderation);
 
 if(reason.includes('force')) {
 
   reason = reason.split("force")
 
-           const dmembed = new Discord.MessageEmbed()
+        const dmembed = new EmbedBuilder()
         .setThumbnail(member.user.avatarURL)
         .setAuthor(`${message.guild.name}`, message.guild.iconURL)
         .setDescription(`Você foi banido do ${message.guild.name} por desrespeitar as regras!`)
         .setTitle("*** Punição | Banimento***")
-        .addField("👮🏻 |*** Staff***", `${message.author.username}`)
-        .addField("🔧 | ***ID do staff***", `${message.author.id}`)
-        .addField("📑 | ***Motivo***", reason)
+        .addFields("👮🏻 |*** Staff***", `${message.author.username}`)
+        .addFields("🔧 | ***ID do staff***", `${message.author.id}`)
+        .addFields("📑 | ***Motivo***", reason)
         .setColor(color.moderation)
         .setTimestamp(new Date());
 
         
-    const banembed = new Discord.MessageEmbed()
+    const banembed = new EmbedBuilder()
 
         .setThumbnail(member.user.avatarURL)
         .setAuthor(`${message.guild.name}`, message.guild.iconURL)
         .setDescription(`O usuário foi punido(a) por desrespeitar as regras do servidor!`)
         .setTitle("*** Punição | Banimento***")
-        .addField("👮🏻 |*** Staff***", `${message.author.username}`)
-        .addField("🔧 | ***ID do staff***", `${message.author.id}`)
-        .addField("👤 | ***Usuário***", `${member}`)
-        .addField("⚙️ | ***ID do usuário***:", `${member.id}`)
-        .addField("📑 | ***Motivo***", reason)
+        .addFields("👮🏻 |*** Staff***", `${message.author.username}`)
+        .addFields("🔧 | ***ID do staff***", `${message.author.id}`)
+        .addFields("👤 | ***Usuário***", `${member}`)
+        .addFields("⚙️ | ***ID do usuário***:", `${member.id}`)
+        .addFields("📑 | ***Motivo***", reason)
         .setColor(color.moderation)
         .setTimestamp(new Date());
 
