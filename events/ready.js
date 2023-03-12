@@ -7,6 +7,8 @@ module.exports = class {
 	}
 
 	async run() {
+		
+		console.log('Parâmetro "message" carregado com sucesso!');
 		/*
 		
 		const guildR = await this.client.database.gReacts.findById()
