@@ -20,7 +20,7 @@ module.exports = class ajuda extends Command {
     .setColor('#bc42f4')
     .setTimestamp()
     .setThumbnail(this.client.user.displayAvatarURL())
-    .setAuthor(`${message.guild.name} | Menu de Ajuda`, message.guild.iconURL({ dynamic: true }))	       
+    .setAuthor({name: `${message.guild.name} | Menu de Ajuda`, iconURL: message.guild.iconURL({ dynamic: true })})	       
     .addFields(
 	    {name: `<:7079_rimuru_slime_shocked:810735162286407742> Utilitário | (${this.getCommmandSize("util")})`, value: this.getCategory("util", server.prefix)},
 	    {name: `<:3223_ComfyAmongus:810735118615314443> Desenvolvedor | (${this.getCommmandSize("dev")})`, value: this.getCategory("dev", server.prefix)},
