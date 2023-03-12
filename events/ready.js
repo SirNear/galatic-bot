@@ -69,7 +69,7 @@ module.exports = class {
 		
 		setInterval(() => {
 			let randomStatus = status[Math.floor(Math.random() * status.length)]
-			this.client.user.setPresence({ activities: [randomStatus], status: 'idle' })
+			this.client.user.setPresence({ activities: [randomStatus.name, {type: randomStatus.type}], status: 'idle' })
 		}, 30000)
 		
 	}
