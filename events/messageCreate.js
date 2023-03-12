@@ -69,9 +69,9 @@ module.exports = class MessageReceive {
     
     try {
       new Promise((res, rej) => {
-		message.channel.startTyping()
+		message.channel.sendTyping()
 		res(comando.run({ message, args, server }))
-	}).then(() => message.channel.stopTyping())
+	})
 	    
 	          const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
 
