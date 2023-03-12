@@ -30,8 +30,8 @@ module.exports = class ajuda extends Command {
      )
      this.client.users.send(message.author.id, embed).then(() => {
 	message.reply('**Verifique sua DM**')
-}).catch(() => {
-	console.log(err)
+}).catch((err) => {
+	console.log(`Erro no comando 'ajuda': ${err.message}`)
 	message.reply('**Erro: Talvez sua DM esteja fechada, pois não consegui lhe enviar mensagem =c**')
 
 })
