@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const {EmbedBuilder, Discord} = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
@@ -36,7 +36,7 @@ module.exports = class clearwarn extends Command {
    if(wUser === mb) return error.autoClearWarn(message)
    if(warn.warnNumber == '0') return error.noWarn(message)
    
-   let embed = new Discord.MessageEmbed()
+   let embed = new EmbedBuilder()
    .setTitle('**Punição | Galatic Bot**')
    .setDescription(`Todos os avisos de ${wUser} foram retirados por ${mb}.`)
    .setTimestamp()
