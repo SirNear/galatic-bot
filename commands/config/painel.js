@@ -26,12 +26,14 @@ module.exports = class painel extends Command {
             const embedv = new EmbedBuilder()
             .setColor('RANDOM')
             .setTitle('<:Servidor:564589119334776862> | ***Configurações do Servidor***')
-            .addFields('<:clipe:573934199862722562> | ***Prefix do Bot:***', server.prefix)
-            .addFields('<:berror:563100784711958528> | ***Canal de Punições:***', server.cPunicoes)
-            .addFields('<:muted:572627076948164608> | **Cargo de Mute**', server.cargoMute)
-            .addFields('<a:latencia:562893011021987852> | **Sistema de Mute Automático**', server.warnTag)
-            .addFields('<:lolipolice:669705464447107073> | **Cargo de Moderação**', server.staffRole)
-            .addFields('<:MotivosparaViver:572157111471964200> | **Categoria para Monitoramentos**', '<#' + server.monitorCategory + '>')
+            .addFields(
+		    {name: '<:clipe:573934199862722562> | ***Prefix do Bot:***', value: server.prefix},
+		    {name: '<:berror:563100784711958528> | ***Canal de Punições:***', value: server.cPunicoes},
+		    {name: '<:muted:572627076948164608> | **Cargo de Mute**', value: server.cargoMute},
+		    {name: '<a:latencia:562893011021987852> | **Sistema de Mute Automático**', value: server.warnTag},
+		    {name: '<:lolipolice:669705464447107073> | **Cargo de Moderação**', value: server.staffRole},
+		    {name: '<:MotivosparaViver:572157111471964200> | **Categoria para Monitoramentos**', value: '<#' + server.monitorCategory + '>'}
+	    )
             .setThumbnail(message.guild.iconURL)
             .setTimestamp();
 
@@ -270,7 +272,7 @@ module.exports = class painel extends Command {
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
 					    .setDescription(`<:dnd:572210462993940482> | Utilize \`${server.prefix}painel ver\` para editar o painel.`)
-					    .addFields('**Padrões**','Os canais são definidos por padrões. \n ⠀\n **Exemplo:** `#avisos`, `#sugestões`, e assim por diante. \n Você pode editar isso através do painel. \n ⠀ \n Caso apareça a mensagem "***Canal de `xxxxx` alterado para `padrão`.***", é porque o canal foi definido com o padrão a cima.')
+					    .addFields({value: '**Padrões**','Os canais são definidos por padrões. \n ⠀\n **Exemplo:** `#avisos`, `#sugestões`, e assim por diante. \n Você pode editar isso através do painel. \n ⠀ \n Caso apareça a mensagem "***Canal de `xxxxx` alterado para `padrão`.***", é porque o canal foi definido com o padrão a cima.'})
 					    .setThumbnail(message.guild.iconURL)
 					    .setTimestamp();
 
