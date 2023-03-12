@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { EmbedBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
@@ -31,14 +31,14 @@ async run({ message, args, client, server}) {
         if (!infrator) return message.channel.send(`<:error_2:676239899065843722> | *${message.author.username} desculpe, não encontrei nem uma menção ou ID em seu comando, tente novamente* ` + `*usando:* \n \`${server.prefix}kick @user/Id Motivo\``);
 
 
-        const embeddmK = new Discord.MessageEmbed()
+        const embeddmK = new EmbedBuilder()
             .setTitle('Punição | Galatic Bot')
             .setThumbnail('https://i.pinimg.com/originals/a1/1f/a3/a11fa3cdbfd567f934b6c0151c6a6d8b.gif')
             .setDescription(`Você foi \`Kickado\` do servidor ${message.guild.name} \n **Staff:** ` + `${rMember} ` + ' \n **Motivo:** ' + `${reason2}`)
             .setImage('https://cdn.discordapp.com/attachments/462634982175932428/675871123094634526/C.gif')
             .setFooter('Galatic Bot - Punições');
 
-      const embedK = new Discord.MessageEmbed()
+      const embedK = new EmbedBuilder()
             .setTitle("Punição | Galatic Bot")
             .setThumbnail('https://i.pinimg.com/originals/a1/1f/a3/a11fa3cdbfd567f934b6c0151c6a6d8b.gif')
             .setDescription('**Tipo da punição:** `Kick` \n ⠀ \n **Usuário punido: **' + `${infrator.user.username} **|** ID: ${infrator.id} ` + ' \n ⠀ \n **Staff:** ' + `${message.author.username} **|** ID: ${message.author.id} ` + '\n ⠀ \n **Motivo:** ' + `${reason2}`)
