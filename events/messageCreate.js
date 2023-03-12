@@ -73,7 +73,7 @@ module.exports = class MessageReceive {
 		res(comando.run({ message, args, server }))
 	})
 	    
-	          const bt = message.guild.member(message.guild.members.cache.get(this.client.user.id))
+	          const bt = message.guild.members.cache.get(this.client.user.id)
 
           	   if(!bt.hasPermission("ADMINISTRATOR")) {
 			   
