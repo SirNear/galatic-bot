@@ -69,7 +69,7 @@ module.exports = class {
 		
 		setInterval(() => {
 			let randomStatus = status[Math.floor(Math.random() * status.length)]
-			this.client.user.setActivity(randomStatus, {type: ActivityType.Playing} )
+			this.client.user.setActivity(randomStatus, {type: randomStatus} )
 		}, 10000)
 		
 	}
