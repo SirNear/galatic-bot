@@ -6,6 +6,7 @@ module.exports = class MessageReceive {
 	}
 
 	async run(message) {
+		console.log('Parâmetro "message" carregado com sucesso!');
 
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return
