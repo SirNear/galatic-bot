@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { EmbedBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 
 module.exports = class monitorar extends Command {
@@ -21,7 +21,7 @@ module.exports = class monitorar extends Command {
       let monitored = message.mentions.members.first() || message.guild.members.cache.get(args[0])
 
         if(!monitored) {
-        let embedH = new Discord.MessageEmbed()
+        let embedH = new EmbedBuilder()
         .setTitle('<:hanako_what1:572426031370338315> | **Ajuda: Monitoramento**')
         .setDescription(`Quer ficar de olho nas mensagens de algum infrator junior? Utilize \`${server.prefix}monitor <user>\` e ative o monitoramento de mensagens dele, onde o bot criará um canal com o username dele numa categoria pré-definida e lá enviará todas as mensagens do usuário. \n \n É restrito aos que possuirem o cargo de moderação apenas, verifique o \`${server.prefix}painel ver\` \n \n Para retirar um monitoramento utilize o comando novamente mencionando o usuário desejado e siga as instruções.`)
         .setTimestamp()
@@ -50,7 +50,7 @@ module.exports = class monitorar extends Command {
 
       if(userData.monitor == 'ativado') { 
 
-        let antiMonitor = new Discord.MessageEmbed()
+        let antiMonitor = new EmbedBuilder()
         .setColor('RANDOM')
         .setTitle('**Este usuário já está sendo monitorado.**')
         .setDescription('Deseja retirar o monitoramento? \n \n <a:verify:695070409787310170> | Sim. \n \n <a:negativo:563096795907883010> | Não.')
