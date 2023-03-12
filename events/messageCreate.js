@@ -1,4 +1,4 @@
-const Discord = require('discord.js')
+const { EmbedBuilder, Discord } = require('discord.js')
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -75,12 +75,12 @@ module.exports = class MessageReceive {
 	    
 	          const bt = message.guild.members.cache.get(this.client.user.id)
 
-          	   if(!bt.hasPermission("ADMINISTRATOR")) {
+          	   if(!bt.permissions.has("ADMINISTRATOR")) {
 			   
       
               		  let dono = message.guild.owner
       
-           	         const embed = new Discord.MessageEmbed()
+           	         const embed = new EmbedBuilder()
              		   .setColor('RANDOM')
                		   .setTitle('<:error_2:676239899065843722> | Sem Permissão | <:error_2:676239899065843722>')
                 	   .setDescription(`Olá ${dono.user}, estou no seu servidor ${message.guild.name} porém meu cargo está sem a permissão \`ADMINISTRADOR\` e preciso dela para funcionar.`)
