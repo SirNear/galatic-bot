@@ -44,7 +44,7 @@ module.exports = class painel extends Command {
             	      const punib = new ButtonBuilder()
 			.setCustomId("1")
 			.setLabel("<:berror:563100784711958528>")
-			.setStyle("PRIMARY");
+			.setStyle(ButtonStyle.Primary);
 		      const prefixb = new ButtonBuilder()
 			.setCustomId("2")
 			.setLabel("<:clipe:573934199862722562>")
