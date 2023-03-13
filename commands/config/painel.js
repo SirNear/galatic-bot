@@ -24,7 +24,7 @@ module.exports = class painel extends Command {
         case "ver":
         
             const embedv = new EmbedBuilder()
-            .setColor('RANDOM')
+            .setColor(color.green)
             .setTitle('<:Servidor:564589119334776862> | ***Configurações do Servidor***')
             .addFields(
 		    {name: '<:clipe:573934199862722562> | ***Prefix do Bot:***', value: server.prefix},
