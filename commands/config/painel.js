@@ -85,7 +85,7 @@ module.exports = class painel extends Command {
 				case "1":
 					message.channel.send('***Mencione o novo canal de punições***')
 					const filter1 = (m) => m.author.id === message.author.id;
-					const collector1 = new MessageCollector(message.channel, filter {time: 2000})
+					const collector1 = new MessageCollector(message.channel, filter, {time: 2000})
 					collector1.on("collect", (collected) => {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
 						let cf1 = collected.first()
