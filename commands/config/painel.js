@@ -270,7 +270,7 @@ module.exports = class painel extends Command {
 				break;
         			default: 
 		     
-		     			let guildicon = message.guild.iconURL
+		     			let guildicon = message.guild.iconURL()
 					if(!guildicon) guildicon = this.client.user.avatarURL
 		     
 					const embedd = new EmbedBuilder()
