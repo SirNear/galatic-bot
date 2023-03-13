@@ -30,6 +30,7 @@ module.exports = class painel extends Command {
             const embedv = new EmbedBuilder()
             .setColor(color.green)
             .setTitle('<:Servidor:564589119334776862> | ***Configurações do Servidor***')
+	    .setDescription('Selecione o que deseja modificar')
             .addFields(
 		    {name: '<:clipe:573934199862722562> | ***Prefix do Bot:***', value: server.prefix},
 		    {name: '<:berror:563100784711958528> | ***Canal de Punições:***', value: server.cPunicoes},
@@ -43,27 +44,27 @@ module.exports = class painel extends Command {
 
             	      const punib = new ButtonBuilder()
 			.setCustomId("1")
-			.setLabel("<:berror:563100784711958528>")
+			.setLabel("CANAL DE PUNIÇÕES")
 			.setStyle(ButtonStyle.Primary);
 		      const prefixb = new ButtonBuilder()
 			.setCustomId("2")
-			.setLabel("<:clipe:573934199862722562>")
+			.setLabel("PREFIX")
 			.setStyle(ButtonStyle.Primary);
 		      const carmuteb = new ButtonBuilder()
 			.setCustomId("3")
-			.setLabel("<:muted:572627076948164608>")
+			.setLabel("CARGO DE MUTE")
 			.setStyle(ButtonStyle.Primary);
 		      const muteautob = new ButtonBuilder()
 			.setCustomId("4")
-			.setLabel("<a:latencia:562893011021987852>")
+			.setLabel("SISTEMA DE MUTE AUTOMATICO")
 			.setStyle(ButtonStyle.Primary);
 		      const carmodb = new ButtonBuilder()
 			.setCustomId("5")
-			.setLabel("<:lolipolice:669705464447107073>")
+			.setLabel("CARGO DE MODERAÇÃO")
 			.setStyle(ButtonStyle.Primary);
 		      const catmonib = new ButtonBuilder()
 			.setCustomId("6")
-			.setLabel("<:MotivosparaViver:572157111471964200>")
+			.setLabel("CATEGORIA DE MONITORAMENTOS")
 			.setStyle(ButtonStyle.Primary);
 
 		      const row = new ActionRowBuilder().addComponents(
