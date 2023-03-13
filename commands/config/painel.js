@@ -269,11 +269,14 @@ module.exports = class painel extends Command {
 
 				break;
         			default: 
+		     
+		     			const guildicon = message.guild.iconURL
+					if(!guildicon) guildicon = this.client.user.avatarURL
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
 					    .setDescription(`<:dnd:572210462993940482> | Utilize \`${server.prefix}painel ver\` para editar o painel.`)
 					    .addFields({name: '**Padrões**', value: 'Os canais são definidos por padrões. \n ⠀\n **Exemplo:** `#avisos`, `#sugestões`, e assim por diante. \n Você pode editar isso através do painel. \n ⠀ \n Caso apareça a mensagem "***Canal de `xxxxx` alterado para `padrão`.***", é porque o canal foi definido com o padrão a cima.'})
-					    .setThumbnail(message.guild.iconURL)
+					    .setThumbnail(guildicon)
 					    .setTimestamp();
 
 				        message.channel.send(embedd);
