@@ -75,7 +75,7 @@ module.exports = class painel extends Command {
 		      );
 		     const row11 = new ActionRowBuilder().addComponents(catmonib)
 		    
-		    message.channel.send({ embeds: [embedv], components: [row, row11]).then((msg) => {
+		    message.channel.send({ embeds: [embedv], components: [row, row11]}).then((msg) => {
 		     const filter = (interaction) => interaction.user.id === message.author.id;
 		     const collector = msg.createMessageComponentCollector({ filter, time: 360000 });	
 		    
