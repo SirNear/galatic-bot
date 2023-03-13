@@ -271,7 +271,7 @@ module.exports = class painel extends Command {
         			default: 
 		     
 		     			let guildicon = message.guild.iconURL()
-					if(!guildicon) guildicon = this.client.user.avatarURL
+					if(!guildicon) guildicon = this.client.user.avatarURL()
 		     
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
