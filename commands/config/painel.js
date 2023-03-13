@@ -270,8 +270,9 @@ module.exports = class painel extends Command {
 				break;
         			default: 
 		     
-		     			const guildicon = message.guild.iconURL
+		     			let guildicon = message.guild.iconURL
 					if(!guildicon) guildicon = this.client.user.avatarURL
+		     
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
 					    .setDescription(`<:dnd:572210462993940482> | Utilize \`${server.prefix}painel ver\` para editar o painel.`)
