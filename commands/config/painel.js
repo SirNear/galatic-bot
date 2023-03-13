@@ -85,7 +85,7 @@ module.exports = class painel extends Command {
 				case "1":
 					message.channel.send('***Mencione o novo canal de punições***')
 					const filter1 = (m) => m.author.id === message.author.id;
-					const collector1 = message.channel.createMessageCollector({filter1,time: 2000})
+					const collector1 = interaction.channel.createMessageCollector({filter1,time: 2000})
 					collector1.on("collect", (collected) => {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
 						let cf1 = collected.first()
@@ -100,7 +100,7 @@ module.exports = class painel extends Command {
 				case "2":
 					message.channel.send('***Digite o novo prefix do servidor***')
 					const f2 = (m) => m.author.id === message.author.id
-					const collector2 = message.channel.createMessageCollector(f2, { time: 20000}).then(collected => {
+					const collector2 = interaction.channel.createMessageCollector(f2, { time: 20000}).then(collected => {
 						let newPrefix = collected.first()
 						server.prefix = newPrefix
 						if(!newPrefix) newPrefix = 'g!'
@@ -111,7 +111,7 @@ module.exports = class painel extends Command {
 				case "3":
 					message.channel.send('**Mencione o novo cargo de mute**')
 					const f3 = m => m.author.id === message.author.id
-					const collector3 = message.channel.createMessageCollector(f3, {time:20000}).then(collected => {
+					const collector3 = interaction.channel.createMessageCollector(f3, {time:20000}).then(collected => {
 						let novoCargo = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" "))
 						let cargo = collected.first()
 						novoCargo = cargo
