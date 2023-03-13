@@ -21,7 +21,7 @@ module.exports = class painel extends Command {
 	 run({ message, args, client, server}) {
 		 
 		 
-		 const guildicon = message.guild.iconURL()
+		 let guildicon = message.guild.iconURL()
 		if(!guildicon) guildicon = this.client.user.avatarURL()
      
      switch(args[0]) {
