@@ -75,7 +75,7 @@ module.exports = class painel extends Command {
 			catmonib
 		      );
 		    
-		    message.channel.send({ embeds: [embedv], components: [{type: 1, components: [row[0], row[1], row[2], row[3], row[4]], type: 1, components: [row[5]]}] }).then((msg) => {
+		    message.channel.send({ embeds: [embedv], components: [{type: 1, components: [row[0], row[1], row[2], row[3], row[4]]}, {type: 1, components: [row[5]]}] }).then((msg) => {
 		     const filter = (interaction) => interaction.user.id === message.author.id;
 		     const collector = msg.createMessageComponentCollector({ filter, time: 360000 });	
 		    
