@@ -19,6 +19,10 @@ module.exports = class painel extends Command {
 	}
   
 	 run({ message, args, client, server}) {
+		 
+		 
+		 const guildicon = message.guild.iconURL()
+		if(!guildicon) guildicon = this.client.user.avatarURL()
      
      switch(args[0]) {
         case "ver":
@@ -34,7 +38,7 @@ module.exports = class painel extends Command {
 		    {name: '<:lolipolice:669705464447107073> | **Cargo de Moderação**', value: server.staffRole},
 		    {name: '<:MotivosparaViver:572157111471964200> | **Categoria para Monitoramentos**', value: '<#' + server.monitorCategory + '>'}
 	    )
-            .setThumbnail(message.guild.iconURL)
+            .setThumbnail(guildicon)
             .setTimestamp();
 
             	      const punib = new Discord.MessageButton()
@@ -270,8 +274,7 @@ module.exports = class painel extends Command {
 				break;
         			default: 
 		     
-		     			let guildicon = message.guild.iconURL()
-					if(!guildicon) guildicon = this.client.user.avatarURL()
+
 		     
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
