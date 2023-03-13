@@ -280,7 +280,7 @@ module.exports = class painel extends Command {
 					    .setThumbnail(guildicon)
 					    .setTimestamp();
 
-				        message.channel.send(embedd);
+				        message.channel.send({ embeds: [embedd] });
      }//switch
 	 }
   
