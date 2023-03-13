@@ -100,7 +100,8 @@ module.exports = class painel extends Command {
 				case "2":
 					message.channel.send('***Digite o novo prefix do servidor***')
 					const f2 = (m) => m.author.id === message.author.id
-					const collector2 = new MessageCollector(message.channel, f2, { time: 20000}).then(collected => {
+					const collector2 = new MessageCollector(message.channel, f2, { time: 20000})
+					collector2.on("collect", (collected) => {
 						let newPrefix = collected.first()
 						server.prefix = newPrefix
 						if(!newPrefix) newPrefix = 'g!'
