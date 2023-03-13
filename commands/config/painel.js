@@ -2,7 +2,7 @@ const Discord = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
-const { MessageButton, EmbedBuilder } = require('discord.js');
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder } = require('discord.js');
 
 
 module.exports = class painel extends Command {
@@ -41,32 +41,32 @@ module.exports = class painel extends Command {
             .setThumbnail(guildicon)
             .setTimestamp();
 
-            	      const punib = new Discord.MessageButton()
+            	      const punib = new ButtonBuilder()
 			.setCustomId("1")
 			.setLabel("<:berror:563100784711958528>")
 			.setStyle("PRIMARY");
-		      const prefixb = new Discord.MessageButton()
+		      const prefixb = new ButtonBuilder()
 			.setCustomId("2")
 			.setLabel("<:clipe:573934199862722562>")
 			.setStyle("PRIMARY");
-		      const carmuteb = new Discord.MessageButton()
+		      const carmuteb = new ButtonBuilder()
 			.setCustomId("3")
 			.setLabel("<:muted:572627076948164608>")
 			.setStyle("PRIMARY");
-		      const muteautob = new Discord.MessageButton()
+		      const muteautob = new ButtonBuilder()
 			.setCustomId("4")
 			.setLabel("<a:latencia:562893011021987852>")
 			.setStyle("PRIMARY");
-		      const carmodb = new Discord.MessageButton()
+		      const carmodb = new ButtonBuilder()
 			.setCustomId("5")
 			.setLabel("<:lolipolice:669705464447107073>")
 			.setStyle("PRIMARY");
-		      const catmonib = new Discord.MessageButton()
+		      const catmonib = new ButtonBuilder()
 			.setCustomId("6")
 			.setLabel("<:MotivosparaViver:572157111471964200>")
 			.setStyle("PRIMARY");
 
-		      const row = new Discord.MessageActionRow().addComponents(
+		      const row = new ActionRowBuilder().addComponents(
 			punib,
 			prefixb,
 			carmuteb,
@@ -126,11 +126,11 @@ module.exports = class painel extends Command {
 					    .setColor('RANDOM')					
 					if(server.warnTag.includes === 'Desativado') {
 						helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:dnd:572210462993940482> | Status Desativado. \n \n Reaja com "<:StatusOn:572210002039668818>" para **Ativar** o sistema.`)
-						const automuteonb = new Discord.MessageButton()
+						const automuteonb = new ButtonBuilder()
 							.setCustomId("41")
 							.setLabel("<:StatusOn:572210002039668818>")
 							.setStyle("PRIMARY");
-						const row2 = new Discord.MessageActionRow().addComponents(automuteonb)
+						const row2 = new ActionRowBuilder().addComponents(automuteonb)
 						message.channel.send({ embeds: [helpAutoMute], components: [row2] }).then((msg2) => {
 							const filterautomute = (interaction) => interaction.user.id === message.author.id;
 							const collectoram = msg.createMessageComponentCollector({ filterautomute, time: 360000 });
@@ -139,11 +139,11 @@ module.exports = class painel extends Command {
 								server.warnTag = 'Ativado'
 								server.save()
 								message.channel.send(`**O sistema de auto Silenciamento foi ativado com o máximo de \`${server.warnNumber} warns\`. Reaja com "<a:a:moderacao:569064320156172299>" para alterar este valor.`).then(ms => {
-									const warnnumberb = new Discord.MessageButton()
+									const warnnumberb = new ButtonBuilder()
 										.setCustomId("411")
 										.setLabel("<a:a:moderacao:569064320156172299>")
 										.setStyle("PRIMARY");
-									const row3 = new Discord.MessageActionRow().addComponents(warnnumberb)
+									const row3 = new ActionRowBuilder().addComponents(warnnumberb)
 									message.channel.send({ content:'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
 										const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
 										const collectorwn = msg.createMessageComponentCollector({ filterwarnnumber, time: 360000 });
@@ -165,15 +165,15 @@ module.exports = class painel extends Command {
 						
 					}else {//if warnTag desativado
 						helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:StatusOn:572210002039668818> | Status Ativado. \n Número Máximo de warns atual: \`${server.warnNumber}\` \n \n Reaja com "<a:negativo:563096795907883010>" para **desativar** o sistema. \n Reaja com "<a:moderacao:569064320156172299>" para **Editar** o número de avisos para mutar. `)
-						const automuteoff = new Discord.MessageButton()
+						const automuteoff = new ButtonBuilder()
 							.setCustomId("421")
 							.setLabel("<a:negativo:563096795907883010>")
 							.setStyle("PRIMARY");
-						const warnnumberedit = new Discord.MessageButton()
+						const warnnumberedit = new ButtonBuilder()
 							.setCustomId("422")
 							.setLabel("<a:moderacao:569064320156172299>")
 							.setStyle("PRIMARY")
-						const row4 = new Discord.MessageActionRow().addComponents(automuteoff, warnnumberedit);
+						const row4 = new ActionRowBuilder().addComponents(automuteoff, warnnumberedit);
 						message.channel.send({ embeds: [helpAutoMute], components: [row4] }).then((m) => {
 							const filterautomuteon = (interaction) => interaction.user.id === message.author.id;
 							const collectoramon = msg.createMessageComponentCollector({ filterautomuteon, time: 360000 });
@@ -208,11 +208,11 @@ module.exports = class painel extends Command {
 					const embedInit = new EmbedBuilder()
 						.setTitle('**Cargo de Moderação**')
 						.setDescription(`Aquele que possuir este cargo terá permissões em vários comandos exclusivos e configurações automáticas do bot. \n \n **Cargo Atual:** ${server.staffRole} \n \n Reaja com "<:lolipolice:669705464447107073>" para alterar. `)
-					const cargomodb = new Discord.MessageButton()
+					const cargomodb = new ButtonBuilder()
 						.setCustomId("51")
 						.setLabel("<:lolipolice:669705464447107073>")
 						.setSytle("PRIMARY");
-					const row5 = new Discord.MessageActionRow().addComponents(cargomodb);
+					const row5 = new Discord.ActionRowBuilder().addComponents(cargomodb);
 					message.channel.send({ embeds: [embedInit], components: [row5] }).then((m) => {
 						const filtercargomod = (interaction) => interaction.user.id === message.author.id;
 						const collectorcm = msg.createMessageComponentCollector({ filtercargomod, time: 360000 });
@@ -237,12 +237,12 @@ module.exports = class painel extends Command {
 					const embedHelpC = new EmbedBuilder()
 						.setTitle('**Categoria de Monitoramento**')
 						.setDescription(`Definirá a categoria onde serão criados os canais de Monitoramento. Digite \`${server.prefix}monitor\` para saber mais. \n \n Reaja com "<:MotivosparaViver:572157111471964200>" para modificar a categoria.`)
-					const monicatb = new Discord.MessageButton()
+					const monicatb = new ButtonBuilder()
 						.setCustomId("61")
 						.setLabel("<:MotivosparaViver:572157111471964200>")
 						.setStyle("PRIMARY");
 					
-					const row6 = new Discord.MessageActionRow().addComponents(monicatb);
+					const row6 = new ActionRowBuilder().addComponents(monicatb);
 					message.channel.send({ embeds: [embedHelpC], components: [row6] }).then((m) => {
 						const filtermonitcat = (interaction) => interaction.user.id === message.author.id;
 						const collectormc = msg.createMessageComponentCollector({ filtermonitcat, time: 360000 });
