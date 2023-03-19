@@ -87,6 +87,7 @@ module.exports = class painel extends Command {
 					const filter1 = (m) => m.author.id === message.author.id;
 					const collector1 = new MessageCollector(message.channel, filter1, {time: 20000})
 					collector1.on("collect", (collected) => {
+						if(collected.size > 0) {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
 						let cf1 = collected.first()
 						
@@ -95,6 +96,9 @@ module.exports = class painel extends Command {
 						if(!nc) nc = '``padrão``.';
 						server.save()
 						message.channel.send(`**Canal de punições alterado para \`${nc}\`**`)
+						}else {
+						message.channel.send(`**Nenhum canal mencionado**`)
+						}
 					})//collector1
 				break;
 				case "2":
