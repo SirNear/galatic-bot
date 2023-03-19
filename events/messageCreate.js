@@ -1,8 +1,21 @@
 const { EmbedBuilder, Discord } = require('discord.js')
+const axios = require('discord.js');
 
 module.exports = class MessageReceive {
 	constructor(client) {
 		this.client = client
+	}
+	
+	
+	
+	async function getRandomPokemon() {
+  	const response = await axios.get('https://pokeapi.co/api/v2/pokemon/' + Math.floor(Math.random() * 898 + 1));
+  	const pokemon = {
+    		name: response.data.name,
+    		image: response.data.sprites.front_default,
+    		type: response.data.types[0].type.name,
+  	};
+  	return pokemon;
 	}
 
 	async run(message) {
@@ -95,5 +108,19 @@ module.exports = class MessageReceive {
 		console.error(err.stack)
 				
 		}
+		
+    		const pokemon = await getRandomPokemon();
+    		const embed = new Discord.MessageEmbed()
+      			.setColor('#0099ff')
+      			.setTitle(pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1))
+      			.setDescription('Um pokémon selvagem apareceu. Digite g!batalha para iniciar uma batalha contra ele e tentar capturar ou evoluir seu nível.')
+      			.setThumbnail(pokemon.image)
+      			.addFields({ name: 'Tipo', value: pokemon.type.charAt(0).toUpperCase() + pokemon.type.slice(1) })
+		
+    		message.channel.send(embed);	
+		
+		
+		
+		
 	    }
       }
