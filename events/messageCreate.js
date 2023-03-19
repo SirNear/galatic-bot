@@ -1,12 +1,6 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const axios = require('discord.js');
 
-module.exports = class MessageReceive {
-	constructor(client) {
-		this.client = client
-	}
-	
-	
 	
 	async function getRandomPokemon() {
   	const response = await axios.get('https://pokeapi.co/api/v2/pokemon/' + Math.floor(Math.random() * 898 + 1));
@@ -16,6 +10,11 @@ module.exports = class MessageReceive {
     		type: response.data.types[0].type.name,
   	};
   	return pokemon;
+	}
+
+module.exports = class MessageReceive {
+	constructor(client) {
+		this.client = client
 	}
 
 	async run(message) {
