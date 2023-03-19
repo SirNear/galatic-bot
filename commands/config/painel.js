@@ -83,7 +83,7 @@ module.exports = class painel extends Command {
 		    collector.on("collect", (interaction) => {
 		    	switch(interaction.customId) {
 				case "1":
-					interaction.reply({content: '***Mencione o novo canal de punições***', components: [row[0]]})
+					message.channel.send('***Mencione o novo canal de punições***')
 					const filter1 = (m) => m.author.id === message.author.id;
 					const collector1 = new MessageCollector(message.channel, filter1, {time: 2000})
 					collector1.on("collect", (collected) => {
