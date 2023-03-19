@@ -89,7 +89,7 @@ module.exports = class painel extends Command {
 					collector1.on("collect", (collected) => {
 						if(collected.size > 0) {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
-						let cf1 = collected.first()
+						let cf1 = collected.first().author
 						
 						nc = cf1
 						server.cPunicoes = nc
@@ -97,7 +97,8 @@ module.exports = class painel extends Command {
 						server.save()
 						message.channel.send(`**Canal de punições alterado para \`${nc}\`**`)
 						}else {
-						message.channel.send(`**Nenhum canal mencionado**`)
+							message.channel.send(`**Nenhum canal mencionado**`)
+							return;
 						}
 					})//collector1
 				break;
