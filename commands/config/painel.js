@@ -86,7 +86,8 @@ module.exports = class painel extends Command {
 					message.channel.send('***Mencione o novo canal de punições***')
 					const filter1 = (m) => m.author.id === message.author.id;
 					const collector1 = new MessageCollector(message.channel, filter1, {time: 20000})
-					collector1.on("collect", (collected) => {
+					const collected = await message.channel.awaitMessages(filter1, { max: 1, time: 2000, errors: ['time'] });
+						if(collected.size === 0) { message.channel.send('Nenhum canal mencionado') return;}
 						if(collected.size > 0) {
 						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
 						let cf1 = collected.first().author
@@ -96,11 +97,7 @@ module.exports = class painel extends Command {
 						if(!nc) nc = '``padrão``.';
 						server.save()
 						message.channel.send(`**Canal de punições alterado para \`${nc}\`**`)
-						}else {
-							message.channel.send(`**Nenhum canal mencionado**`)
-							return;
 						}
-					})//collector1
 				break;
 				case "2":
 					message.channel.send('***Digite o novo prefix do servidor***')
