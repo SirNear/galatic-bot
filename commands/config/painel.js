@@ -80,7 +80,7 @@ module.exports = class painel extends Command {
 		     const filter = (interaction) => interaction.user.id === message.author.id;
 		     const collector = msg.createMessageComponentCollector({ filter, time: 360000 });	
 		    
-		    collector.on("collect", (interaction) => {
+		    collector.on("collect", async (interaction) => {
 		    	switch(interaction.customId) {
 				case "1":
 					message.channel.send('***Mencione o novo canal de punições***')
