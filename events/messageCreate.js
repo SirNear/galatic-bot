@@ -1,19 +1,6 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 
-async execute(message) {
-    const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
-    const data = await response.json();
-    const randomIndex = Math.floor(Math.random() * data.results.length);
-    const pokemonUrl = data.results[randomIndex].url;
-    const pokemonResponse = await fetch(pokemonUrl);
-    const pokemonData = await pokemonResponse.json();
-    const pokemonName = pokemonData.name;
-    const pokemonImage = pokemonData.sprites.front_default;
-    const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
-
-    message.channel.send(embed);
-  }
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -110,6 +97,18 @@ module.exports = class MessageReceive {
 		console.error(err.stack)
 				
 		}
+		
+		// Pokemon
+
+	        const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+	    	const data = await response.json();
+	    	const randomIndex = Math.floor(Math.random() * data.results.length);
+	    	const pokemonUrl = data.results[randomIndex].url;
+	    	const pokemonResponse = await fetch(pokemonUrl);
+	    	const pokemonData = await pokemonResponse.json();
+	    	const pokemonName = pokemonData.name;
+	    	const pokemonImage = pokemonData.sprites.front_default;
+	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
