@@ -9,6 +9,25 @@ module.exports = class MessageReceive {
 
 	async run(message) {
 		console.log('Parâmetro "message" carregado com sucesso!');
+		
+		
+		const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+	    	const data = await response.json();
+	    	const randomIndex = Math.floor(Math.random() * data.results.length);
+	    	const pokemonUrl = data.results[randomIndex].url;
+	    	const pokemonResponse = await fetch(pokemonUrl);
+	    	const pokemonData = await pokemonResponse.json();
+	    	const pokemonName = pokemonData.name;
+	    	const pokemonImage = pokemonData.sprites.front_default;
+	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
+		const embed = new EmbedBuilder()
+      		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
+		.setDescription('Digite `g!capturar` para tentar pega-lo!')
+      		.setImage(pokemonImage)
+      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
+		
+		message.channel.send({ embeds: [embed] })
 
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return
@@ -99,24 +118,8 @@ module.exports = class MessageReceive {
 		}
 		
 		// Pokemon
+		
 
-	        const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
-	    	const data = await response.json();
-	    	const randomIndex = Math.floor(Math.random() * data.results.length);
-	    	const pokemonUrl = data.results[randomIndex].url;
-	    	const pokemonResponse = await fetch(pokemonUrl);
-	    	const pokemonData = await pokemonResponse.json();
-	    	const pokemonName = pokemonData.name;
-	    	const pokemonImage = pokemonData.sprites.front_default;
-	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
-		
-		const embed = new EmbedBuilder()
-      		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
-		.setDescription('Digite `g!capturar` para tentar pega-lo!')
-      		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
-		
-		message.channel.send({ embeds: [embed] })
 		
 		
 	    }
