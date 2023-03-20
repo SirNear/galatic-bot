@@ -1,16 +1,19 @@
 const { EmbedBuilder, Discord } = require('discord.js')
-const axios = require('discord.js');
+const fetch = require('node-fetch');
 
-	
-	async function getRandomPokemon() {
-  	const response = await axios.get('https://pokeapi.co/api/v2/pokemon/' + Math.floor(Math.random() * 898 + 1));
-  	const pokemon = {
-    		name: response.data.name,
-    		image: response.data.sprites.front_default,
-    		type: response.data.types[0].type.name,
-  	};
-  	return pokemon;
-	}
+async execute(message) {
+    const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+    const data = await response.json();
+    const randomIndex = Math.floor(Math.random() * data.results.length);
+    const pokemonUrl = data.results[randomIndex].url;
+    const pokemonResponse = await fetch(pokemonUrl);
+    const pokemonData = await pokemonResponse.json();
+    const pokemonName = pokemonData.name;
+    const pokemonImage = pokemonData.sprites.front_default;
+    const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+
+    message.channel.send(embed);
+  }
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -108,17 +111,13 @@ module.exports = class MessageReceive {
 				
 		}
 		
-    		const pokemon = await getRandomPokemon();
-    		const embed = new Discord.MessageEmbed()
-      			.setColor('#0099ff')
-      			.setTitle(pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1))
-      			.setDescription('Um pokémon selvagem apareceu. Digite g!batalha para iniciar uma batalha contra ele e tentar capturar ou evoluir seu nível.')
-      			.setThumbnail(pokemon.image)
-      			.addFields({ name: 'Tipo', value: pokemon.type.charAt(0).toUpperCase() + pokemon.type.slice(1) })
+		const embed = new EmbedBuilder()
+      		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
+		.setDescription('Digite `g!capturar` para tentar pega-lo!')
+      		.setImage(pokemonImage)
+      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
 		
-    		message.channel.send(embed);	
-		
-		
+		message.channel.send({ embeds: [embed] })
 		
 		
 	    }
