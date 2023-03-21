@@ -32,7 +32,7 @@ module.exports = class MessageReceive {
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
       		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
+      		.setFooter({ text: `Tipo(s): ${ptType}`});
 		
 		message.channel.send({ embeds: [embed] })
 		
