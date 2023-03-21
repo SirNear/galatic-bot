@@ -85,15 +85,13 @@ module.exports = class MessageReceive {
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
-		
-		handlePokemonType(pokemonType)
 
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
       		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
+      		.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 		
 		message.channel.send({ embeds: [embed] })
 		
