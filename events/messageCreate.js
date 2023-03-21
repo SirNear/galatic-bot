@@ -1,7 +1,7 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
-
+const translate = require('google-translate-api')
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -26,7 +26,7 @@ module.exports = class MessageReceive {
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-		const ptType = await this.client.translate.instance.translateWord(pokemonType, 'en', 'pt');
+		const ptType = await translate(pokemonType, {to: 'pt'})
 
 		
 		const embed = new EmbedBuilder()
