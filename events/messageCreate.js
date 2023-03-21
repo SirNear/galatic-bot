@@ -18,20 +18,62 @@ module.exports = class MessageReceive {
 		function handlePokemonType(type) {
 		  switch (type) {
 		    case 'fire':
-		      // código para o tipo "fire"
+		      return 'fogo';
 		      break;
 		    case 'water':
-		      // código para o tipo "water"
+		      return 'água';
 		      break;
 		    case 'grass':
-		      // código para o tipo "grass"
+		      return 'grama';
 		      break;
-		    // adicione mais casos para cada tipo de Pokémon
+		    case 'electric':
+		      return 'elétrico';
+		      break;
+		    case 'rock':
+		      return 'pedra';
+		      break;
+		    case 'ground':
+		      return 'terra';
+		      break;
+		    case 'psychic':
+		      return 'psíquico';
+		      break;
+		    case 'ice':
+		      return 'gelo';
+		      break;
+		    case 'fighting':
+		      return 'lutador';
+		      break;
+		    case 'ghost':
+		      return 'fantasma';
+		      break;
+		    case 'poison':
+		      return 'veneno';
+		      break;
+		    case 'flying':
+		      return 'voador';
+		      break;
+		    case 'bug':
+		      return 'inseto';
+		      break;
+		    case 'dark':
+		      return 'sombrio';
+		      break;
+		    case 'steel':
+		      return 'aço';
+		      break;
+		    case 'dragon':
+		      return 'dragão';
+		      break;
+		    case 'fairy':
+		      return 'fada';
+		      break;
 		    default:
-		      // ação padrão caso o tipo não esteja na lista
+		      return type;
 		      break;
 		  }
 		}
+
 
 		
 		const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
@@ -43,13 +85,15 @@ module.exports = class MessageReceive {
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
+		handlePokemonType(pokemonType)
 
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
       		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
+      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
 		
 		message.channel.send({ embeds: [embed] })
 		
