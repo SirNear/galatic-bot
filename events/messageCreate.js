@@ -1,7 +1,6 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
-const translate = require('google-translate-api')
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -24,16 +23,37 @@ module.exports = class MessageReceive {
 	    	const pokemonData = await pokemonResponse.json();
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
-	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-		const ptType = translate(pokemonType, {to: 'pt'})
+		
+		const pokemonTypes = {
+		  normal: 'normal',
+		  fighting: 'lutador',
+		  flying: 'voador',
+		  poison: 'venenoso',
+		  ground: 'terrestre',
+		  rock: 'pedra',
+		  bug: 'inseto',
+		  ghost: 'fantasma',
+		  steel: 'aço',
+		  fire: 'fogo',
+		  water: 'água',
+		  grass: 'planta',
+		  electric: 'elétrico',
+		  psychic: 'psíquico',
+		  ice: 'gelo',
+		  dragon: 'dragão',
+		  dark: 'noturno',
+		  fairy: 'fada'
+		};
+		
+	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
       		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${ptType}`});
+      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
 		
 		message.channel.send({ embeds: [embed] })
 		
