@@ -21,6 +21,8 @@ translateWord(word, sourceLang, targetLang)
 module.exports = class translate {
   constructor(client) {
     this.client = client;
-  
+    this.instance = {
+      translateWord: translateWord
+    }
   }
 }
