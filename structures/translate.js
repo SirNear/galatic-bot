@@ -19,7 +19,7 @@ translateWord(word, sourceLang, targetLang)
 
 
 module.exports = class translate {
-  construtor(client) {
+  constructor(client) {
     this.client = client;
   
   }
