@@ -24,7 +24,9 @@ module.exports = class GalaticClient extends Client {
 	    
      this.owners = options.owners;
       
-     this.events = new EventManager(this)
+     this.events = new EventManager(this);
+	  
+     this.translate = require('./structures/translate.js');
         
     }
 	
