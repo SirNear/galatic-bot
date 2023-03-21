@@ -26,7 +26,7 @@ module.exports = class MessageReceive {
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-		const ptType = await translate(pokemonType, {to: 'pt'})
+		const ptType = translate(pokemonType, {to: 'pt'})
 
 		
 		const embed = new EmbedBuilder()
