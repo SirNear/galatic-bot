@@ -1,4 +1,4 @@
-const { EmbedBuilder, Discord, interaction } = require('discord.js')
+const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
 
@@ -100,11 +100,11 @@ module.exports = class MessageReceive {
 
 			message.channel.send({ embeds: [embed] }).then((msg) => {
 				
-				const filter = (m) => m.author.id === message.author.id;
+				const filter = (interaction) => interaction.user.id === message.author.id;
 
 				msg.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
 					if(collected.first() === 'g!capturar') {
-						message.reply('testando')
+						interaction.reply('testando')
 					}//if g!capturar
 				})//interaction
 			})//message
