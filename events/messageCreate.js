@@ -8,7 +8,7 @@ module.exports = class MessageReceive {
 		this.client = client
 	}
 
-	async run(message) {
+	async run(message, client) {
 		
 		
 		if (message.channel.type === "dm") return
@@ -25,6 +25,8 @@ module.exports = class MessageReceive {
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
+		const ptType = await this.client.translate(pokemonType, 'en', 'pt')
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
