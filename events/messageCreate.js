@@ -1,5 +1,6 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
+const axios = require('axios');
 
 
 module.exports = class MessageReceive {
@@ -24,6 +25,16 @@ module.exports = class MessageReceive {
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
+		const typeUrl = `https://pokeapi.co/api/v2/type/${pokemonType}`;
+		const typeResponse = await axios.get(typeUrl);
+		
+		    if (typeResponse.status !== 200) {
+		      throw new Error(`Erro ao obter tipo: ${typeResponse.status} ${typeResponse.statusText}`);
+		    }
+		
+		const typeNames = typeResponse.data.names;
+		const portugueseTypeName = typeNames.find(name => name.language.name === "pt-br").name;
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
