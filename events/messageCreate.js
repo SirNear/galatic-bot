@@ -90,7 +90,7 @@ module.exports = class MessageReceive {
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
-      		.setImage(pokemonImage)
+      		.setImage(`${pokemonImage}`, { size: 500 })
       		.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 		
 		message.channel.send({ embeds: [embed] })
