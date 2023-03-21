@@ -18,7 +18,7 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
-		if(random =< chance) {
+		if(random < chance) {
 		
 			function handlePokemonType(type) {
 			  switch (type) {
