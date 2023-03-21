@@ -26,7 +26,7 @@ module.exports = class MessageReceive {
 	    	const pokemonImage = pokemonData.sprites.front_default;
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-		const ptType = await this.translate(pokemonType, 'en', 'pt')
+		const ptType = await this.translate.instance.translateWord(pokemonType, 'en', 'pt')
 		
 		const embed = new EmbedBuilder()
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
