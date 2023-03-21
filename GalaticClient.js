@@ -3,6 +3,7 @@ const { Client, Collection, Discord, GatewayIntentBits, Partials } = require("di
 const { readdir } = require("fs")
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
+const Translate = require('./structures/translate.js');
 
 module.exports = class GalaticClient extends Client {
   constructor(options = {}) {
@@ -25,8 +26,6 @@ module.exports = class GalaticClient extends Client {
      this.owners = options.owners;
       
      this.events = new EventManager(this);
-	  
-     this.translate = require('./structures/translate.js');
 	  
      this.translate = new Translate();
 
