@@ -1,4 +1,4 @@
-const { EmbedBuilder, Discord } = require('discord.js')
+const { EmbedBuilder, Discord, interaction } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
 
@@ -98,7 +98,18 @@ module.exports = class MessageReceive {
 			.setImage(pokemonImage)
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 
-			message.channel.send({ embeds: [embed] })
+			message.channel.send({ embeds: [embed] }).then((msg) => {
+				
+				const filter = response => {
+					return item.answers.some(answer => answer.toLowerCase() === response.content.toLowerCase());
+				};
+
+				interaction.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
+					if(collected.first() === 'g!capturar') {
+						interaction.reply('testando')
+					}//if g!capturar
+				})//interaction
+			})//message
 
 		}else{ return }
 		
