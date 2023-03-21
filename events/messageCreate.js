@@ -8,8 +8,12 @@ module.exports = class MessageReceive {
 	}
 
 	async run(message) {
-		console.log('Parâmetro "message" carregado com sucesso!');
 		
+		
+		if (message.channel.type === "dm") return
+		if (message.author.bot) return
+		
+		//Pokemon
 		
 		const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 	    	const data = await response.json();
@@ -28,9 +32,9 @@ module.exports = class MessageReceive {
       		.setFooter({ text: `Tipo(s): ${pokemonType}`});
 		
 		message.channel.send({ embeds: [embed] })
+		
+		//pokemon
 
-		if (message.channel.type === "dm") return
-		if (message.author.bot) return
         const server = await this.client.database.Guilds.findById(message.guild.id)
 	 if (!server) {
       this.client.database.Guilds({
