@@ -15,6 +15,25 @@ module.exports = class MessageReceive {
 		
 		//Pokemon
 		
+		function handlePokemonType(type) {
+		  switch (type) {
+		    case 'fire':
+		      // código para o tipo "fire"
+		      break;
+		    case 'water':
+		      // código para o tipo "water"
+		      break;
+		    case 'grass':
+		      // código para o tipo "grass"
+		      break;
+		    // adicione mais casos para cada tipo de Pokémon
+		    default:
+		      // ação padrão caso o tipo não esteja na lista
+		      break;
+		  }
+		}
+
+		
 		const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 	    	const data = await response.json();
 	    	const randomIndex = Math.floor(Math.random() * data.results.length);
@@ -23,29 +42,6 @@ module.exports = class MessageReceive {
 	    	const pokemonData = await pokemonResponse.json();
 	    	const pokemonName = pokemonData.name;
 	    	const pokemonImage = pokemonData.sprites.front_default;
-		
-		
-		const pokemonTypes = {
-		  normal: 'normal',
-		  fighting: 'lutador',
-		  flying: 'voador',
-		  poison: 'venenoso',
-		  ground: 'terrestre',
-		  rock: 'pedra',
-		  bug: 'inseto',
-		  ghost: 'fantasma',
-		  steel: 'aço',
-		  fire: 'fogo',
-		  water: 'água',
-		  grass: 'planta',
-		  electric: 'elétrico',
-		  psychic: 'psíquico',
-		  ice: 'gelo',
-		  dragon: 'dragão',
-		  dark: 'noturno',
-		  fairy: 'fada'
-		};
-		
 	    	const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 
 		
@@ -53,7 +49,7 @@ module.exports = class MessageReceive {
       		.setTitle(`**Um ${pokemonName} selvagem apareceu!**`)
 		.setDescription('Digite `g!capturar` para tentar pega-lo!')
       		.setImage(pokemonImage)
-      		.setFooter({ text: `Tipo(s): ${pokemonType}`});
+      		.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 		
 		message.channel.send({ embeds: [embed] })
 		
