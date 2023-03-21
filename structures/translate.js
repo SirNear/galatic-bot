@@ -1,4 +1,4 @@
-const translate = require('google-translate-api');
+const Translate = require('google-translate-api');
 
 async function translateWord(word, sourceLang, targetLang) {
   try {
