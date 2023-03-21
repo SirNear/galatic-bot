@@ -104,9 +104,9 @@ module.exports = class MessageReceive {
 					return item.answers.some(answer => answer.toLowerCase() === response.content.toLowerCase());
 				};
 
-				interaction.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
+				msg.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
 					if(collected.first() === 'g!capturar') {
-						interaction.reply('testando')
+						message.reply('testando')
 					}//if g!capturar
 				})//interaction
 			})//message
