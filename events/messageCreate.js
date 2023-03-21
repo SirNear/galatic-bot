@@ -100,9 +100,7 @@ module.exports = class MessageReceive {
 
 			message.channel.send({ embeds: [embed] }).then((msg) => {
 				
-				const filter = response => {
-					return item.answers.some(answer => answer.toLowerCase() === response.content.toLowerCase());
-				};
+				const filter = (m) => m.author.id === message.author.id;
 
 				msg.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
 					if(collected.first() === 'g!capturar') {
