@@ -11,7 +11,7 @@ module.exports = class MessageReceive {
 		
 		
 		if (message.channel.type === "dm") return
-		if (message.author.bot) return
+		if (message.author.bot) return //se for msg de bot
 		
 		//Pokemon
 		
