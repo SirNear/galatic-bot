@@ -103,8 +103,8 @@ module.exports = class MessageReceive {
 				const msgFilter = m => m.author.id === message.author.id
 
 				const mcollector = message.channel.createMessageCollector({msgFilter, time: 120000, max: 1, errors: ['time']})
-				mcollector.on("collect", (collected) => {
-					if(collected === 'g!capturar') {
+				mcollector.on("collect", (a) => {
+					if(mcollector.collected.first() === 'g!capturar') {
 						msg.reply('testando')
 						console.log('deu certo bro')
 					}//if g!capturar
