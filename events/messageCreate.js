@@ -100,11 +100,12 @@ module.exports = class MessageReceive {
 
 			message.channel.send({ embeds: [embed] }).then((msg) => {
 				
-				const filter = (interaction) => interaction.user.id === message.author.id;
+				const msgFilter = m => m.author.id === message.author.id
 
-				msg.channel.awaitMessages({filter, max: 1, time: 20000, errors: ['time']}).then(collected => {
+				const mcollector = message.channel.createMessageCollector({msgFilter, time: 120000, max: 1, errors: ['time']})
+				mcollector.on("collect", (collected) => {
 					if(collected.first() === 'g!capturar') {
-						interaction.reply('testando')
+						message.reply('testando')
 					}//if g!capturar
 				})//interaction
 			})//message
