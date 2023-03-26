@@ -3,7 +3,7 @@ const fetch = require('node-fetch');
 const axios = require('axios');
 const { handlePokemonType } = require('../api/typeTranslate.js');
 const { tiposPokemon } = require('../api/tiposPokemon.js');
-const { types } = require('../api/typeIdentifier.js');
+const { handleTypeIdentifier } = require('../api/typeIdentifier.js');
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -44,7 +44,7 @@ module.exports = class MessageReceive {
 			if (tiposEncontrados.length > 0) {
 			  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
 			  tipoPokemon = tiposEncontrados[randomIndex];	
-		     	  tipo = types[tipoPokemon];
+		     	  tipo = handleTypeIdentifier(tipoPokemon)
 			} else {
 			  tipo = 1
 			}
