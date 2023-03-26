@@ -98,16 +98,15 @@ module.exports = class MessageReceive {
 			.setImage(pokemonImage)
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 
-			message.channel.send({ embeds: [embed] }).then((msg) => {
+			const pokeMsg = await message.channel.send({ embeds: [embed] })
 
-				const collector = await msg.channel.createMessageCollector({(m) => m.author.id === msg.author.id, time: 120000, max: 1})
-				collector.on('collect', async (collected) => {
-					if(collected.first().content === 'g!capturar') {
-						msg.reply({content: 'testando'})
-						console.log('deu certo bro')
-					}//if g!capturar
-				})//interaction
-			})//message
+			const collector = await pokeMsg.channel.createMessageCollector({(m) => m.author.id === msg.author.id, time: 120000, max: 1})
+			collector.on('collect', async (collected) => {
+				if(collected.first().content === 'g!capturar') {
+					msg.reply({content: 'testando'})
+					console.log('deu certo bro')
+				}//if g!capturar
+			})//collector
 
 		}else{ return }
 		
