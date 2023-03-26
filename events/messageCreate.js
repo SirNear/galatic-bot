@@ -50,22 +50,22 @@ module.exports = class MessageReceive {
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
 			
-			const pokemonsFiltrados = data.results.filter(async (pokemon) => {
+			const pokemonsFiltrados =  await Promise.all(data.results.map(async (pokemon) => {
 			  const pokemonUrl = pokemon.url;
 			  const pokemonResponse = await fetch(pokemonUrl);
 			  const pokemonData = await pokemonResponse.json();
 			  const pokemonTypes = pokemonData.types.map(type => type.type.name);
 			  return pokemonTypes.some(type => tiposEncontrados.includes(type));
-			});
+			}));
+			
+			const pokemonsDisponiveis = pokemonsFiltrados.filter(pokemon => pokemon !== null);
 			
 			//definindo informações dos filtrados e aleatorizando o pokemon a ser enviado
 			
 			let pokemonName, pokemonImage, pokemonType;
-			if (pokemonsFiltrados.length > 0) {
-			  const randomIndex = Math.floor(Math.random() * pokemonsFiltrados.length);
-			  const pokemonUrl = pokemonsFiltrados[randomIndex].url;
-			  const pokemonResponse = await fetch(pokemonUrl);
-			  const pokemonData = await pokemonResponse.json();
+			if (pokemonsDisponiveis.length > 0) {
+			  const randomIndex = Math.floor(Math.random() * pokemonsDisponiveis.length);
+			  const pokemonData = pokemonsDisponiveis[randomIndex];
 			  pokemonName = pokemonData.name;
 			  pokemonImage = pokemonData.sprites.front_default;
 			  pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
