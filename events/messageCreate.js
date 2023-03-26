@@ -102,7 +102,7 @@ module.exports = class MessageReceive {
 
 			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 			collector.on('collect', (collected) => {
-				if(collected.first().content === 'g!capturar') {
+				if(collected.content === 'g!capturar') {
 					msg.reply({content: 'testando'})
 					console.log('deu certo bro')
 				}//if g!capturar
