@@ -49,28 +49,20 @@ module.exports = class MessageReceive {
 			//procurando apenas pokemons do tipo definido.
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
-			
-			const pokemonsFiltrados =  await Promise.all(data.results.map(async (pokemon) => {
-			  const pokemonUrl = pokemon.url;
-			  const pokemonResponse = await fetch(pokemonUrl);
-			  const pokemonData = await pokemonResponse.json();
-			  const pokemonTypes = pokemonData.types.map(type => type.type.name);
-			  return pokemonTypes.some(type => tiposEncontrados.includes(type));
-			}));
-			
-			const pokemonsDisponiveis = pokemonsFiltrados.filter(pokemon => pokemon !== null);
-			
-			//definindo informações dos filtrados e aleatorizando o pokemon a ser enviado
-			
-			let pokemonName, pokemonImage, pokemonType;
-			if (pokemonsDisponiveis.length > 0) {
-			  const randomIndex = Math.floor(Math.random() * pokemonsDisponiveis.length);
-			  const pokemonData = pokemonsDisponiveis[randomIndex];
-			  pokemonName = pokemonData.name;
-			  pokemonImage = pokemonData.sprites.front_default;
-			  pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
+			function aleatorizador() {
+				const randomIndex = Math.floor(Math.random() * data.results.length);
+				const pokemonUrl = data.results[randomIndex].url;
 			}
 
+			const pokemonResponse = await fetch(pokemonUrl);
+			const pokemonData = await pokemonResponse.json();
+			const pokemonName = pokemonData.name;
+			const pokemonImage = pokemonData.sprites.front_default;
+			const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+			while(pokemonType !== tipoPokemon) {
+				aleatorizador()
+			}
 
 			const embed = new EmbedBuilder()
 			.setTitle(`**Um**, pokemonName ,**selvagem apareceu!**`)
