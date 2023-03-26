@@ -50,13 +50,9 @@ module.exports = class MessageReceive {
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
 		
-			function aleatorizador() {
-				const randomIndex = Math.floor(Math.random() * data.results.length);
-				const pokemonUrl = data.results[randomIndex].url;
-				return pokemonUrl
-			}
-			
-			const pokemonUrl = aleatorizador()
+			const randomIndex = Math.floor(Math.random() * data.results.length);
+			const pokemonUrl = data.results[randomIndex].url;
+		
 			const pokemonResponse = await fetch(pokemonUrl);
 			const pokemonData = await pokemonResponse.json();
 			const pokemonName = pokemonData.name;
@@ -64,7 +60,14 @@ module.exports = class MessageReceive {
 			const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
 			while(pokemonType !== tipoPokemon) {
-				aleatorizador()
+				const newIndex = Math.floor(Math.random() * data.results.length);
+				const newUrl = data.results[randomIndex].url;
+				const newResponse = await fetch(newUrl);
+				const newData = await pokemonResponse.json();
+				pokemonName = newData.name;
+				pokemonImage = newData.sprites.front_default;
+				pokemonType = newData.types.map(type => type.type.name).join(', ');
+				
 			}
 
 			const embed = new EmbedBuilder()
