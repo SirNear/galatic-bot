@@ -46,7 +46,6 @@ module.exports = class MessageReceive {
 			  tipoPokemon = 'normal';
 			}
 			
-			//procurando apenas pokemons do tipo definido.
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
 		
@@ -59,7 +58,7 @@ module.exports = class MessageReceive {
 			let pokemonImage = pokemonData.sprites.front_default;
 			let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-			while(pokemonType !== tipoPokemon) {
+			while(!pokemonType == tipoPokemon) {
 				const newIndex = Math.floor(Math.random() * data.results.length);
 				const newUrl = data.results[newIndex].url;
 				const newResponse = await fetch(newUrl);
