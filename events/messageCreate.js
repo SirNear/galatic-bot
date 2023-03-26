@@ -99,11 +99,9 @@ module.exports = class MessageReceive {
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 
 			message.channel.send({ embeds: [embed] }).then((msg) => {
-				
-				const msgFilter = (m) => m.author.id === message.author.id
 
-				const mcollector = msg.channel.createMessageCollector({msgFilter, time: 120000, max: 1, errors: ['time']})
-				mcollector.on("collect", (collected) => {
+				const collector = await msg.channel.createMessageCollector({(m) => m.author.id === msg.author.id, time: 120000, max: 1})
+				collector.on('collect', async (collected) => {
 					if(collected.first().content === 'g!capturar') {
 						msg.reply({content: 'testando'})
 						console.log('deu certo bro')
