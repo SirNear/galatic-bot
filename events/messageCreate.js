@@ -53,6 +53,7 @@ module.exports = class MessageReceive {
 			function aleatorizador() {
 				const randomIndex = Math.floor(Math.random() * data.results.length);
 				const pokemonUrl = data.results[randomIndex].url;
+				return pokemonUrl;
 			}
 
 			const pokemonResponse = await fetch(pokemonUrl);
@@ -60,6 +61,7 @@ module.exports = class MessageReceive {
 			const pokemonName = pokemonData.name;
 			const pokemonImage = pokemonData.sprites.front_default;
 			const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		
 			while(pokemonType !== tipoPokemon) {
 				aleatorizador()
 			}
