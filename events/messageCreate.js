@@ -61,7 +61,7 @@ module.exports = class MessageReceive {
 		
 			while(pokemonType !== tipoPokemon) {
 				const newIndex = Math.floor(Math.random() * data.results.length);
-				const newUrl = data.results[randomIndex].url;
+				const newUrl = data.results[newIndex].url;
 				const newResponse = await fetch(newUrl);
 				const newData = await pokemonResponse.json();
 				pokemonName = newData.name;
