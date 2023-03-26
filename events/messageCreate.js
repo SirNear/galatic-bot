@@ -51,9 +51,10 @@ module.exports = class MessageReceive {
 			
 			const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
 			const data = await response.json();
-		
-			const randomIndex = Math.floor(Math.random() * data.results.length);
-			const pokemonUrl = data.results[randomIndex].url;
+			
+			const pokemonArray = data.pokemon;
+			const randomIndex = Math.floor(Math.random() * pokemonArray.length);
+			const pokemonUrl = pokemonArray[randomIndex].pokemon.url;
 		
 			const pokemonResponse = await fetch(pokemonUrl);
 			const pokemonData = await pokemonResponse.json();
