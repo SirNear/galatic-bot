@@ -26,7 +26,7 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
-		if(random < chance) {
+		//if(random < chance) {
 			
 			//identificando as palavras-chave para definir os tipos encontrados
 			const mensagem = message.content.toLowerCase();
@@ -90,7 +90,7 @@ module.exports = class MessageReceive {
 				}//if g!capturar
 			})//collector
 
-		}
+		//}
 		
 		//pokemon
 
