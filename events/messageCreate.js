@@ -14,6 +14,12 @@ module.exports = class MessageReceive {
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return //se for msg de bot
 		
+		const server = await this.client.database.Guilds.findById(message.guild.id) //database
+		
+		if (message.content.replace(/!/g, "") === message.guild.members.me.toString().replace(/!/g, "")) { //menção do bot
+			message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
+		}
+		
 		//Pokemon
 		
 		const chance = 0.2
@@ -53,7 +59,6 @@ module.exports = class MessageReceive {
 		
 		//pokemon
 
-        const server = await this.client.database.Guilds.findById(message.guild.id)
 	 if (!server) {
       this.client.database.Guilds({
           _id: message.guild.id
@@ -98,11 +103,7 @@ module.exports = class MessageReceive {
     }       
    }
      
- 
-		
-	if (message.content.replace(/!/g, "") === message.guild.members.me.toString().replace(/!/g, "")) {
-		message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
-	}
+
      
    
 	if (!message.content.startsWith(server.prefix)) return
