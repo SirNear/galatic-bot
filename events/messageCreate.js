@@ -1,6 +1,7 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
+const { handlePokemonType } = require('./api/pokeType.js');
 
 module.exports = class MessageReceive {
 	constructor(client) {
