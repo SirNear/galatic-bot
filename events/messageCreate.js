@@ -100,7 +100,7 @@ module.exports = class MessageReceive {
 
 			message.channel.send({ embeds: [embed] }).then((msg) => {
 				
-				const msgFilter = m => m.author.id === message.author.id
+				const msgFilter = (m) => m.author.id === message.author.id
 
 				const mcollector = msg.channel.createMessageCollector({msgFilter, time: 120000, max: 1, errors: ['time']})
 				mcollector.on("collect", (collected) => {
