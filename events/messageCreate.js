@@ -2,6 +2,7 @@ const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
 const { handlePokemonType } = require('../api/pokeType.js');
+const { tiposPokemon } = require('../api/tiposPokemon.js');
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -26,20 +27,53 @@ module.exports = class MessageReceive {
 		const random = Math.random()
 		
 		if(random < chance) {
-
+			
+			//identificando as palavras-chave para definir os tipos encontrados
+			const mensagem = message.content.toLowerCase();
+			const tiposEncontrados = [];
+			for (let tipo in tiposPokemon) {
+			  if (tiposPokemon[tipo].some(palavraChave => mensagem.includes(palavraChave))) {
+			    tiposEncontrados.push(tipo);
+			  }
+			}
+			
+			//aleatorizando o tipo a ser enviado
+			let tipoPokemon;
+			if (tiposEncontrados.length > 0) {
+			  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
+			  tipoPokemon = tiposEncontrados[randomIndex];
+			} else {
+			  tipoPokemon = 'normal';
+			}
+			
+			//procurando apenas pokemons do tipo definido.
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
-			const randomIndex = Math.floor(Math.random() * data.results.length);
-			const pokemonUrl = data.results[randomIndex].url;
-			const pokemonResponse = await fetch(pokemonUrl);
-			const pokemonData = await pokemonResponse.json();
-			const pokemonName = pokemonData.name;
-			const pokemonImage = pokemonData.sprites.front_default;
-			const pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+			
+			const pokemonsFiltrados = data.results.filter(pokemon => {
+			  const pokemonUrl = pokemon.url;
+			  const pokemonResponse = await fetch(pokemonUrl);
+			  const pokemonData = await pokemonResponse.json();
+			  const pokemonTypes = pokemonData.types.map(type => type.type.name);
+			  return pokemonTypes.some(type => tiposEncontrados.includes(type));
+			});
+			
+			//definindo informações dos filtrados e aleatorizando o pokemon a ser enviado
+			
+			let pokemonName, pokemonImage, pokemonType;
+			if (pokemonsFiltrados.length > 0) {
+			  const randomIndex = Math.floor(Math.random() * pokemonsFiltrados.length);
+			  const pokemonUrl = pokemonsFiltrados[randomIndex].url;
+			  const pokemonResponse = await fetch(pokemonUrl);
+			  const pokemonData = await pokemonResponse.json();
+			  pokemonName = pokemonData.name;
+			  pokemonImage = pokemonData.sprites.front_default;
+			  pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+			}
 
 
 			const embed = new EmbedBuilder()
-			.setTitle(`**Um** ${pokemonName} **selvagem apareceu!**`)
+			.setTitle(`**Um**, pokemonName ,**selvagem apareceu!**`)
 			.setDescription('Digite `g!capturar` para tentar pega-lo!')
 			.setImage(pokemonImage)
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
@@ -49,6 +83,7 @@ module.exports = class MessageReceive {
 			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 			collector.on('collect', (collected) => {
 				if(collected.content === 'g!capturar') {
+					
 					console.log('deu certo bro')
 					message.reply({content: 'testando'})
 					
