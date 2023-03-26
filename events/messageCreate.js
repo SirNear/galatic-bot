@@ -100,7 +100,7 @@ module.exports = class MessageReceive {
 
 			const pokeMsg = await message.channel.send({ embeds: [embed] })
 
-			const collector = await pokeMsg.channel.createMessageCollector({(m) => m.author.id === msg.author.id, time: 120000, max: 1})
+			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === msg.author.id, time: 120000, max: 1})
 			collector.on('collect', async (collected) => {
 				if(collected.first().content === 'g!capturar') {
 					msg.reply({content: 'testando'})
