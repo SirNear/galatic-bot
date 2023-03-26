@@ -50,7 +50,7 @@ module.exports = class MessageReceive {
 			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
 			const data = await response.json();
 			
-			const pokemonsFiltrados = data.results.filter(pokemon => {
+			const pokemonsFiltrados = data.results.filter(async (pokemon) => {
 			  const pokemonUrl = pokemon.url;
 			  const pokemonResponse = await fetch(pokemonUrl);
 			  const pokemonData = await pokemonResponse.json();
