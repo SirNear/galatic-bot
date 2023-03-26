@@ -58,7 +58,7 @@ module.exports = class MessageReceive {
 			let pokemonImage = pokemonData.sprites.front_default;
 			let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
-			while(!pokemonType == tipoPokemon) {
+			while((!pokemonType == tipoPokemon)) {
 				const newIndex = Math.floor(Math.random() * data.results.length);
 				const newUrl = data.results[newIndex].url;
 				const newResponse = await fetch(newUrl);
@@ -70,7 +70,7 @@ module.exports = class MessageReceive {
 			}
 
 			const embed = new EmbedBuilder()
-			.setTitle(`**Um**, pokemonName ,**selvagem apareceu!**`)
+			.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
 			.setDescription('Digite `g!capturar` para tentar pega-lo!')
 			.setImage(pokemonImage)
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
