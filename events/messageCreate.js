@@ -63,7 +63,7 @@ module.exports = class MessageReceive {
 				const newIndex = Math.floor(Math.random() * data.results.length);
 				const newUrl = data.results[newIndex].url;
 				const newResponse = await fetch(newUrl);
-				const newData = await pokemonResponse.json();
+				const newData = await newResponse.json();
 				pokemonName = newData.name;
 				pokemonImage = newData.sprites.front_default;
 				pokemonType = newData.types.map(type => type.type.name).join(', ');
