@@ -40,14 +40,16 @@ module.exports = class MessageReceive {
 			
 			//aleatorizando o tipo a ser enviado
 			let tipoPokemon;
+			let tipo;
 			if (tiposEncontrados.length > 0) {
 			  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
-			  tipoPokemon = tiposEncontrados[randomIndex];
+			  tipoPokemon = tiposEncontrados[randomIndex];	
+		     	  tipo = typeId[tipoPokemon];
 			} else {
-			  tipoPokemon = 'normal';
+			  tipo = 1
 			}
 			
-			const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+			const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
 			const data = await response.json();
 		
 			const randomIndex = Math.floor(Math.random() * data.results.length);
@@ -59,6 +61,10 @@ module.exports = class MessageReceive {
 			let pokemonImage = pokemonData.sprites.front_default;
 			let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 		
+			/* 
+			
+			While em espera. -> consumindo mt memoria
+			
 			while(!(pokemonType == tipoPokemon)) {
 				const newIndex = Math.floor(Math.random() * data.results.length);
 				const newUrl = data.results[newIndex].url;
@@ -69,6 +75,7 @@ module.exports = class MessageReceive {
 				pokemonType = newData.types.map(type => type.type.name).join(', ');
 				
 			}
+			*/
 
 			const embed = new EmbedBuilder()
 			.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
