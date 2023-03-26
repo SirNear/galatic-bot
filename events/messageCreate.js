@@ -1,9 +1,9 @@
 const { EmbedBuilder, Discord } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
-const { handlePokemonType } = require('../../api/pokemon/typeTranslate.js');
-const { tiposPokemon } = require('../../api/pokemon/tiposPokemon.js');
-const { typeId } = require('../../api/pokemon/typeIdentifier.js');
+const { typeTranslate } = require('../../api/pokemon');
+const { tiposPokemon } = require('../../api/pokemon');
+const { typeIdentifier } = require('../../api/pokemon');
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -44,7 +44,7 @@ module.exports = class MessageReceive {
 			if (tiposEncontrados.length > 0) {
 			  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
 			  tipoPokemon = tiposEncontrados[randomIndex];	
-		     	  tipo = typeId[tipoPokemon];
+		     	  tipo = typeIdentifier[tipoPokemon];
 			} else {
 			  tipo = 1
 			}
@@ -81,7 +81,7 @@ module.exports = class MessageReceive {
 			.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
 			.setDescription('Digite `g!capturar` para tentar pega-lo!')
 			.setImage(pokemonImage)
-			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
+			.setFooter({ text: `Tipo(s): ${tiposPokemon(pokemonType)}`});
 
 			const pokeMsg = await message.channel.send({ embeds: [embed] })
 
