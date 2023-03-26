@@ -59,4 +59,4 @@
 			  }
 			}
 
-module.exports = { handlePokemonType }
+module.exports = { handleTypeIdentifier }
