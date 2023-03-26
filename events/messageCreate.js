@@ -53,9 +53,10 @@ module.exports = class MessageReceive {
 			function aleatorizador() {
 				const randomIndex = Math.floor(Math.random() * data.results.length);
 				const pokemonUrl = data.results[randomIndex].url;
-				return pokemonUrl;
+				return pokemonUrl
 			}
-
+			
+			const pokemonUrl = aleatorizador()
 			const pokemonResponse = await fetch(pokemonUrl);
 			const pokemonData = await pokemonResponse.json();
 			const pokemonName = pokemonData.name;
