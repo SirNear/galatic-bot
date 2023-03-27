@@ -69,6 +69,15 @@ let rpgFicha = new mongoose.Schema({
 	aprovada:{type: Boolean, default: 0}
 })
 
+let pokemonFicha = new mongoose.Schema({
+	_id: {type: String},
+	pokeName: {type: String},
+	pokeId: {type: number},
+	pokeMovesName: {type: Map, of: String}
+})
+
+let pokeficha = mongoose.model("pokeficha", pokemonFicha)
+module.exports.pokeficha = pokeficha
 
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
