@@ -72,7 +72,7 @@ let rpgFicha = new mongoose.Schema({
 let pokemonFicha = new mongoose.Schema({
 	_id: {type: String},
 	pokeName: {type: String},
-	pokeId: {type: number},
+	pokeId: {type: Number},
 	pokeMovesName: {type: Map, of: String}
 })
 
