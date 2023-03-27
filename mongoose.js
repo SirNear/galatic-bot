@@ -76,6 +76,17 @@ let pokemonFicha = new mongoose.Schema({
 	pokeMovesName: {type: Map, of: String}
 })
 
+let pokeRegistro = new mongoose.Schema({
+	_id: {type: String},
+	pokeName: {type: String},
+	pokeDesc: {type: String},
+	pokeType: {type: String},
+	pokeTitle: {type: string}
+})
+
+let pokeReg = mongoose.model("pokeReg", pokeRegistro)
+module.exports.pokeReg = pokeReg
+
 let pokeficha = mongoose.model("pokeficha", pokemonFicha)
 module.exports.pokeficha = pokeficha
 
