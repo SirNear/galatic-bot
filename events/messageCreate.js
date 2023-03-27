@@ -80,7 +80,7 @@ module.exports = class MessageReceive {
 					pokeTitle: pokemonData.genera
 				}).save().then(msg => {
 					console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${pokemonData.genera} / ${handlePokemonType(pokemonType)}`)
-				}//then save
+				})//then save
 			}//if sem registro
 
 			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
