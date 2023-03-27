@@ -81,7 +81,7 @@ let pokeRegistro = new mongoose.Schema({
 	pokeName: {type: String},
 	pokeDesc: {type: String},
 	pokeType: {type: String},
-	pokeTitle: {type: string}
+	pokeTitle: {type: String}
 })
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
