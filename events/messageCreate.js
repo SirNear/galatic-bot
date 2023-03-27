@@ -76,10 +76,9 @@ module.exports = class MessageReceive {
 				this.client.database.pokeReg({
 					_id: pokemonData.id,
 					pokeName: pokemonName,
-					pokeType: handlePokemonType(pokemonType),
-					pokeTitle: pokemonData.genera.find(desc => desc.language.name === "pt").genus
+					pokeType: handlePokemonType(pokemonType)
 				}).save().then(msg => {
-					console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${pokemonData.genera.find(desc => desc.language.name === "pt").genus} / ${handlePokemonType(pokemonType)}`)
+					console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${handlePokemonType(pokemonType)}`)
 				})//then save
 			}//if sem registro
 
