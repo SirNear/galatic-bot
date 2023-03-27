@@ -27,7 +27,7 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
-		//if(random < chance) {
+		if(random < chance) {
 			
 			//identificando as palavras-chave para definir os tipos encontrados
 			const mensagem = message.content.toLowerCase();
@@ -61,22 +61,6 @@ module.exports = class MessageReceive {
 			let pokemonName = pokemonData.name;
 			let pokemonImage = pokemonData.sprites.front_default;
 			let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
-		
-			/* 
-			
-			While em espera. -> consumindo mt memoria
-			
-			while(!(pokemonType == tipoPokemon)) {
-				const newIndex = Math.floor(Math.random() * data.results.length);
-				const newUrl = data.results[newIndex].url;
-				const newResponse = await fetch(newUrl);
-				const newData = await newResponse.json();
-				pokemonName = newData.name;
-				pokemonImage = newData.sprites.front_default;
-				pokemonType = newData.types.map(type => type.type.name).join(', ');
-				
-			}
-			*/
 
 			const embed = new EmbedBuilder()
 			.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
@@ -85,6 +69,19 @@ module.exports = class MessageReceive {
 			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 
 			const pokeMsg = await message.channel.send({ embeds: [embed] })
+			
+			//registrando pokemon
+			let pokemonReg = await this.client.database.pokeReg.findById(pokemonData.id);
+			if(!pokemonReg) {
+				this.client.database.pokeReg({
+					_id: pokemonData.id,
+					pokeName: pokemonName,
+					pokeType: handlePokemonType(pokemonType),
+					pokeTitle: pokemonData.genera
+				}).save().then(msg => {
+					console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${pokemonData.genera} / ${handlePokemonType(pokemonType)}`)
+				}//then save
+			}//if sem registro
 
 			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 			collector.on('collect', (collected) => {
@@ -96,7 +93,7 @@ module.exports = class MessageReceive {
 				}//if g!capturar
 			})//collector
 
-		//}
+		}
 		
 		//pokemon
 
