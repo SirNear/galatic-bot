@@ -34,7 +34,7 @@ module.exports = class emojiinfo extends Command {
           .setDescription('Eu tentei encontrar em todos os servidores em que estou, porém não encontrei este emoji. Desculpe a incoveniencia. :c')
           .setTimestamp();
 
-          message.channel.send(embed)
+          message.channel.send({embeds: [embed]})
 
         }
 
@@ -65,9 +65,9 @@ module.exports = class emojiinfo extends Command {
 		)
         .setTimestamp();
 
-        if(emojis.animated) return message.channel.send(embeda)
+        if(emojis.animated) return message.channel.send({embeds: [embeda]})
 
-        message.channel.send(embeds)
+        message.channel.send({embeds: [embeds]})
      
      
      
