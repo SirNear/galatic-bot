@@ -111,7 +111,9 @@ async run({ message, args, client, server}) {
 		    })//collectorNome
 	    })
     
-  }//if !pokeReg
+  }else {//if !pokeReg
+	  message.reply({content: 'já existe'})
+  }
   
   
   
