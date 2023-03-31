@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const moment = require('moment')
+const color = require('../../api/colors.json')
 moment.locale("pt-BR");
 
 
@@ -28,7 +29,7 @@ module.exports = class emojiinfo extends Command {
          if(!emojis) {
 
           const embed = new EmbedBuilder()
-          .setColor('RANDOM')
+          .setColor(color.red)
           .setTitle('❌ | ***Erro***')
           .setDescription('Eu tentei encontrar em todos os servidores em que estou, porém não encontrei este emoji. Desculpe a incoveniencia. :c')
           .setTimestamp();
@@ -41,7 +42,7 @@ module.exports = class emojiinfo extends Command {
 
 
         const embeds = new EmbedBuilder()
-        .setColor('RANDOM')
+        .setColor(color.blue)
         .setTitle(`${emojis} | ***${emojis.name}***`)
         .addFields(
 		{name: '<:notificacaopwp:566085275323727893> | **Menção**', value: `\`<:${emojis.identifier}>\``},
@@ -53,7 +54,7 @@ module.exports = class emojiinfo extends Command {
         .setTimestamp();
 
          const embeda = new EmbedBuilder()
-        .setColor('RANDOM')
+        .setColor(color.dblue)
         .setTitle(`${emojis} | ***${emojis.name}***`)
         .addFields(
 		{name: '<:notificacaopwp:566085275323727893> | **Menção**', value: `\`<a:${emojis.identifier}>\``},
