@@ -1,8 +1,8 @@
 
 const { Discord, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
 const Command = require('../../structures/Command');
-const color = require('../../api/colors.js')
-const error = require('../../api/error.json')
+const color = require('../api/colors.js')
+const error = require('../api/error.json')
 const fetch = require('node-fetch')
 
 module.exports = class registryChange extends Command {
