@@ -44,7 +44,7 @@ async run({ message, args, client, server}) {
 	    const collectorNao = msgNoPoke.channel.createMessageComponentCollector({ filterNao, time: 15000 })
 
 	    collectorSim.on('collect', async (collected) => {
-		    message.delete()
+		    msgNoPoke.delete()
 		    
 		    const embedReg = new EmbedBuilder()
 		    .setTitle('Registro de Pokémon')
