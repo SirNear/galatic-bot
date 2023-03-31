@@ -36,10 +36,10 @@ async run({ message, args, client, server}) {
 	    const msgNoPoke = await message.reply({ content: 'Esse pokémon não foi registrado, deseja registrar?', ephemeral: true, components: [row] });
 
 	    const filterSim = i => i.customId === 'primary' && i.user.id === message.author.id;
-	    const collectorSim = pokeMsg.channel.createMessageComponentCollector({ filterSim, time: 15000 })
+	    const collectorSim = msgNoPoke.channel.createMessageComponentCollector({ filterSim, time: 15000 })
 
 	    const filterNao = i => i.customId === 'secondary' && i.user.id === message.author.id;
-	    const collectorNao = pokeMsg.channel.createMessageComponentCollector({ filterNao, time: 15000 })
+	    const collectorNao = msgNoPoke.channel.createMessageComponentCollector({ filterNao, time: 15000 })
 
 	    collectorSim.on('collect', (collected) => {
 	      message.reply({content: 'a'})
