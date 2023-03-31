@@ -43,7 +43,7 @@ async run({ message, args, client, server}) {
 	    const filterNao = i => i.customId === 'secondary' && i.user.id === message.author.id;
 	    const collectorNao = msgNoPoke.channel.createMessageComponentCollector({ filterNao, time: 15000 })
 
-	    collectorSim.on('collect', (collected) => {
+	    collectorSim.on('collect', async (collected) => {
 		    message.delete()
 		    
 		    const embedReg = new EmbedBuilder()
