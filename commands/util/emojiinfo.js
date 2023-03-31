@@ -1,4 +1,4 @@
-const { MessageEmbed } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const moment = require('moment')
 moment.locale("pt-BR");
@@ -27,7 +27,7 @@ module.exports = class emojiinfo extends Command {
 
          if(!emojis) {
 
-          const embed = new MessageEmbed()
+          const embed = new EmbedBuilder()
           .setColor('RANDOM')
           .setTitle('❌ | ***Erro***')
           .setDescription('Eu tentei encontrar em todos os servidores em que estou, porém não encontrei este emoji. Desculpe a incoveniencia. :c')
@@ -40,24 +40,28 @@ module.exports = class emojiinfo extends Command {
 
 
 
-        const embeds = new MessageEmbed()
+        const embeds = new EmbedBuilder()
         .setColor('RANDOM')
         .setTitle(`${emojis} | ***${emojis.name}***`)
-        .addField('<:notificacaopwp:566085275323727893> | **Menção**', `\`<:${emojis.identifier}>\``)
-        .addField('<:Servidor:564589119334776862> | **Id do Emoji**', `\`${emojis.id}\``)
-        .addField('<a:relogio:669706279861747713> | ***Criado em***', `${moment(emojis.createadAt).format('LLLL')}`)
-        .addField('<:ajuda:569167017073180677> | ***Avistado em***', `\`${emojis.guild}\`` )
-        .addField('<:Link:573931602636308500> | ***Link do emoji***', emojis.url)
+        .addFields(
+		{name: '<:notificacaopwp:566085275323727893> | **Menção**', value: `\`<:${emojis.identifier}>\``},
+        	{name: '<:Servidor:564589119334776862> | **Id do Emoji**', value: `\`${emojis.id}\``},
+		{name: '<a:relogio:669706279861747713> | ***Criado em***', value: `${moment(emojis.createadAt).format('LLLL')}`},
+		{name: '<:ajuda:569167017073180677> | ***Avistado em***', value: `\`${emojis.guild}\`` },
+		{name: '<:Link:573931602636308500> | ***Link do emoji***', value: emojis.url}
+		)
         .setTimestamp();
 
-         const embeda = new MessageEmbed()
+         const embeda = new EmbedBuilder()
         .setColor('RANDOM')
         .setTitle(`${emojis} | ***${emojis.name}***`)
-        .addField('<:notificacaopwp:566085275323727893> | **Menção**', `\`<a:${emojis.identifier}>\``)
-        .addField('<:Servidor:564589119334776862> | **Id do Emoji**', `\`${emojis.id}\``)
-        .addField('<a:relogio:669706279861747713> | ***Criado em***', `${moment(emojis.createadAt).format('LLLL')}`)
-        .addField('<:ajuda:569167017073180677> | ***Avistado em***', `\`${emojis.guild}\`` )
-        .addField('<:Link:573931602636308500> | ***Link do emoji***', emojis.url)
+        .addFields(
+		{name: '<:notificacaopwp:566085275323727893> | **Menção**', value: `\`<a:${emojis.identifier}>\``},
+		{name: '<:Servidor:564589119334776862> | **Id do Emoji**', value: `\`${emojis.id}\``},
+		{name: '<a:relogio:669706279861747713> | ***Criado em***', value: `${moment(emojis.createadAt).format('LLLL')}`},
+		{name: '<:ajuda:569167017073180677> | ***Avistado em***', value: `\`${emojis.guild}\`` },
+		{name: '<:Link:573931602636308500> | ***Link do emoji***', value: emojis.url}
+		)
         .setTimestamp();
 
         if(emojis.animated) return message.channel.send(embeda)
