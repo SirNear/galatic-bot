@@ -178,11 +178,12 @@ async run({ message, args, client, server}) {
 	       .setStyle(ButtonStyle.Primary),
 	  )
 	  
-	  let msgPoke = await message.channel.send({content: 'Estará como padrão o valor pré-definido, altere o que for necessário e coloque "df" no campo que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
+	  let msgPoke = await message.channel.send({content: 'Estará como padrão o valor pré-definido, altere apeans o que quiser e não deixe nada em branco. Podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
 	  
 	  const collectorOp = msgPoke.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 	  
 	  collectorOp.on('collect', async (interaction) => {
+		  msgPoke.delete()
 		  if(interaction.customId === 'start') {
 			  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
 
@@ -194,13 +195,6 @@ async run({ message, args, client, server}) {
 						  let pDesc = interaction.fields.getTextInputValue('textDesc')
 						  let pType = interaction.fields.getTextInputValue('textType')
 						  let pTitle = interaction.fields.getTextInputValue('textTitle')
-
-						  //se não tiver os valores = n quer mudar
-
-						  if(pName === 'df') return pName = pokeReg.pokeName
-						  if(pDesc === 'df') return pDesc = pokeReg.pokeDesc
-						  if(pType === 'df') return pType = pokeReg.pokeType
-						  if(pTitle === 'df') return pTitle = pokeReg.pokeTitle
 
 						  //salvando na db
 
