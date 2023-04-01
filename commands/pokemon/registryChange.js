@@ -1,5 +1,5 @@
 
-const { Discord, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
+const { Discord, ModalBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, TextInputStyle, TextInputBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const color = require('../../api/colors.json')
 const error = require('../../api/error.js')
@@ -20,6 +20,9 @@ module.exports = class registryChange extends Command {
 async run({ message, args, client, server}) {
   
   let pokeReg = await this.client.database.pokeReg.findOne({ pokeName: args.slice(0).join(' ') })
+  
+  const msgCancel = 'Tudo bem! Se o pokémon surgir, ele será registrado automaticamente, mas você pode fazer manualmente quando quiser = )'
+  
   if(!pokeReg) {
 	  
 	  const row = new ActionRowBuilder()
@@ -109,10 +112,107 @@ async run({ message, args, client, server}) {
 				    })//collectorType
 			    })//collectorDesc
 		    })//collectorNome
-	    })
+	    })//CollectorSim
+	  
+	  collectorNao.on("collect", async (collected) => { message.channel.send(msgCancel) })
     
   }else {//if !pokeReg
-	  message.reply({content: 'já existe'})
+	  let modalChange = new ModalBuilder()
+	  .setCustomId('change')
+	  .setTitle('<:aboutme:820342728931672085> | **Registro de pokémon**')
+	  
+	  let textName = new TextInputBuilder()
+	  .setLabel(`<:membroCDS:713866588398288956> | **Nome**`)
+	  .setStyle(TextInputStyle.Short)
+	  .setPlaceholder(pokeReg.pokeName)
+	  
+	  let textDesc = new TextInputBuilder()
+	  .setLabel(`<:7992_AmongUs_Investigate:810735122462670869> | **Descricão**`)
+	  .setStyle(TextInputStyle.Paragraph)
+	  .setPlaceholder(pokeReg.pokeDesc)
+	  
+	  let textType = new TextInputBuilder()
+	  .setLabel(`<:passe:713845479691124867> | **Tipos**`)
+	  .setStyle(TextInputStyle.Paragraph)
+	  .setPlaceholder(pokeReg.pokeType)
+	  
+	  let textTitle = new TextInputBuilder()
+	  .setLabel(`<:classes:713835963133985019> | **Espécie**`)
+	  .setStyle(TextInputStyle.Short)
+	  .setPlaceholder(pokeReg.pokeTitle)
+	  
+	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
+	  const secondActionRow = new ActionRowBuilder().addComponents(textDesc);
+	  const thirdActionRow = new ActionRowBuilder().addComponents(textType);
+	  const fourthActionRow = new ActionRowBuilder().addComponents(textTitle);
+	  
+	  modalChange.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow)
+	  
+	  await showModal(modalChange)
+	  
+
+	 const rowChange = new ActionRowBuilder()
+	.addComponents(
+		new ButtonBuilder()
+		.setCustomId('start')
+	       .setLabel('SIM')
+	       .setStyle(ButtonStyle.Primary),
+	       new ButtonBuilder()
+	       .setCustomId('cancel')
+	       .setLabel('CANCELAR')
+	       .setStyle(ButtonStyle.Primary),
+		);
+	  
+	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
+	  
+	  const filterStart = i => i.customId === 'nome' && i.user.id === message.author.id;
+	  const collectorStart = msgPoke.channel.createMessageComponentCollector({ filterStart, time: 15000 })
+	  
+	  const filterCancel = i => i.customId === 'desc' && i.user.id === message.author.id;
+	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
+	  
+	  collectorStart.on('collect', async (interaction) => {
+		  await interaction.showModal(modalChange)
+		  
+		  if(interaction.customId === 'change') {
+			  //pegando parametros das caixas de texto
+			  const pName = interaction.fields.getTextInputValue('textName')
+			  const pDesc = interaction.fields.getTextInputValue('textDesc')
+			  const pType = interaction.fields.getTextInputValue('textType')
+			  const pTitle = interaction.fields.getTextInputValue('textTitle')
+			  
+			  //se não tiver os valores = n quer mudar
+			  
+			  if(!pName) return pName = pokeReg.pokeName
+			  if(!pDesc) return pDesc = pokeReg.pokeDesc
+			  if(!pType) return pType = pokeReg.pokeType
+			  if(!pTitle) return pTitle = pokeReg.pokeTitle
+
+			  //salvando na db
+
+			  pokeReg.pokeName = pName
+			  pokeReg.pokeName = pDesc
+			  pokeReg.pokeName = pType
+			  pokeReg.pokeName = pTitle
+			  pokeReg.save()
+
+			  let embedSucess = new EmbedBuilder()
+			  .setColor(color.green)
+			  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
+			  .setDescription('Os novos valores são:')
+			  .addFields(
+				  {name: '<:membroCDS:713866588398288956 | **Nome**', pokeReg.pokeName, inline: true},
+				  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', pokeReg.pokeDesc, inline: true},
+				  {name: '<:passe:713845479691124867> | **Tipos**', pokeReg.pokeType, inline: true},
+				  {name: '<:classes:713835963133985019> | **Espécie**', pokeReg.pokeTitle, inline: true},
+				  );
+			  
+			  await interaction.reply({embeds: [embedSucess]})
+		  }//if interaction modalChange
+	  })//collectorStart
+	  
+	  collectorCancel.on('collect', async (collected) => { message.channel.send(msgCancel) })
+	
   }
   
   
