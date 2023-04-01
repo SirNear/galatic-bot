@@ -122,22 +122,22 @@ async run({ message, args, client, server}) {
 	  .setTitle('**Registro de pokémon**')
 	  
 	  let textName = new TextInputBuilder()
-	  .setLabel(`<:membroCDS:713866588398288956> | **Nome**`)
+	  .setLabel(`**Nome**`)
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeName)
 	  
 	  let textDesc = new TextInputBuilder()
-	  .setLabel(`<:7992_AmongUs_Investigate:810735122462670869> | **Descricão**`)
+	  .setLabel(`**Descricão**`)
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeDesc)
 	  
 	  let textType = new TextInputBuilder()
-	  .setLabel(`<:passe:713845479691124867> | **Tipos**`)
+	  .setLabel(`**Tipos**`)
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeType)
 	  
 	  let textTitle = new TextInputBuilder()
-	  .setLabel(`<:classes:713835963133985019> | **Espécie**`)
+	  .setLabel(`**Espécie**`)
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeTitle)
 	  
