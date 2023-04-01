@@ -27,7 +27,7 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
-		if(this.activeCollector === true) {
+		if(this.client.activeCollector === true) {
 			return
 		} else {
 			//if(random < chance) {
