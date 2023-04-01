@@ -210,7 +210,7 @@ async run({ message, args, client, server}) {
 						  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
 						  );
 
-					  await interaction.reply({embeds: [embedSucess]})
+					  await message.channel.send({embeds: [embedSucess]})
 				  }//if interaction modalChange
 			}
 	  })//collectorStart
