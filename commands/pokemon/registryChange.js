@@ -178,7 +178,7 @@ async run({ message, args, client, server}) {
 	       .setStyle(ButtonStyle.Primary),
 	  )
 	  
-	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
+	  let msgPoke = await message.channel.send({content: 'Estará como padrão o valor pré-definido, altere o que for necessário e coloque "df" no campo que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
 	  
 	  const collectorOp = msgPoke.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 	  
@@ -205,9 +205,9 @@ async run({ message, args, client, server}) {
 						  //salvando na db
 
 						  pokeReg.pokeName = pName
-						  pokeReg.pokeName = pDesc
-						  pokeReg.pokeName = pType
-						  pokeReg.pokeName = pTitle
+						  pokeReg.pokeDes = pDesc
+						  pokeReg.pokeType = pType
+						  pokeReg.pokeTitle = pTitle
 						  pokeReg.save()
 
 						  let embedSucess = new EmbedBuilder()
@@ -215,7 +215,7 @@ async run({ message, args, client, server}) {
 						  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
 						  .setDescription('Os novos valores são:')
 						  .addFields(
-							  {name: '<:membroCDS:713866588398288956:> | **Nome**', value: pokeReg.pokeName, inline: true},
+							  {name: '<:membroCDS:713866588398288956> | **Nome**', value: pokeReg.pokeName, inline: true},
 							  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: pokeReg.pokeDesc, inline: true},
 							  {name: '<:passe:713845479691124867> | **Tipos**', value: pokeReg.pokeType, inline: true},
 							  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
