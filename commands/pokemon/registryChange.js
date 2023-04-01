@@ -43,78 +43,66 @@ async run({ message, args, client, server}) {
 	    const collector = msgNoPoke.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 
 	    collector.on('collect', async i => {
+		    let response = await fetch(`https://pokeapi.co/api/v2/pokemon/${args.slice(0).join(' ').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`)
+		    let data = await response.json();
+		    let regId = data.id
+		    let regName = data.name
+		    let regImg = data.sprites.front_default;
+		    let regType = data.types.map(type => type.type.name).join(', ');
+		    
 		    if (i.customId === 'primary') {
 			    msgNoPoke.delete()
-
+			    
 			    const embedReg = new EmbedBuilder()
 			    .setTitle('Registro de Pokémon')
-			    .setDescription('Qual é o nome do pokémon?')
+			    .setDescription('Qual é a descrição do pokémon?')
+			    .addFields(
+				  {name: '<:membroCDS:713866588398288956> | **Nome**', value: regName, inline: true},
+				  {name: '<:passe:713845479691124867> | **Tipos**', value: regType, inline: true},
+			    )
+			    .setImage(regImg)
 			    .setColor(color.purple)
 
 			    const pokeMsg = await message.channel.send({embeds: [embedReg]})
-			    const collectorNome = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 			    this.client.activeCollector = true;
 			    
-			    collectorNome.on("collect", async (collected) => {
-				    let regName = collected.content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+			    const collectorDesc = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 
-				    let response = await fetch(`https://pokeapi.co/api/v2/pokemon/${regName}`)
-				    let data = await response.json();
-				    let regId = data.id
-
-				    if(!regId) {
-					    pokeMsg.delete()
-					    message.reply({content: '**Esse pokémon não existe! Por favor, repita o comando.**'})
-				    }
-
+			    if(!regId) {
 				    pokeMsg.delete()
-				    embedReg.setDescription('Qual é a descrição do pokémon?')
-				    embedReg.addFields({name: '**Nome**', value: regName})
+				    message.reply({content: '**Esse pokémon não existe! Por favor, repita o comando.**'})
+			    }
+			    
+			    collectorDesc.on("collect", async (collected) => {
+				    pokeMsg.delete()
+				    let regDesc = collected.content
+				    embedReg.setDescription('Qual é a espécie do pokémon? Ex.: Lucario é da espécie pokémon aura.')
 
-				    const nomeMsg = await message.channel.send({embeds: [embedReg]})
-				    const collectorDesc = await nomeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-				    
-				    collectorDesc.on("collect", async (collected) => {
-					    nomeMsg.delete()
-					    let regDesc = collected.content
-					    embedReg.setDescription('Qual é o tipo do pokémon? Em inglês. Se for mais de um tipo, separe por uma "/"')
-					    embedReg.addFields({name: '**Descrição**', value: regDesc})
+				    const descMsg = await message.channel.send({embeds: [embedReg]})
 
-					    const descMsg = await message.channel.send({embeds: [embedReg]})
-					    const collectorType = descMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-					    
-					    collectorType.on("collect", async (collected) => {
-						    descMsg.delete()
-						    let regType = collected.content
-						    embedReg.setDescription('Qual é a espécie do pokémon? Ex.: Lucario é da espécie pokémon aura.')
-						    embedReg.addFields({name: '**Tipos:**', value: regType})
+				    const collectorTitle = descMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
 
-						    const typeMsg = await message.channel.send({embeds: [embedReg]})
-						    const collectorTitle = typeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-						    
-						    collectorTitle.on('collect', async (collected) => {
-							    typeMsg.delete()
-							    let regTitle = collected.content
-							    embedReg.setDescription('Registro concluido!')
-							    embedReg.addFields({name: '**Espécie:**', value: regTitle})
+				    collectorTitle.on('collect', async (collected) => {
+					    descMsg.delete()
+					    let regTitle = collected.content
+					    embedReg.setDescription('Registro concluido!')
+					    embedReg.addFields({name: '**Espécie:**', value: regTitle})
 
-							    message.channel.send({embeds: [embedReg]}).then(msg => {
-								    this.client.database.pokeReg({
-									    _id: regId,
-									    pokeName: regName,
-									    pokeDesc: regDesc,
-									    pokeType: regType,
-									    pokeTitle: regTitle
-								    }).save().then(msg => {
-									    console.log('Novo pokémon registrado:' + ` ${regName} / ${regType}`)
-									    message.channel.send({embeds: [embedReg]})
-									    this.client.activeCollector = false;
-								    })//then save database
-							    })//then embed
-						    })//collectorTitle
-					    })//collectorType
-				    })//collectorDesc
-			    })//collectorNome
+					    message.channel.send({embeds: [embedReg]}).then(msg => {
+						    this.client.database.pokeReg({
+							    _id: regId,
+							    pokeName: regName,
+							    pokeDesc: regDesc,
+							    pokeType: regType,
+							    pokeTitle: regTitle
+						    }).save().then(msg => {
+							    console.log('Novo pokémon registrado:' + ` ${regName} / ${regType}`)
+							    message.channel.send({embeds: [embedReg]})
+							    this.client.activeCollector = false;
+						    })//then save database
+					    })//then embed
+				    })//collectorTitle
+			    })//collectorDesc
 		    } else if (i.customId === 'secondary') {
 			     message.channel.send(msgCancel)
 		    }
