@@ -201,10 +201,10 @@ async run({ message, args, client, server}) {
 			  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
 			  .setDescription('Os novos valores são:')
 			  .addFields(
-				  {name: '<:membroCDS:713866588398288956 | **Nome**', pokeReg.pokeName, inline: true},
-				  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', pokeReg.pokeDesc, inline: true},
-				  {name: '<:passe:713845479691124867> | **Tipos**', pokeReg.pokeType, inline: true},
-				  {name: '<:classes:713835963133985019> | **Espécie**', pokeReg.pokeTitle, inline: true},
+				  {name: '<:membroCDS:713866588398288956 | **Nome**', value: pokeReg.pokeName, inline: true},
+				  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: pokeReg.pokeDesc, inline: true},
+				  {name: '<:passe:713845479691124867> | **Tipos**', value: pokeReg.pokeType, inline: true},
+				  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
 				  );
 			  
 			  await interaction.reply({embeds: [embedSucess]})
