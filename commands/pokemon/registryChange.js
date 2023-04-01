@@ -122,22 +122,26 @@ async run({ message, args, client, server}) {
 	  .setTitle('**Registro de pokémon**')
 	  
 	  let textName = new TextInputBuilder()
-	  .setLabel(`**Nome**`)
+	  .setCustomId('textName')
+	  .setLabel('**Nome**')
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeName)
 	  
 	  let textDesc = new TextInputBuilder()
-	  .setLabel(`**Descricão**`)
+	  .setCustomId('textDesc')
+	  .setLabel('**Descricão**')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeDesc)
 	  
 	  let textType = new TextInputBuilder()
-	  .setLabel(`**Tipos**`)
+	  .setCustomId('textType')
+	  .setLabel('**Tipos**')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeType)
 	  
 	  let textTitle = new TextInputBuilder()
-	  .setLabel(`**Espécie**`)
+	  .setCustomId('textTitle')
+	  .setLabel('**Espécie**')
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeTitle)
 	  
@@ -169,7 +173,7 @@ async run({ message, args, client, server}) {
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (interaction) => {
-			  await interaction.user.showModal(modalChange)
+			  await interaction.showModal(modalChange)
 
 			  if(interaction.customId === 'change') {
 				  //pegando parametros das caixas de texto
