@@ -211,6 +211,7 @@ async run({ message, args, client, server}) {
 
 						  await interaction.reply({embeds: [embedSucess]})
 					  }//if interaction modalChange
+			  })
 		  } else if(interaction.customId === 'cancel') { message.channel.send(msgCancel) }
 	  })//collectorOp
 	  	
