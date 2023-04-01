@@ -180,7 +180,7 @@ async run({ message, args, client, server}) {
 		  await interaction.showModal(modalChange)
 		  
 		  const filter = (interaction) => interaction.customId === 'modal'
-		  interaction.awaitModalSubmit({ filter, time: 15_000 }).then(interaction => {
+		  interaction.awaitModalSubmit({ filter, time: 15_000 }).then(async (interaction) => {
 				  if(interaction.customId === 'change') {
 					  //pegando parametros das caixas de texto
 					  const pName = interaction.fields.getTextInputValue('textName')
@@ -214,7 +214,7 @@ async run({ message, args, client, server}) {
 						  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
 						  );
 
-					  await message.channel.send({embeds: [embedSucess]})
+					  await interaction.reply({embeds: [embedSucess]})
 				  }//if interaction modalChange
 		  }).catch(console.error);
 	  })//collectorStart
