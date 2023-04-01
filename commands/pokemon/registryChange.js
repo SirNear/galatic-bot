@@ -53,7 +53,7 @@ async run({ message, args, client, server}) {
 
 			    const pokeMsg = await message.channel.send({embeds: [embedReg]})
 			    const collectorNome = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-			    this.activeCollector = true;
+			    this.client.activeCollector = true;
 			    
 			    collectorNome.on("collect", async (collected) => {
 				    let regName = collected.content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
