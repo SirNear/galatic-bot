@@ -181,9 +181,6 @@ async run({ message, args, client, server}) {
 		  msgPoke.delete()
 		  if(interaction.customId === 'start') {
 			  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
-
-			  const filter = (interaction) => interaction.customId === 'change'
-			  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
 					  if(interaction.customId === 'change') {
 						  //pegando parametros das caixas de texto
 						  let pName = interaction.fields.getTextInputValue('textName')
@@ -212,7 +209,6 @@ async run({ message, args, client, server}) {
 
 						  await interaction.reply({embeds: [embedSucess]})
 					  }//if interaction modalChange
-			  }).catch(console.error);
 		  } else if(interaction.customId === 'cancel') { message.channel.send(msgCancel) }
 	  })//collectorOp
 	  	
