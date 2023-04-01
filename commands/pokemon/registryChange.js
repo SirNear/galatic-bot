@@ -108,7 +108,7 @@ async run({ message, args, client, server}) {
 								    }).save().then(msg => {
 									    console.log('Novo pokémon registrado:' + ` ${regName} / ${regType}`)
 									    message.channel.send({embeds: [embedReg]})
-									    this.activeCollector = false;
+									    this.client.activeCollector = false;
 								    })//then save database
 							    })//then embed
 						    })//collectorTitle
