@@ -193,7 +193,7 @@ async run({ message, args, client, server}) {
 						  //salvando na db
 
 						  pokeReg.pokeName = pName
-						  pokeReg.pokeDes = pDesc
+						  pokeReg.pokeDesc = pDesc
 						  pokeReg.pokeType = pType
 						  pokeReg.pokeTitle = pTitle
 						  pokeReg.save()
