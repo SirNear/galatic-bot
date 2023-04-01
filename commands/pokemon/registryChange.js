@@ -127,6 +127,8 @@ async run({ message, args, client, server}) {
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeName)
 	  .setRequired(false)
+	  .setMaxLength(1000)
+	  .setMinLength(2)
 	  
 	  let textDesc = new TextInputBuilder()
 	  .setCustomId('textDesc')
@@ -134,6 +136,8 @@ async run({ message, args, client, server}) {
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeDesc)
 	  .setRequired(false)
+	  .setMaxLength(1000)
+	  .setMinLength(2)
 	  
 	  let textType = new TextInputBuilder()
 	  .setCustomId('textType')
@@ -141,6 +145,8 @@ async run({ message, args, client, server}) {
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeType)
 	  .setRequired(false)
+	  .setMaxLength(1000)
+	  .setMinLength(2)
 	  
 	  let textTitle = new TextInputBuilder()
 	  .setCustomId('textTitle')
@@ -148,6 +154,8 @@ async run({ message, args, client, server}) {
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeTitle)
 	  .setRequired(false)
+	  .setMaxLength(1000)
+	  .setMinLength(2)
 	  
 	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
 	  const secondActionRow = new ActionRowBuilder().addComponents(textDesc);
@@ -177,7 +185,7 @@ async run({ message, args, client, server}) {
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (interaction) => {
-		  await interaction.showModal(modalChange)
+		  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
 		  
 		  const filter = (interaction) => interaction.customId === 'modal'
 		  interaction.awaitModalSubmit({ filter, time: 15_000 }).then(async (interaction) => {
