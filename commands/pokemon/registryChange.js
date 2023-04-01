@@ -53,7 +53,10 @@ async run({ message, args, client, server}) {
 
 			    const pokeMsg = await message.channel.send({embeds: [embedReg]})
 			    const collectorNome = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+			    this.activeCollector = true;
+			    
 			    collectorNome.on("collect", async (collected) => {
+				    this.activeCollector = false;
 				    let regName = collected.content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
 				    let response = await fetch(`https://pokeapi.co/api/v2/pokemon/${regName}`)
@@ -71,7 +74,10 @@ async run({ message, args, client, server}) {
 
 				    const nomeMsg = await message.channel.send({embeds: [embedReg]})
 				    const collectorDesc = await nomeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+				    this.activeCollector = true;
+				    
 				    collectorDesc.on("collect", async (collected) => {
+					    this.activeCollector = false;
 					    nomeMsg.delete()
 					    let regDesc = collected.content
 					    embedReg.setDescription('Qual é o tipo do pokémon? Em inglês. Se for mais de um tipo, separe por uma "/"')
@@ -79,7 +85,10 @@ async run({ message, args, client, server}) {
 
 					    const descMsg = await message.channel.send({embeds: [embedReg]})
 					    const collectorType = descMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+					    this.activeCollector = true;
+					    
 					    collectorType.on("collect", async (collected) => {
+						    this.activeCollector = false;
 						    descMsg.delete()
 						    let regType = collected.content
 						    embedReg.setDescription('Qual é a espécie do pokémon? Ex.: Lucario é da espécie pokémon aura.')
@@ -87,7 +96,10 @@ async run({ message, args, client, server}) {
 
 						    const typeMsg = await message.channel.send({embeds: [embedReg]})
 						    const collectorTitle = typeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+						    this.activeCollector = true;
+						    
 						    collectorTitle.on('collect', async (collected) => {
+							    this.activeCollector = false;
 							    typeMsg.delete()
 							    let regTitle = collected.content
 							    embedReg.setDescription('Registro concluido!')
