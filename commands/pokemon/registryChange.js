@@ -174,7 +174,7 @@ async run({ message, args, client, server}) {
 	       .setStyle(ButtonStyle.Primary),
 	  )
 	  
-	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange, rowChange2]})//, ephemeral: true, components: [rowChange]})
+	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
 	  
 	  const collectorOp = msgPoke.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 	  
