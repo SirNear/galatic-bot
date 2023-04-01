@@ -77,6 +77,7 @@ async run({ message, args, client, server}) {
 				    pokeMsg.delete()
 				    let regDesc = collected.content
 				    embedReg.setDescription('Qual é a espécie do pokémon? Ex.: Lucario é da espécie pokémon aura.')
+				    embedReg.addFields({name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: regDesc})
 
 				    const descMsg = await message.channel.send({embeds: [embedReg]})
 
