@@ -181,7 +181,9 @@ async run({ message, args, client, server}) {
 		  msgPoke.delete()
 		  if(interaction.customId === 'start') {
 			  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
-					  if(interaction.customId === 'change') {
+			  const filter = (interaction) => interaction.customId === 'change'
+			  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (i) => {
+					  if(i.customId === 'change') {
 						  //pegando parametros das caixas de texto
 						  let pName = interaction.fields.getTextInputValue('textName')
 						  let pDesc = interaction.fields.getTextInputValue('textDesc')
