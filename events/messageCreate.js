@@ -27,73 +27,76 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
-		if(this.activeCollector === true) return
-		if(random < chance) {
-			
-			//identificando as palavras-chave para definir os tipos encontrados
-			const mensagem = message.content.toLowerCase();
-			const tiposEncontrados = [];
-			for (let tipo in tiposPokemon) {
-			  if (tiposPokemon[tipo].some(palavraChave => mensagem.includes(palavraChave))) {
-			    tiposEncontrados.push(tipo);
-			  }
-			}
-			
-			//aleatorizando o tipo a ser enviado
-			let tipoPokemon;
-			let tipo;
-			if (tiposEncontrados.length > 0) {
-			  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
-			  tipoPokemon = tiposEncontrados[randomIndex];	
-		     	  tipo = handleTypeIdentifier(tipoPokemon)
-			} else {
-			  tipo = 1
-			}
-			
-			const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
-			const data = await response.json();
-			
-			const pokemonArray = data.pokemon;
-			const randomIndex = Math.floor(Math.random() * pokemonArray.length);
-			const pokemonUrl = pokemonArray[randomIndex].pokemon.url;
-		
-			const pokemonResponse = await fetch(pokemonUrl);
-			const pokemonData = await pokemonResponse.json();
-			let pokemonName = pokemonData.name;
-			let pokemonImage = pokemonData.sprites.front_default;
-			let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+		if(this.activeCollector === true) {
+			return
+		} else {
+			if(random < chance) {
 
-			const embed = new EmbedBuilder()
-			.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
-			.setDescription('Digite `g!capturar` para tentar pega-lo!')
-			.setImage(pokemonImage)
-			.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
+				//identificando as palavras-chave para definir os tipos encontrados
+				const mensagem = message.content.toLowerCase();
+				const tiposEncontrados = [];
+				for (let tipo in tiposPokemon) {
+				  if (tiposPokemon[tipo].some(palavraChave => mensagem.includes(palavraChave))) {
+				    tiposEncontrados.push(tipo);
+				  }
+				}
 
-			const pokeMsg = await message.channel.send({ embeds: [embed] })
-			
-			//registrando pokemon
-			let pokemonReg = await this.client.database.pokeReg.findById(pokemonData.id);
-			if(!pokemonReg) {
-				this.client.database.pokeReg({
-					_id: pokemonData.id,
-					pokeName: pokemonName,
-					pokeType: handlePokemonType(pokemonType)
-				}).save().then(msg => {
-					console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${handlePokemonType(pokemonType)}`)
-				})//then save
-			}//if sem registro
+				//aleatorizando o tipo a ser enviado
+				let tipoPokemon;
+				let tipo;
+				if (tiposEncontrados.length > 0) {
+				  const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
+				  tipoPokemon = tiposEncontrados[randomIndex];	
+				  tipo = handleTypeIdentifier(tipoPokemon)
+				} else {
+				  tipo = 1
+				}
 
-			const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-			collector.on('collect', (collected) => {
-				if(collected.content === 'g!capturar') {
-					
-					console.log('deu certo bro')
-					message.reply({content: 'testando'})
-					
-				}//if g!capturar
-			})//collector
+				const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
+				const data = await response.json();
 
-		}
+				const pokemonArray = data.pokemon;
+				const randomIndex = Math.floor(Math.random() * pokemonArray.length);
+				const pokemonUrl = pokemonArray[randomIndex].pokemon.url;
+
+				const pokemonResponse = await fetch(pokemonUrl);
+				const pokemonData = await pokemonResponse.json();
+				let pokemonName = pokemonData.name;
+				let pokemonImage = pokemonData.sprites.front_default;
+				let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+
+				const embed = new EmbedBuilder()
+				.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
+				.setDescription('Digite `g!capturar` para tentar pega-lo!')
+				.setImage(pokemonImage)
+				.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
+
+				const pokeMsg = await message.channel.send({ embeds: [embed] })
+
+				//registrando pokemon
+				let pokemonReg = await this.client.database.pokeReg.findById(pokemonData.id);
+				if(!pokemonReg) {
+					this.client.database.pokeReg({
+						_id: pokemonData.id,
+						pokeName: pokemonName,
+						pokeType: handlePokemonType(pokemonType)
+					}).save().then(msg => {
+						console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${handlePokemonType(pokemonType)}`)
+					})//then save
+				}//if sem registro
+
+				const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+				collector.on('collect', (collected) => {
+					if(collected.content === 'g!capturar') {
+
+						console.log('deu certo bro')
+						message.reply({content: 'testando'})
+
+					}//if g!capturar
+				})//collector
+
+			}//if
+		}//else
 		
 		//pokemon
 
