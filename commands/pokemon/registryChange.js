@@ -191,10 +191,10 @@ async run({ message, args, client, server}) {
 		  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
 				  if(interaction.customId === 'change') {
 					  //pegando parametros das caixas de texto
-					  const pName = interaction.fields.getTextInputValue('textName')
-					  const pDesc = interaction.fields.getTextInputValue('textDesc')
-					  const pType = interaction.fields.getTextInputValue('textType')
-					  const pTitle = interaction.fields.getTextInputValue('textTitle')
+					  let pName = interaction.fields.getTextInputValue('textName')
+					  let pDesc = interaction.fields.getTextInputValue('textDesc')
+					  let pType = interaction.fields.getTextInputValue('textType')
+					  let pTitle = interaction.fields.getTextInputValue('textTitle')
 
 					  //se não tiver os valores = n quer mudar
 
