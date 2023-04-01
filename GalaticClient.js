@@ -26,6 +26,8 @@ module.exports = class GalaticClient extends Client {
       
      this.events = new EventManager(this);
 	  
+     this.activeCollector = false;
+	  
         
     }
 	
