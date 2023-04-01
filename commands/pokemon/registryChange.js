@@ -172,7 +172,7 @@ async run({ message, args, client, server}) {
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (collected) => {
-		  client.on(Events.InteractionCreate, async interaction => {
+		  client.on("interactionCreate", async (interaction) => {
 			  await interaction.showModal(modalChange)
 
 			  if(interaction.customId === 'change') {
