@@ -188,7 +188,7 @@ async run({ message, args, client, server}) {
 		  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
 		  
 		  const filter = (interaction) => interaction.customId === 'modal'
-		  interaction.awaitModalSubmit({ filter, time: 15_000 }).then(async (interaction) => {
+		  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
 				  if(interaction.customId === 'change') {
 					  //pegando parametros das caixas de texto
 					  const pName = interaction.fields.getTextInputValue('textName')
