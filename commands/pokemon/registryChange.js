@@ -31,14 +31,17 @@ async run({ message, args, client, server}) {
        			.setCustomId('primary')
 		       .setLabel('SIM')
 		       .setStyle(ButtonStyle.Success),
+		     );
+	  const row2 = new ActionRowBuilder()
+	  	.addComponents(
 		       new ButtonBuilder()
 		       .setCustomId('secondary')
 		       .setLabel('NÃO')
 		       .setStyle(ButtonStyle.Danger),
-		     );
+		)
 	  
     
-	    const msgNoPoke = await message.reply({ content: 'Esse pokémon não foi registrado, deseja registrar?', ephemeral: true, components: [row] });
+	    const msgNoPoke = await message.reply({ content: 'Esse pokémon não foi registrado, deseja registrar?', ephemeral: true, components: [row, row2] });
 
 	    const filterSim = i => i.customId === 'primary' && i.user.id === message.author.id;
 	    const collectorSim = msgNoPoke.channel.createMessageComponentCollector({ filterSim, time: 15000 })
@@ -128,28 +131,25 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeName)
 	  .setRequired(false)
 	  .setMaxLength(1000)
-	  .setMinLength(2)
-	  .setValue('Default')
+	  .setValue(pokeReg.pokeName)
 	  
 	  let textDesc = new TextInputBuilder()
 	  .setCustomId('textDesc')
-	  .setLabel('**Descricão**')
+	  .setLabel('Descricão')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeDesc)
 	  .setRequired(false)
 	  .setMaxLength(1000)
-	  .setMinLength(2)
-	  .setValue('Default')
+	  .setValue(pokeReg.pokeDesc)
 	  
 	  let textType = new TextInputBuilder()
 	  .setCustomId('textType')
-	  .setLabel('**Tipos**')
+	  .setLabel('Tipos')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeType)
 	  .setRequired(false)
 	  .setMaxLength(1000)
-	  .setMinLength(2)
-	  .setValue('Default')
+	  .setValue(pokeReg.pokeType)
 	  
 	  let textTitle = new TextInputBuilder()
 	  .setCustomId('textTitle')
@@ -158,8 +158,7 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeTitle)
 	  .setRequired(false)
 	  .setMaxLength(1000)
-	  .setMinLength(2)
-	  .setValue('Default')
+	  .setValue(pokeReg.pokeTitle)
 	  
 	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
 	  const secondActionRow = new ActionRowBuilder().addComponents(textDesc);
@@ -174,13 +173,17 @@ async run({ message, args, client, server}) {
 		.setCustomId('start')
 	       .setLabel('SIM')
 	       .setStyle(ButtonStyle.Primary),
+		);
+	  
+	  const rowChange2 = new ActionRowBuilder()
+	  .addComponents(
 	       new ButtonBuilder()
 	       .setCustomId('cancel')
 	       .setLabel('CANCELAR')
 	       .setStyle(ButtonStyle.Primary),
-		);
+	  )
 	  
-	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
+	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange, rowChange2]})//, ephemeral: true, components: [rowChange]})
 	  
 	  const filterStart = i => i.customId === 'start' && i.user.id === message.author.id;
 	  const collectorStart = msgPoke.channel.createMessageComponentCollector({ filterStart, time: 15000 })
@@ -220,7 +223,7 @@ async run({ message, args, client, server}) {
 					  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
 					  .setDescription('Os novos valores são:')
 					  .addFields(
-						  {name: '<:membroCDS:713866588398288956 | **Nome**', value: pokeReg.pokeName, inline: true},
+						  {name: '<:membroCDS:713866588398288956:> | **Nome**', value: pokeReg.pokeName, inline: true},
 						  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: pokeReg.pokeDesc, inline: true},
 						  {name: '<:passe:713845479691124867> | **Tipos**', value: pokeReg.pokeType, inline: true},
 						  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
