@@ -178,16 +178,16 @@ async run({ message, args, client, server}) {
 	  
 	  let msgPoke = await message.channel.send({content: 'Digite as alterações e deixe em branco o que não for alterar, podemos começar?', components: [rowChange]})//, ephemeral: true, components: [rowChange]})
 	  
-	  const filterStart = i => i.customId === 'nome' && i.user.id === message.author.id;
+	  const filterStart = i => i.customId === 'start' && i.user.id === message.author.id;
 	  const collectorStart = msgPoke.channel.createMessageComponentCollector({ filterStart, time: 15000 })
 	  
-	  const filterCancel = i => i.customId === 'desc' && i.user.id === message.author.id;
+	  const filterCancel = i => i.customId === 'cancel' && i.user.id === message.author.id;
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (interaction) => {
 		  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
 		  
-		  const filter = (interaction) => interaction.customId === 'modal'
+		  const filter = (interaction) => interaction.customId === 'change'
 		  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
 				  if(interaction.customId === 'change') {
 					  //pegando parametros das caixas de texto
