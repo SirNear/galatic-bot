@@ -126,6 +126,7 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeName)
 	  .setRequired(false)
 	  .setMaxLength(1000)
+	  .setMinLength(0)
 	  .setValue(pokeReg.pokeName)
 	  
 	  let textDesc = new TextInputBuilder()
@@ -135,6 +136,7 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeDesc)
 	  .setRequired(false)
 	  .setMaxLength(1000)
+	  .setMinLength(0)
 	  .setValue(pokeReg.pokeDesc)
 	  
 	  let textType = new TextInputBuilder()
@@ -144,6 +146,7 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeType)
 	  .setRequired(false)
 	  .setMaxLength(1000)
+	  .setMinLength(0)
 	  .setValue(pokeReg.pokeType)
 	  
 	  let textTitle = new TextInputBuilder()
@@ -153,6 +156,7 @@ async run({ message, args, client, server}) {
 	  .setPlaceholder(pokeReg.pokeTitle)
 	  .setRequired(false)
 	  .setMaxLength(1000)
+	  .setMinLength(0)
 	  .setValue(pokeReg.pokeTitle)
 	  
 	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
