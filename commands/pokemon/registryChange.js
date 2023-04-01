@@ -197,10 +197,10 @@ async run({ message, args, client, server}) {
 
 						  //se não tiver os valores = n quer mudar
 
-						  if(!pName) return pName = pokeReg.pokeName
-						  if(!pDesc) return pDesc = pokeReg.pokeDesc
-						  if(!pType) return pType = pokeReg.pokeType
-						  if(!pTitle) return pTitle = pokeReg.pokeTitle
+						  if(pName === 'df') return pName = pokeReg.pokeName
+						  if(pDesc === 'df') return pDesc = pokeReg.pokeDesc
+						  if(pType === 'df') return pType = pokeReg.pokeType
+						  if(pTitle === 'df') return pTitle = pokeReg.pokeTitle
 
 						  //salvando na db
 
