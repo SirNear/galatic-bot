@@ -27,6 +27,7 @@ module.exports = class MessageReceive {
 		const chance = 0.2
 		const random = Math.random()
 		
+		if(this.activeCollector === true) return
 		if(random < chance) {
 			
 			//identificando as palavras-chave para definir os tipos encontrados
