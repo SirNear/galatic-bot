@@ -31,17 +31,14 @@ async run({ message, args, client, server}) {
        			.setCustomId('primary')
 		       .setLabel('SIM')
 		       .setStyle(ButtonStyle.Success),
-		     );
-	  const row2 = new ActionRowBuilder()
-	  	.addComponents(
 		       new ButtonBuilder()
 		       .setCustomId('secondary')
 		       .setLabel('NÃO')
 		       .setStyle(ButtonStyle.Danger),
-		)
+		);
 	  
     
-	    const msgNoPoke = await message.reply({ content: 'Esse pokémon não foi registrado, deseja registrar?', ephemeral: true, components: [row, row2] });
+	    const msgNoPoke = await message.reply({ content: 'Esse pokémon não foi registrado, deseja registrar?', ephemeral: true, components: [row] });
 
 	    const filterSim = i => i.customId === 'primary' && i.user.id === message.author.id;
 	    const collectorSim = msgNoPoke.channel.createMessageComponentCollector({ filterSim, time: 15000 })
@@ -173,10 +170,6 @@ async run({ message, args, client, server}) {
 		.setCustomId('start')
 	       .setLabel('SIM')
 	       .setStyle(ButtonStyle.Primary),
-		);
-	  
-	  const rowChange2 = new ActionRowBuilder()
-	  .addComponents(
 	       new ButtonBuilder()
 	       .setCustomId('cancel')
 	       .setLabel('CANCELAR')
