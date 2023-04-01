@@ -171,44 +171,46 @@ async run({ message, args, client, server}) {
 	  const filterCancel = i => i.customId === 'desc' && i.user.id === message.author.id;
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
-	  collectorStart.on('collect', async (interaction) => {
-		  await interaction.user.showModal(modalChange)
-		  
-		  if(interaction.customId === 'change') {
-			  //pegando parametros das caixas de texto
-			  const pName = interaction.fields.getTextInputValue('textName')
-			  const pDesc = interaction.fields.getTextInputValue('textDesc')
-			  const pType = interaction.fields.getTextInputValue('textType')
-			  const pTitle = interaction.fields.getTextInputValue('textTitle')
-			  
-			  //se não tiver os valores = n quer mudar
-			  
-			  if(!pName) return pName = pokeReg.pokeName
-			  if(!pDesc) return pDesc = pokeReg.pokeDesc
-			  if(!pType) return pType = pokeReg.pokeType
-			  if(!pTitle) return pTitle = pokeReg.pokeTitle
+	  collectorStart.on('collect', async (collected) => {
+		  client.on(Events.InteractionCreate, async interaction => {
+			  await interaction.showModal(modalChange)
 
-			  //salvando na db
+			  if(interaction.customId === 'change') {
+				  //pegando parametros das caixas de texto
+				  const pName = interaction.fields.getTextInputValue('textName')
+				  const pDesc = interaction.fields.getTextInputValue('textDesc')
+				  const pType = interaction.fields.getTextInputValue('textType')
+				  const pTitle = interaction.fields.getTextInputValue('textTitle')
 
-			  pokeReg.pokeName = pName
-			  pokeReg.pokeName = pDesc
-			  pokeReg.pokeName = pType
-			  pokeReg.pokeName = pTitle
-			  pokeReg.save()
+				  //se não tiver os valores = n quer mudar
 
-			  let embedSucess = new EmbedBuilder()
-			  .setColor(color.green)
-			  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
-			  .setDescription('Os novos valores são:')
-			  .addFields(
-				  {name: '<:membroCDS:713866588398288956 | **Nome**', value: pokeReg.pokeName, inline: true},
-				  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: pokeReg.pokeDesc, inline: true},
-				  {name: '<:passe:713845479691124867> | **Tipos**', value: pokeReg.pokeType, inline: true},
-				  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
-				  );
-			  
-			  await interaction.reply({embeds: [embedSucess]})
-		  }//if interaction modalChange
+				  if(!pName) return pName = pokeReg.pokeName
+				  if(!pDesc) return pDesc = pokeReg.pokeDesc
+				  if(!pType) return pType = pokeReg.pokeType
+				  if(!pTitle) return pTitle = pokeReg.pokeTitle
+
+				  //salvando na db
+
+				  pokeReg.pokeName = pName
+				  pokeReg.pokeName = pDesc
+				  pokeReg.pokeName = pType
+				  pokeReg.pokeName = pTitle
+				  pokeReg.save()
+
+				  let embedSucess = new EmbedBuilder()
+				  .setColor(color.green)
+				  .setTitle('<:YaroCheck:810266633804709908> | **Mudança de Registro Concluída**')
+				  .setDescription('Os novos valores são:')
+				  .addFields(
+					  {name: '<:membroCDS:713866588398288956 | **Nome**', value: pokeReg.pokeName, inline: true},
+					  {name: '<:7992_AmongUs_Investigate:810735122462670869> | **Descrição**', value: pokeReg.pokeDesc, inline: true},
+					  {name: '<:passe:713845479691124867> | **Tipos**', value: pokeReg.pokeType, inline: true},
+					  {name: '<:classes:713835963133985019> | **Espécie**', value: pokeReg.pokeTitle, inline: true},
+					  );
+
+				  await interaction.reply({embeds: [embedSucess]})
+			  }//if interaction modalChange
+		  })
 	  })//collectorStart
 	  
 	  collectorCancel.on('collect', async (collected) => { message.channel.send(msgCancel) })
