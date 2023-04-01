@@ -172,8 +172,11 @@ async run({ message, args, client, server}) {
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (collected) => {
-		  client.on("interactionCreate", async (interaction) => {
-			  await interaction.showModal(modalChange)
+			  showModal(modalChange, {
+				  
+				   client: this.client,
+				   interaction: inter,
+			});
 
 			  if(interaction.customId === 'change') {
 				  //pegando parametros das caixas de texto
@@ -210,7 +213,6 @@ async run({ message, args, client, server}) {
 
 				  await interaction.reply({embeds: [embedSucess]})
 			  }//if interaction modalChange
-		  })
 	  })//collectorStart
 	  
 	  collectorCancel.on('collect', async (collected) => { message.channel.send(msgCancel) })
