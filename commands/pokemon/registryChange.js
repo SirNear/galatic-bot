@@ -119,7 +119,7 @@ async run({ message, args, client, server}) {
   }else {//if !pokeReg
 	  let modalChange = new ModalBuilder()
 	  .setCustomId('change')
-	  .setTitle('<:aboutme:820342728931672085> | **Registro de pokémon**')
+	  .setTitle('**Registro de pokémon**')
 	  
 	  let textName = new TextInputBuilder()
 	  .setLabel(`<:membroCDS:713866588398288956> | **Nome**`)
