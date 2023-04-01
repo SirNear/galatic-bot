@@ -119,31 +119,35 @@ async run({ message, args, client, server}) {
   }else {//if !pokeReg
 	  let modalChange = new ModalBuilder()
 	  .setCustomId('change')
-	  .setTitle('**Registro de pokémon**')
+	  .setTitle('Registro de pokémon')
 	  
 	  let textName = new TextInputBuilder()
 	  .setCustomId('textName')
-	  .setLabel('**Nome**')
+	  .setLabel('Nome')
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeName)
+	  .setRequired(false)
 	  
 	  let textDesc = new TextInputBuilder()
 	  .setCustomId('textDesc')
 	  .setLabel('**Descricão**')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeDesc)
+	  .setRequired(false)
 	  
 	  let textType = new TextInputBuilder()
 	  .setCustomId('textType')
 	  .setLabel('**Tipos**')
 	  .setStyle(TextInputStyle.Paragraph)
 	  .setPlaceholder(pokeReg.pokeType)
+	  .setRequired(false)
 	  
 	  let textTitle = new TextInputBuilder()
 	  .setCustomId('textTitle')
-	  .setLabel('**Espécie**')
+	  .setLabel('Espécie')
 	  .setStyle(TextInputStyle.Short)
 	  .setPlaceholder(pokeReg.pokeTitle)
+	  .setRequired(false)
 	  
 	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
 	  const secondActionRow = new ActionRowBuilder().addComponents(textDesc);
@@ -173,10 +177,10 @@ async run({ message, args, client, server}) {
 	  const collectorCancel = msgPoke.channel.createMessageComponentCollector({ filterCancel, time: 15000 })
 	  
 	  collectorStart.on('collect', async (interaction) => {
-			  await interaction.showModal(modalChange)
+		  await interaction.showModal(modalChange)
 		  
-		  
-			if(interaction.isModalSubmit()) {
+		  const filter = (interaction) => interaction.customId === 'modal'
+		  interaction.awaitModalSubmit({ filter, time: 15_000 }).then(interaction => {
 				  if(interaction.customId === 'change') {
 					  //pegando parametros das caixas de texto
 					  const pName = interaction.fields.getTextInputValue('textName')
@@ -212,7 +216,7 @@ async run({ message, args, client, server}) {
 
 					  await message.channel.send({embeds: [embedSucess]})
 				  }//if interaction modalChange
-			}
+		  }).catch(console.error);
 	  })//collectorStart
 	  
 	  collectorCancel.on('collect', async (collected) => { message.channel.send(msgCancel) })
