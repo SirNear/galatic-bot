@@ -182,13 +182,13 @@ async run({ message, args, client, server}) {
 		  if(interaction.customId === 'start') {
 			  await interaction.showModal(modalChange, {client: this.client, interaction: interaction,})
 			  const filter = (interaction) => interaction.customId === 'change'
-			  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (i) => {
-					  if(i.customId === 'change') {
+			  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
+					  if(interaction.customId === 'change') {
 						  //pegando parametros das caixas de texto
-						  let pName = interaction.fields.getTextInputValue('textName')
-						  let pDesc = interaction.fields.getTextInputValue('textDesc')
-						  let pType = interaction.fields.getTextInputValue('textType')
-						  let pTitle = interaction.fields.getTextInputValue('textTitle')
+						  let pName = await interaction.fields.getTextInputValue('textName')
+						  let pDesc = await interaction.fields.getTextInputValue('textDesc')
+						  let pType = await interaction.fields.getTextInputValue('textType')
+						  let pTitle = await interaction.fields.getTextInputValue('textTitle')
 
 						  //salvando na db
 
