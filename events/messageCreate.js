@@ -30,7 +30,7 @@ module.exports = class MessageReceive {
 		if(this.activeCollector === true) {
 			return
 		} else {
-			if(random < chance) {
+			//if(random < chance) {
 
 				//identificando as palavras-chave para definir os tipos encontrados
 				const mensagem = message.content.toLowerCase();
@@ -95,7 +95,7 @@ module.exports = class MessageReceive {
 					}//if g!capturar
 				})//collector
 
-			}//if
+			//}//if
 		}//else
 		
 		//pokemon
