@@ -129,6 +129,7 @@ async run({ message, args, client, server}) {
 	  .setRequired(false)
 	  .setMaxLength(1000)
 	  .setMinLength(2)
+	  .setValue('Default')
 	  
 	  let textDesc = new TextInputBuilder()
 	  .setCustomId('textDesc')
@@ -138,6 +139,7 @@ async run({ message, args, client, server}) {
 	  .setRequired(false)
 	  .setMaxLength(1000)
 	  .setMinLength(2)
+	  .setValue('Default')
 	  
 	  let textType = new TextInputBuilder()
 	  .setCustomId('textType')
@@ -147,6 +149,7 @@ async run({ message, args, client, server}) {
 	  .setRequired(false)
 	  .setMaxLength(1000)
 	  .setMinLength(2)
+	  .setValue('Default')
 	  
 	  let textTitle = new TextInputBuilder()
 	  .setCustomId('textTitle')
@@ -156,6 +159,7 @@ async run({ message, args, client, server}) {
 	  .setRequired(false)
 	  .setMaxLength(1000)
 	  .setMinLength(2)
+	  .setValue('Default')
 	  
 	  const firstActionRow = new ActionRowBuilder().addComponents(textName);
 	  const secondActionRow = new ActionRowBuilder().addComponents(textDesc);
