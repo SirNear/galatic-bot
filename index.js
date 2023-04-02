@@ -42,7 +42,7 @@ app.listen(3000, () => {
 
 if (webhook_event.message) {
   let sender_psid = webhook_event.sender.id;
-  sendTextMessage(sender_psid, "Testando vc bro);
+  sendTextMessage(sender_psid, "Testando vc bro");
 }
 
 
