@@ -29,21 +29,25 @@ app.post('/webhook', (req, res) => {
     body.entry.forEach(entry => {
       let webhook_event = entry.messaging[0];
       console.log(webhook_event);
-    });
+       
+       if (webhook_event.message) {
+        let sender_psid = webhook_event.sender.id;
+        sendTextMessage(sender_psid, "Testando vc bro");
+      }
+    });//body.entry
     res.status(200).send('EVENT_RECEIVED');
   } else {
     res.status(404).send();
-  }
-});
+  }//else
+   
+});//app.post
 
 app.listen(3000, () => {
   console.log('Servidor iniciado na porta 3000');
 });
 
-if (webhook_event.message) {
-  let sender_psid = webhook_event.sender.id;
-  sendTextMessage(sender_psid, "Testando vc bro");
-}
+
+
 
 
 
