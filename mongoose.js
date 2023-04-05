@@ -5,25 +5,18 @@ mongoose.connect(config.mongoose, { useNewUrlParser: true}, { useUnifiedTopology
 })
 
 let Guild = new mongoose.Schema({ 
-  _id: {type: String}, 
-  prefix: {type: String, default: "g!"},
-  cPunicoes: {type: String, default: '#punições'},
-  cargoMute: {type: String, default: '@mutado'},
-  warnTag: {type: String, default: 'Desativado'},
-  warnNumber: {type: String, default: '3'},
-  uGlobal: {type: String, default: 'Desativado'},
-  staffRole: {type: String, default: 'Não definido'},
-  monitorCategory: {type: String, default: 'Não definido'}
-})
-
-let guildReact = new mongoose.Schema({
-  _id: {type: String},
-  ownerId: {type: String},
-  msgId: {type: String},
-  excludeDBFil: {type: String, default: 'let filtroExcluir = (reaction, usuario) => reaction.emoji.name === "blackcheck" && usuario.id === message.author.id;'},
-  excludeDBCol: {type: String, default: 'const coletorExcluir = msg.createReactionCollector(filtroExcluir, {max: 1, time: 360000});'},
-  cancelExFil: {type: String, default: 'let filtroCancelar = (reaction, usuario) => reaction.emoji.name === "errorYaro" && usuario.id === message.author.id;'},
-  cancelExCol: {type: String, default: 'const coletorCancelar = msg.createReactionCollector(filtroCancelar, {max: 1, time: 360000});'}
+	_id: {type: String}, 
+	prefix: {type: String, default: "g!"},
+	cPunicoes: {type: String, default: '#punições'},
+	cargoMute: {type: String, default: '@mutado'},
+	warnTag: {type: String, default: 'Desativado'},
+	warnNumber: {type: String, default: '3'},
+	uGlobal: {type: String, default: 'Desativado'},
+	staffRole: {type: String, default: 'Não definido'},
+	monitorCategory: {type: String, default: 'Não definido'},
+	pokeball: {type: Boolean, default: true},
+	batalha: {type: Boolean, default: true},
+	customPerm: {type: Boolean, default: false}
 })
 
 let Puni = new mongoose.Schema({
@@ -50,23 +43,6 @@ let uD = new mongoose.Schema({
   monitorChannelId: {type: String},
   punishNumber: {type: String}
 
-})
-
-let Bot = new mongoose.Schema({
-	_id: { type: String },
-	maintenance: { type: Boolean, default: false },
-	maintenanceReason: { type: String, default: "" }
-})
-
-let rpgFicha = new mongoose.Schema({
-	_id:{type: String},
-	nome: {type: String, default: 'sem nome'},
-	idade: {type: Number, default: 0},
-	coins: {type: Number, default: 100},
-	moradia: {type: String, default: 'sem moradia'},
-	pokemons: {type: Map, of: String},
-	aparencia: {type: String, default: 'sem aparencia'},
-	aprovada:{type: Boolean, default: 0}
 })
 
 let pokemonFicha = new mongoose.Schema({
