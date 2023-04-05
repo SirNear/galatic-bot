@@ -80,13 +80,7 @@ module.exports = class GalaticClient extends Client {
 						command.dir = `./commands/${category}/${cmd}`
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
-						let c = await this.database.Bots.findById(command.config.name)
-						if (!c) {
-							c = new this.database.Bots({
-								_id: command.config.name
-							})
-							c.save()
-						}
+
 					})
 				})
 			})
