@@ -69,17 +69,8 @@ module.exports.pokeficha = pokeficha
 let Guilds = mongoose.model("Guilds", Guild)
 module.exports.Guilds = Guilds
 
-let gReacts = mongoose.model("gReacts", guildReact)
-module.exports.gReacts = gReacts
-
 let Punish = mongoose.model("Punish", Puni)
 module.exports.Punish = Punish
 
 let userData = mongoose.model("userData", uD)
 module.exports.userData = userData
-
-let Bots = mongoose.model("Bots", Bot)
-module.exports.Bots = Bots
-
-let Ficha = mongoose.model("Ficha", rpgFicha)
-module.exports.Ficha = Ficha
