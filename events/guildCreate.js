@@ -9,7 +9,7 @@ module.exports = class {
   async run(client, message, guild) {
     const server = await this.client.database.Guilds.findById(guild.name)
     
-    if(!server){
+    if(!server) {
       console.log(guild.id + guild.name)
       //this.client.database.Guilds({
       //  _id: guild.name,
