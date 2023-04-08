@@ -30,7 +30,7 @@ module.exports = class GuildCreate {
 			  this.client.users.send(guild.ownerId, embedNew)
 	          })
 	  }else {
-		  this.client.users.send(guild.ownerId, embedOld))
+		  this.client.users.send(guild.ownerId, embedOld)
 	  }
        }
 }
