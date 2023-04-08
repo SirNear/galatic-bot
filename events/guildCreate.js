@@ -21,9 +21,7 @@ module.exports = class GuildCreate {
 		.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
 		.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 		.setThumbnail(guild.icon);
-		
-		const leave = guild.leave()
-		
+				
 		let embedCreated = new EmbedBuilder()
 		.setColor(color.green)
 		.setTitle('**NOVO SERVIDOR**')
@@ -31,11 +29,27 @@ module.exports = class GuildCreate {
 			{name: '**Servidor:**', value: guild.name},
 			{name: '**ID**', value: guild.id},
 			{name: '**Dono**', value: guild.ownerID},
-			{name: '**Sair do Servidor**', value: `[CLIQUE](${leave})`}
 		)
 		
 		const canal = client.channels.cache.get('1094070734151766026')
-		canal.send({ embeds: [embedCreated] })
+		canal.send({ embeds: [embedCreated] }).then(msg => {
+			 const row = new ActionRowBuilder()
+			 	.addComponents(
+				       new ButtonBuilder()
+				       .setCustomId('secondary')
+				       .setLabel('SAIR')
+				       .setStyle(ButtonStyle.Danger),
+				)
+		})
+		
+		let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
+		
+		const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
+		
+		collector.on('collect', async i => {
+			msgLeave.delete()
+			guild.leave()
+		})//collector
 	  
 	  
 	  if(!server) {
