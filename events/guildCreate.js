@@ -6,7 +6,7 @@ module.exports = class GuildCreate {
 		this.client = client
 	}
   
-  async run(client, guild) {
+  async run(guild) {
     const server = await this.client.database.Guilds.findById(guild.id);
     
     if(!server) {
