@@ -3,8 +3,7 @@ const { EmbedBuilder } = require('discord.js')
 module.exports = class GuildCreate {
 
 	constructor(client) {
-		super()
-		this.events = 'guildCreate'
+		this.client = client
 	}
   
   async run(client, guild) {
