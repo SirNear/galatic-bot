@@ -8,10 +8,10 @@ module.exports = class GuildCreate {
 	}
 
 	async run(guild) {
-		const server = await this.client.database.Guilds.findById(guild.id);
-		let embed = new EmbedBuilder()
-		.setColor(color.green)
-		.setTitle('')
+		//const server = await this.client.database.Guilds.findById(guild.id);
+		//let embed = new EmbedBuilder()
+		//.setColor(color.green)
+		//.setTitle('')
 	  
 	  
 	  if(!server) {
