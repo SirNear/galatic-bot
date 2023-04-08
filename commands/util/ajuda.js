@@ -27,7 +27,7 @@ module.exports = class ajuda extends Command {
 	    {name: `<:7992_AmongUs_Investigate:810735122462670869> Moderação | (${this.getCommmandSize("moderation")})`, value: this.getCategory("moderation", server.prefix)},
    	    {name: `<:PeepoPing:810735232918487091> Configuração do Servidor | (${this.getCommmandSize("config")})`, value: this.getCategory("config", server.prefix)},
 	    {name: `<:tilapia:811639469199065148> Pokémon | (${this.getCommmandSize("pokemon")})`, value: this.getCategory("pokemon", server.prefix)},
-	    {name: `**Convite do Bot**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8)"}
+	    {name: `**Convite do Bot**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=634216294710771713&scope=bot&permissions=8)"}
      )
      this.client.users.send(message.author.id, {embeds: [embed] }).then(() => {
 	message.reply('**Verifique sua DM**')
