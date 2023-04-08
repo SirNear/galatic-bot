@@ -14,7 +14,7 @@ module.exports = class GuildCreate {
 		.setColor(color.green)
 		.setTitle('<a:a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
 		.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
-		.setThumbnail(guild.iconURL);
+		.setThumbnail(guild.icon);
 		
 		let embedOld = new EmbedBuilder()
 		.setColor(color.green)
