@@ -7,7 +7,7 @@ module.exports = class {
 	}
   
   async run(client, guild) {
-    const server = await this.client.database.Guilds.findById(this.client.guild.id)
+    const server = await this.client.database.Guilds.findById(this.client.guild.id);
     
     if(!server) {
       console.log(this.client.guild.id + this.client.guild.name)
