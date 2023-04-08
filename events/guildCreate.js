@@ -10,7 +10,7 @@ module.exports = class GuildCreate {
 	async run(guild) {
 		const server = await this.client.database.Guilds.findById(guild.id);
 		let embed = new EmbedBuilder()
-		.setCOlor(color.green)
+		.setColor(color.green)
 		.setTitle('')
 	  
 	  
