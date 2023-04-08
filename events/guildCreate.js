@@ -27,10 +27,10 @@ module.exports = class GuildCreate {
 	      	  this.client.database.Guilds({
 			  _id: guild.id,
 		  }).save().then(msg => {
-			  this.client.users.send(guild.ownerId, embedNew)
+			  this.client.users.send(guild.ownerId, {embeds: [embedNew]})
 	          })
 	  }else {
-		  this.client.users.send(guild.ownerId, embedOld)
+		  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
 	  }
        }
 }
