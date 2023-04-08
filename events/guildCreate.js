@@ -7,7 +7,7 @@ module.exports = class GuildCreate {
 		this.client = client
 	}
 
-	async run(guild) {
+	async run(guild, client) {
 		const server = await this.client.database.Guilds.findById(guild.id);
 		
 		let embedNew = new EmbedBuilder()
@@ -27,10 +27,10 @@ module.exports = class GuildCreate {
 	      	  this.client.database.Guilds({
 			  _id: guild.id,
 		  }).save().then(msg => {
-			  guild.ownerId.send(embedNew)
+			  this.client.users.send(guild.ownerId, embedNew)
 	          })
 	  }else {
-		  guild.ownerId.send(embedOld)
+		  this.client.users.send(guild.ownerId, embedOld))
 	  }
        }
 }
