@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js')
-const color = require('../../api/colors.json')
+const color = require('../api/colors.json')
 
 module.exports = class GuildCreate {
 
@@ -16,7 +16,7 @@ module.exports = class GuildCreate {
 	  
 	  if(!server) {
 	      	  this.client.database.Guilds({
-			  _id: guild.name,
+			  _id: guild.id,
 		  }).save().then(msg => {
 			  
 
