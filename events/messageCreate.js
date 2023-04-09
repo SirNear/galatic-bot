@@ -136,9 +136,11 @@ module.exports = class MessageReceive {
 
 			}//else
 		  }//if se monitorar
+		
+		let prefix = server ? server.prefix : 'g!';
  
-		if (!message.content.startsWith(server.prefix)) return; //se não começar com o prefixo
-		const args = message.content.slice(server.prefix.length).trim().split(/ +/g)
+		if (!message.content.startsWith(prefix)) return; //se não começar com o prefixo
+		const args = message.content.slice(prefix.length).trim().split(/ +/g)
 		const command = args.shift().toLowerCase()
 		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))
    
