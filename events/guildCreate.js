@@ -25,7 +25,7 @@ module.exports = class GuildCreate {
 		)
 		
 		async function msgLog(guild, embedCreated, client, context) {
-		  const canal = this.client.channels.cache.get('1094070734151766026')
+		  const canal = context.client.channels.cache.get('1094070734151766026')
 
 		  canal.send({ embeds: [embedCreated] }).then(async (msg) => {
 		    const row = new ActionRowBuilder()
