@@ -24,30 +24,6 @@ module.exports = class GuildCreate {
 			{name: '**Dono**', value: guild.ownerId},
 		)
 		
-		const canal = this.client.channels.cache.get('1094070734151766026')
-		canal.send({ embeds: [embedCreated] }).then(async (msg) => {
-			 const row = new ActionRowBuilder()
-			 	.addComponents(
-				       new ButtonBuilder()
-				       .setCustomId('secondary')
-				       .setLabel('SAIR')
-				       .setStyle(ButtonStyle.Danger),
-				)
-			 
-			let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
-
-			const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
-
-			collector.on('collect', async i => {
-				msgLeave.delete()
-				guild.leave()
-				
-				server.banned === true
-				server.save()
-				
-			})//collector
-		})//canal.send
-					
 		if(!server) {
 			 this.client.database.Guilds({
 				 _id: guild.id,
@@ -69,6 +45,32 @@ module.exports = class GuildCreate {
 				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
 
 			}else {
+				
+				const canal = this.client.channels.cache.get('1094070734151766026')
+				
+				canal.send({ embeds: [embedCreated] }).then(async (msg) => {
+					 const row = new ActionRowBuilder()
+						.addComponents(
+						       new ButtonBuilder()
+						       .setCustomId('secondary')
+						       .setLabel('SAIR')
+						       .setStyle(ButtonStyle.Danger),
+						)
+
+					let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
+
+					const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
+
+					collector.on('collect', async i => {
+						msgLeave.delete()
+						guild.leave()
+
+						server.banned === true
+						server.save()
+
+					})//collector
+				})//canal.send
+				
 
 				let embedOld = new EmbedBuilder()
 				.setColor(color.green)
