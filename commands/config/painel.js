@@ -192,7 +192,7 @@ module.exports = class painel extends Command {
 											message.channel.send({content: '**Sistema de auto Silenciamento desativado.**'})
 										break;
 										case "422":
-											message.channel.send('**Envie o novo número de warns máximos(Apenas números)**').then(msg422 => {
+											message.channel.send('**Envie o novo número de warns máximos(Apenas números)**').then(async msg422 => {
 												const coletorWN2 = await msg422.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
 													let numberFirst2 = collected.content
 													if(!numberFirst2) return message.channel.send('Alterado para padrão.')
