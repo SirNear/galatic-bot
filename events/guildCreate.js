@@ -52,11 +52,13 @@ module.exports = class GuildCreate {
 			 this.client.database.Guilds({
 				 _id: guild.id,
 			 }).save().then(msg => {
+				 
+				let prefix = server ? server.prefix : 'g!';
 
 				let embedNew = new EmbedBuilder()
 				.setColor(color.green)
 				.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
-				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
+				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${prefix}painel ver** para configurar algumas coisas do servidor!`)
 
 				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
 			 })
