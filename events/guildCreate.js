@@ -44,7 +44,7 @@ module.exports = class GuildCreate {
 		      msgLeave.delete()
 		      guild.leave()
 
-		      server.banned === true
+		      server.banned = true
 		      server.save()
 		    })//collector
 		  })//canal.send
