@@ -17,7 +17,8 @@ let Guild = new mongoose.Schema({
 	pokeball: {type: Boolean, default: true},
 	batalha: {type: Boolean, default: true},
 	customPerm: {type: Boolean, default: false},
-	banned: {type: Boolean, default: false}
+	banned: {type: Boolean, default: false},
+	tryAdd: {type: Boolean, default: false}
 })
 
 let Puni = new mongoose.Schema({
