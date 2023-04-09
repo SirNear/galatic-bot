@@ -28,7 +28,7 @@ module.exports = class GuildCreate {
 		.addFields(
 			{name: '**Servidor:**', value: guild.name},
 			{name: '**ID**', value: guild.id},
-			{name: '**Dono**', value: guild.ownerID},
+			{name: '**Dono**', value: guild.ownerId},
 		)
 		
 		const canal = client.channels.cache.get('1094070734151766026')
