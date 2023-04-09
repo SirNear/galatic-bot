@@ -9,7 +9,7 @@ module.exports = class GuildDelete {
 
 	async run(guild, client) {
 		
-		const server = this.client.database.Guilds.findById(guild.id)
+		const server = await this.client.database.Guilds.findById(guild.id)
 		
 		if(server.banned === true) {
 			let embedBan = new EmbedBuilder()
