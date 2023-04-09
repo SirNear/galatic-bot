@@ -18,7 +18,8 @@ let Guild = new mongoose.Schema({
 	batalha: {type: Boolean, default: true},
 	customPerm: {type: Boolean, default: false},
 	banned: {type: Boolean, default: false},
-	tryAdd: {type: Boolean, default: false}
+	tryAdd: {type: Boolean, default: false},
+	banReason: {type: String }
 })
 
 let Puni = new mongoose.Schema({
