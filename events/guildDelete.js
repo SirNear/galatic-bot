@@ -11,7 +11,9 @@ module.exports = class GuildDelete {
 		
 		const server = await this.client.database.Guilds.findById(guild.id)
 		
-		let embedCreated = new EmbedBuilder()
+		const canal = this.client.channels.cache.get('1094070734151766026')
+		
+		let embedRemove = new EmbedBuilder()
 		.setColor(color.red)
 		.setTitle('**SAI DE UM SERVIDOR**')
 		.addFields(
@@ -19,6 +21,8 @@ module.exports = class GuildDelete {
 			{name: '**ID**', value: guild.id},
 			{name: '**Dono**', value: guild.ownerId},
 		)
+		
+		canal.send({ embeds: [embedRemove] })
 		
 		if(server.banned === true) {
 			if(server.tryAdd === true) return
@@ -30,6 +34,7 @@ module.exports = class GuildDelete {
 			.addFields({name: '**Motivo do Banimento**', value: server.banReason, inline: true})
 			
 			this.client.users.send(guild.ownerId, {embeds: [embedBan]})
+			
 		}else {
     
 			let embed = new EmbedBuilder()
