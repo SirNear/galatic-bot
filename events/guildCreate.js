@@ -40,14 +40,20 @@ module.exports = class GuildCreate {
 
 		    const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
 
-		    collector.on('collect', async i => {
-		      msgLeave.delete()
+		    collector.on('collect', async i => {			    
+			    msgLeave.delete()
 			    
-		      server.banned = true
-		      server.save().then(msg => {
-			    guild.leave()  
-		      })   
+			    const msgReason = await msgLeave.channel.send({content: '**Qual é o motivo?'})
 			    
+			    const colletorReason = msgReason.channel.createMessageCollector({filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+			    
+			    colletorReason.on('collect', (collected) => {
+				    server.banReason = collected.content
+				    server.banned = true
+				    server.save().then(msg => {
+					    guild.leave()  
+				    })   
+			    })//colletorReason
 		    })//collector
 		  })//canal.send
 		}
