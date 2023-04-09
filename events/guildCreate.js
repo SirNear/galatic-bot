@@ -24,6 +24,33 @@ module.exports = class GuildCreate {
 			{name: '**Dono**', value: guild.ownerId},
 		)
 		
+		async function msgLog(guild, embedCreated) {
+		  const canal = this.client.channels.cache.get('1094070734151766026')
+
+		  canal.send({ embeds: [embedCreated] }).then(async (msg) => {
+		    const row = new ActionRowBuilder()
+		      .addComponents(
+			new ButtonBuilder()
+			  .setCustomId('secondary')
+			  .setLabel('SAIR')
+			  .setStyle(ButtonStyle.Danger),
+		      )
+
+		    let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
+
+		    const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
+
+		    collector.on('collect', async i => {
+		      msgLeave.delete()
+		      guild.leave()
+
+		      server.banned === true
+		      server.save()
+		    })//collector
+		  })//canal.send
+		}
+
+		
 		if(!server) {
 			 this.client.database.Guilds({
 				 _id: guild.id,
@@ -37,6 +64,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${prefix}painel ver** para configurar algumas coisas do servidor!`)
 
 				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
+				 msgLog(guild, embedCreated)
 			 })
 
 		  }else {
@@ -45,32 +73,6 @@ module.exports = class GuildCreate {
 				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
 
 			}else {
-				
-				const canal = this.client.channels.cache.get('1094070734151766026')
-				
-				canal.send({ embeds: [embedCreated] }).then(async (msg) => {
-					 const row = new ActionRowBuilder()
-						.addComponents(
-						       new ButtonBuilder()
-						       .setCustomId('secondary')
-						       .setLabel('SAIR')
-						       .setStyle(ButtonStyle.Danger),
-						)
-
-					let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
-
-					const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
-
-					collector.on('collect', async i => {
-						msgLeave.delete()
-						guild.leave()
-
-						server.banned === true
-						server.save()
-
-					})//collector
-				})//canal.send
-				
 
 				let embedOld = new EmbedBuilder()
 				.setColor(color.green)
@@ -78,6 +80,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
+				  msgLog(guild, embedCreated)
 			  }//else do if server	
 		  }//else do if server.banned
        }
