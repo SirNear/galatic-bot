@@ -263,7 +263,7 @@ module.exports = class painel extends Command {
 										 let newCategory = message.guild.channels.cache.find(c => c.name == "Text Channels" && c.type == "category")  || message.guild.channels.cache.find(c => c.id == args[0] && c.type == "category")
 										 newCategory = colectF
 										 if(!newCategory) {
-											 message.channel.send([content: '**Categoria não existente, verifique a ortografia e tente novamente.**'})
+											 message.channel.send({content: '**Categoria não existente, verifique a ortografia e tente novamente.**'})
 											 
 											 server.monitorCategory = newCategory
 											 server.save()
