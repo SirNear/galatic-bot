@@ -42,10 +42,11 @@ module.exports = class GuildCreate {
 
 		    collector.on('collect', async i => {
 		      msgLeave.delete()
-		      guild.leave()
-
+			    
 		      server.banned = true
-		      server.save()
+		      server.save()    
+			    
+		      guild.leave()
 		    })//collector
 		  })//canal.send
 		}
