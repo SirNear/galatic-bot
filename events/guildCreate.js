@@ -74,7 +74,12 @@ module.exports = class GuildCreate {
 		  }else {
 			  
 			if(server.banned === true) {
+				server.tryAdd = true
+				server.save().then(msg => {
 				guild.leave()
+					
+				})
+				
 				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
 
 			}else {
