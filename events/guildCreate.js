@@ -21,6 +21,12 @@ module.exports = class GuildCreate {
 		.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
 		.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 		.setThumbnail(guild.icon);
+		
+		let embedBanned = new EmbedBuilder()
+		.setColor(color.red)
+		.setTitle('<:errorYaro:816811156512440331> | **Seu servidor está banido**')
+		.setDescription(`Você me adicionou ao ${guild.name} e fico feliz por me escolher, mas eu fui retirado do seu servidor por um dos meus administradores. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais.`)
+		.setThumbnail(guild.icon);
 				
 		let embedCreated = new EmbedBuilder()
 		.setColor(color.green)
@@ -40,6 +46,7 @@ module.exports = class GuildCreate {
 				       .setLabel('SAIR')
 				       .setStyle(ButtonStyle.Danger),
 				)
+			 
 			let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
 
 			const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
@@ -47,18 +54,29 @@ module.exports = class GuildCreate {
 			collector.on('collect', async i => {
 				msgLeave.delete()
 				guild.leave()
+				
+				server.banned = true
+				server.save()
+				
 			})//collector
 		})//canal.send
-	  
-	  
-	  if(!server) {
-	      	  this.client.database.Guilds({
-			  _id: guild.id,
-		  }).save().then(msg => {
-			  this.client.users.send(guild.ownerId, {embeds: [embedNew]})
-	          })
-	  }else {
-		  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
-	  }
+		
+		if(server.banned === true) {
+			this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
+			
+		}else {
+			
+			if(!server) {
+				 this.client.database.Guilds({
+					 _id: guild.id,
+				 }).save().then(msg => {
+					 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
+				 })
+
+			  }else {
+				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
+			  }//else do if server
+		}//else if server.banned	
+			
        }
 }
