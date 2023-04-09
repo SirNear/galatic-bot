@@ -199,7 +199,7 @@ module.exports = class painel extends Command {
 
 													server.warnNumber = numberFirst2
 													server.save()
-													message.channel.send({content: `**Número máximo de warns alterado para \`${numberFirst2}\`**`)
+													message.channel.send({content: `**Número máximo de warns alterado para \`${numberFirst2}\`**`})
 												})//colletorWN2
 											})//m warnnumberedit
 									}//switch automuteon
