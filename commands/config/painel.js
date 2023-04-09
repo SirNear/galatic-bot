@@ -41,239 +41,241 @@ module.exports = class painel extends Command {
 	    )
             .setThumbnail(guildicon)
             .setTimestamp();
-
-            	      const punib = new ButtonBuilder()
-			.setCustomId("1")
-			.setLabel("CANAL DE PUNIÇÕES")
-			.setStyle(ButtonStyle.Primary);
-		      const prefixb = new ButtonBuilder()
+		     
+		    const row = new ActionRowBuilder()
+		      .addComponents(
+		    new ButtonBuilder()
+		      .setCustomId('1')
+		      .setLabel('CANAL DE PUNIÇÕES')
+		      .setStyle(ButtonStyle.Primary), //verificar links
+		     new ButtonBuilder()
 			.setCustomId("2")
 			.setLabel("PREFIX")
 			.setStyle(ButtonStyle.Primary);
-		      const carmuteb = new ButtonBuilder()
+		     new ButtonBuilder()
 			.setCustomId("3")
 			.setLabel("CARGO DE MUTE")
 			.setStyle(ButtonStyle.Primary);
-		      const muteautob = new ButtonBuilder()
+		     new ButtonBuilder()
 			.setCustomId("4")
 			.setLabel("SISTEMA DE MUTE AUTOMATICO")
 			.setStyle(ButtonStyle.Primary);
-		      const carmodb = new ButtonBuilder()
+		     new ButtonBuilder()
 			.setCustomId("5")
 			.setLabel("CARGO DE MODERAÇÃO")
 			.setStyle(ButtonStyle.Primary);
-		      const catmonib = new ButtonBuilder()
+		     new ButtonBuilder()
 			.setCustomId("6")
 			.setLabel("CATEGORIA DE MONITORAMENTOS")
 			.setStyle(ButtonStyle.Primary);
+		     )
+		    
+		    message.channel.send({ embeds: [embedv], components: [row]}).then((msg) => {
+			    const collector = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
+	
+			    collector.on("collect", async i => {
+				switch(i.customId) {
+					case "1":
+						let msgPuni = await message.channel.send({content: '***Mencione o novo canal de punições***'})
+						const collectorMsg = await msgPuni.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+						collectorMsg.on('collect', (collected) => {
+	
+							let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
+							let cf1 = collected.content
 
-		      const row = new ActionRowBuilder().addComponents(
-			punib,
-			prefixb,
-			carmuteb,
-			muteautob,
-			carmodb,
-		      );
-		     const row11 = new ActionRowBuilder().addComponents(catmonib)
-		    
-		    message.channel.send({ embeds: [embedv], components: [row, row11]}).then((msg) => {
-		     const filter = (interaction) => interaction.user.id === message.author.id;
-		     const collector = msg.createMessageComponentCollector({ filter, time: 360000 });	
-		    
-		    collector.on("collect", async (interaction) => {
-		    	switch(interaction.customId) {
-				case "1":
-					message.channel.send('***Mencione o novo canal de punições***')
-					const filter1 = (m) => m.author.id === message.author.id;
-					const collector1 = new MessageCollector(message.channel, filter1, {time: 20000})
-					const collected = await message.channel.awaitMessages(filter1, { max: 1, time: 2000, errors: ['time'] });
-						if(collected.size === 0) { 
-							message.channel.send('Nenhum canal mencionado') ;
-							return;
-						}
-						if(collected.size > 0) {
-						let nc = message.mentions.channels.first() || message.guild.channels.cache.get(args.slice(0).join)
-						let cf1 = collected.first().author
+							nc = cf1
+							server.cPunicoes = nc
+							if(!nc) nc = '``padrão``.';
+							server.save()
+							message.channel.send({content: `**Canal de punições alterado para \`${nc}\`**`})
+						})
+							
+					break;
+					case "2":
+						let msgPrefix = await message.channel.send({content: '***Digite o novo prefix do servidor***'})
+						const collector2 = await msgPrefix.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+
+						collector2.on("collect", (collected) => {
+							let newPrefix = collected.content
+							server.prefix = newPrefix
+							if(!newPrefix) newPrefix = 'g!'
+							server.save()
+							message.channel.send({ content: `**Prefixo do bot alterado para \`${newPrefix}\`**`})
+						})//collector2	
+					break;
+					case "3":
+						let msgMutero = await message.channel.send({content: '**Mencione o novo cargo de mute**'})
+						const collector3 = await msgMutero.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+						collector3.on('collect', (collected) => {
+							let novoCargo = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" "))
+							let cargo = collected.content
+							novoCargo = cargo
+							server.cargoMute = novoCargo
+							if(!novoCargo) novoCargo = '``padrão``'
+							server.save()
+							message.channel.send(`**Cargo de mute alterado para ${novoCargo}`)
+						})//collector3
+					break;
+					case "4":
+						const helpAutoMute = new EmbedBuilder()
+						    .setTitle('<:notificacaopwp:566085275323727893> | **Configuração do Sistema de Auto Silenciamento** | <:notificacaopwp:566085275323727893>>')
+						    .setColor(color.green)
 						
-						nc = cf1
-						server.cPunicoes = nc
-						if(!nc) nc = '``padrão``.';
-						server.save()
-						message.channel.send(`**Canal de punições alterado para \`${nc}\`**`)
-						}
-				break;
-				case "2":
-					message.channel.send('***Digite o novo prefix do servidor***')
-					const f2 = (m) => m.author.id === message.author.id
-					const collector2 = new MessageCollector(message.channel, f2, { time: 20000})
-					collector2.on("collect", (collected) => {
-						let newPrefix = collected.first()
-						server.prefix = newPrefix
-						if(!newPrefix) newPrefix = 'g!'
-						server.save()
-						message.channel.send(`**Prefixo do bot alterado para \`${newPrefix}\`**`)
-					})//collector2	
-				break;
-				case "3":
-					message.channel.send('**Mencione o novo cargo de mute**')
-					const f3 = m => m.author.id === message.author.id
-					const collector3 = interaction.channel.createMessageCollector(f3, {time:20000}).then(collected => {
-						let novoCargo = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" "))
-						let cargo = collected.first()
-						novoCargo = cargo
-						server.cargoMute = novoCargo
-						if(!novoCargo) novoCargo = '``padrão``'
-						server.save()
-						message.channel.send(`**Cargo de mute alterado para ${novoCargo}`)
-					})//collector3
-				break;
-				case "4":
-				        const helpAutoMute = new EmbedBuilder()
-					    .setTitle('<:notificacaopwp:566085275323727893> | **Configuração do Sistema de Auto Silenciamento** | <:notificacaopwp:566085275323727893>>')
-					    .setColor(color.green)					
-					if(server.warnTag.includes === 'Desativado') {
-						helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:dnd:572210462993940482> | Status Desativado. \n \n Reaja com "<:StatusOn:572210002039668818>" para **Ativar** o sistema.`)
-						const automuteonb = new ButtonBuilder()
-							.setCustomId("41")
-							.setLabel("<:StatusOn:572210002039668818>")
-							.setStyle(ButtonStyle.Primary);
-						const row2 = new ActionRowBuilder().addComponents(automuteonb)
-						message.channel.send({ embeds: [helpAutoMute], components: [row2] }).then((msg2) => {
-							const filterautomute = (interaction) => interaction.user.id === message.author.id;
-							const collectoram = msg.createMessageComponentCollector({ filterautomute, time: 360000 });
-							collectoram.on("collect", (interaction) => {
-								msg2.delete()
-								server.warnTag = 'Ativado'
-								server.save()
-								message.channel.send(`**O sistema de auto Silenciamento foi ativado com o máximo de \`${server.warnNumber} warns\`. Reaja com "<a:a:moderacao:569064320156172299>" para alterar este valor.`).then(ms => {
-									const warnnumberb = new ButtonBuilder()
-										.setCustomId("411")
-										.setLabel("<a:a:moderacao:569064320156172299>")
-										.setStyle(ButtonStyle.Primary);
-									const row3 = new ActionRowBuilder().addComponents(warnnumberb)
-									message.channel.send({ content:'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
-										const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
-										const collectorwn = msg.createMessageComponentCollector({ filterwarnnumber, time: 360000 });
-										collectorwn.on("collect", (interaction) => {
-											const fWN = m => m.author.id === message.author.id 
-											const coletorWN = message.channel.awaitMessages(fWN, {time:20000}).then(collected => {
-												let numberFirst = collected.first()
-												if(!numberFirst) return message.channel.send('Alterado para padrão.')
-												server.warnNumber = numberFirst
-												server.save()
-												message.channel.send(`**Número máximo de warns alterado para \`${numberFirst}\`**`)
-											})//coletorWN
-												
-										})//collectorwn
-									})//m
-								})//ms
-							})//colletoram
-						})//msg2 helpAutoMute
-						
-					}else {//if warnTag desativado
-						helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:StatusOn:572210002039668818> | Status Ativado. \n Número Máximo de warns atual: \`${server.warnNumber}\` \n \n Reaja com "<a:negativo:563096795907883010>" para **desativar** o sistema. \n Reaja com "<a:moderacao:569064320156172299>" para **Editar** o número de avisos para mutar. `)
-						const automuteoff = new ButtonBuilder()
-							.setCustomId("421")
-							.setLabel("<a:negativo:563096795907883010>")
-							.setStyle(ButtonStyle.Primary);
-						const warnnumberedit = new ButtonBuilder()
-							.setCustomId("422")
-							.setLabel("<a:moderacao:569064320156172299>")
-							.setStyle(ButtonStyle.Primary)
-						const row4 = new ActionRowBuilder().addComponents(automuteoff, warnnumberedit);
-						message.channel.send({ embeds: [helpAutoMute], components: [row4] }).then((m) => {
-							const filterautomuteon = (interaction) => interaction.user.id === message.author.id;
-							const collectoramon = msg.createMessageComponentCollector({ filterautomuteon, time: 360000 });
-							collectoramon.on("collect", (interaction) => {
-								switch(interaction.customId) {
-									case "421":
-										m.delete()
-										server.warnTag = 'Desativado'
-										server.save()
-										message.channel.send('**Sistema de auto Silenciamento desativado.**')
-									break;
-									case "422":
-										message.channel.send('**Envie o novo número de warns máximos(Apenas números)**').then(m => {
-											const fWN2 = m => m.author.id === message.author.id 
-											const coletorWN2 = message.channel.awaitMessages(fWN2, {time:20000}).then(collected => {
-												let numberFirst2 = collected.first()
-												if(!numberFirst2) return message.channel.send('Alterado para padrão.')
-												
-												server.warnNumber = numberFirst2
-												server.save()
-												message.channel.send(`**Número máximo de warns alterado para \`${numberFirst2}\`**`)
-											})//colletorWN2
-										})//m warnnumberedit
-								}//switch automuteon
-							})//collectoramon
-						})//m do embed warnTag ativado
-					
-					}//else do if warnTag ativado
-					//fim case "4"
-				break;
-				case "5":
-					const embedInit = new EmbedBuilder()
-						.setTitle('**Cargo de Moderação**')
-						.setDescription(`Aquele que possuir este cargo terá permissões em vários comandos exclusivos e configurações automáticas do bot. \n \n **Cargo Atual:** ${server.staffRole} \n \n Reaja com "<:lolipolice:669705464447107073>" para alterar. `)
-					const cargomodb = new ButtonBuilder()
-						.setCustomId("51")
-						.setLabel("<:lolipolice:669705464447107073>")
-						.setSytle(ButtonStyle.Primary);
-					const row5 = new Discord.ActionRowBuilder().addComponents(cargomodb);
-					message.channel.send({ embeds: [embedInit], components: [row5] }).then((m) => {
-						const filtercargomod = (interaction) => interaction.user.id === message.author.id;
-						const collectorcm = msg.createMessageComponentCollector({ filtercargomod, time: 360000 });
-						collectorcm.on("collect", (interaction) => {
-							m.delete()
-							message.channel.send('**Mencione o novo cargo de Moderação**').then(msg2 => {
-								const filtrostaffRole = m => m.author.id === message.author.id
-								const coletorstaffRole = message.channel.awaitMessages(filtrostaffRole, {time:20000}).then(collected => {
-									let newStaffRole = collected.first()
-									let staffRoleFind = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" ")) 
-									staffRoleFind = newStaffRole
-									server.staffRole = staffRoleFind
-									server.save()
+						if(server.warnTag.includes === 'Desativado') {
+							helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:dnd:572210462993940482> | Status Desativado. \n \n Reaja com "<:StatusOn:572210002039668818>" para **Ativar** o sistema.`)
+							const row2 = new ActionRowBuilder()
+							.addComponents(
+							  new ButtonBuilder()
+								.setCustomId("41")
+								.setLabel("<:StatusOn:572210002039668818>")
+								.setStyle(ButtonStyle.Primary);
+								)
+							
+							message.channel.send({ embeds: [helpAutoMute], components: [row2] }).then((msg2) => {
+								const collectoram = msg.createMessageComponentCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1});
+								collectoram.on("collect", async i => {
 									msg2.delete()
-									message.channel.send(`**Cargo de moderação alterado para ${staffRoleFind} com sucesso!**`)
-								})//coletorstaffrole
-							})//msg2 cargomod
-						})//collectorcm
-					})//m cargo mod edit
-				break;
-				case "6":
-					const embedHelpC = new EmbedBuilder()
-						.setTitle('**Categoria de Monitoramento**')
-						.setDescription(`Definirá a categoria onde serão criados os canais de Monitoramento. Digite \`${server.prefix}monitor\` para saber mais. \n \n Reaja com "<:MotivosparaViver:572157111471964200>" para modificar a categoria.`)
-					const monicatb = new ButtonBuilder()
-						.setCustomId("61")
-						.setLabel("<:MotivosparaViver:572157111471964200>")
-						.setStyle(ButtonStyle.Primary);
-					
-					const row6 = new ActionRowBuilder().addComponents(monicatb);
-					message.channel.send({ embeds: [embedHelpC], components: [row6] }).then((m) => {
-						const filtermonitcat = (interaction) => interaction.user.id === message.author.id;
-						const collectormc = msg.createMessageComponentCollector({ filtermonitcat, time: 360000 });
-						collectormc.on("collect", (interaction) => {
-							m.delete()
-							 message.channel.send('**Digite o nome ou ID da nova categoria. Inclua espaçamentos, acentos, pontuações e outros caracteres especiais. \n \n AVISO: Pode demorar até 15s para confirmação**').then(msg2 => {
-								 const filtronewCategory = m => m.author.id === message.author.id 
-								 const coletornewCategory = message.channel.awaitMessages(filtronewCategory, {time:20000}).then(collected => {
-									 let colectF = collected.first()
-									 let newCategory = message.guild.channels.cache.find(c => c.name == "Text Channels" && c.type == "category")  || message.guild.channels.cache.find(c => c.id == args[0] && c.type == "category")
-									 newCategory = colectF
-									 if(!newCategory) {
-										 message.channel.send('**Categoria não existente, verifique a ortografia e tente novamente.**')
-										 server.monitorCategory = newCategory
-										 server.save()
-										 message.channel.send(`**Categoria de Monitoramento alterada para ${message.guild.channels.cache.find(c => c.id == server.monitorCategory && c.type == "category").name}**`)
-									 }//if !newCategory
-								 })//coletornewCategory
-							 })//msg2 monitoramento categoria
-						})//collectormc
-					})//m monitoramento categoria
-				break;
-			}//switch
-		    })//collector
+									server.warnTag = 'Ativado'
+									server.save()
+									message.channel.send(`**O sistema de auto Silenciamento foi ativado com o máximo de \`${server.warnNumber} warns\`. Reaja com "<a:a:moderacao:569064320156172299>" para alterar este valor.`).then(ms => {
+										const row3 = new ActionRowBuilder()
+										.addComponents(
+											new ButtonBuilder()
+											.setCustomId("411")
+											.setLabel("<a:a:moderacao:569064320156172299>")
+											.setStyle(ButtonStyle.Primary);
+											)
+										message.channel.send({ content:'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
+											const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
+											const collectorwn = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000, max: 1 });
+											
+											collectorwn.on("collect", (interaction) => {
+												const fWN = m => m.author.id === message.author.id 
+												const coletorWN = message.channel.awaitMessages(fWN, {time:20000}).then(collected => {
+													let numberFirst = collected.content
+													if(!numberFirst) return message.channel.send('Alterado para padrão.')
+													
+													server.warnNumber = numberFirst
+													server.save()
+													
+													message.channel.send({content: `**Número máximo de warns alterado para \`${numberFirst}\`**`})
+												})//coletorWN
+											})//collectorwn
+										})//m
+									})//ms
+								})//colletoram
+							})//msg2 helpAutoMute
+
+						}else {//if warnTag desativado
+							helpAutoMute.setDescription(`O sistema de Auto Silenciamento acontece aplicando um mute automático após um número x de warns/avisos, sendo configuravél para ativar ou desativar e também o número de avisos necessários. \n \n <:StatusOn:572210002039668818> | Status Ativado. \n Número Máximo de warns atual: \`${server.warnNumber}\` \n \n Reaja com "<a:negativo:563096795907883010>" para **desativar** o sistema. \n Reaja com "<a:moderacao:569064320156172299>" para **Editar** o número de avisos para mutar. `)
+							const row4 = new ActionRowBuilder()
+							.addComponents(
+							        new ButtonBuilder()
+								.setCustomId("421")
+								.setLabel("<a:negativo:563096795907883010>")
+								.setStyle(ButtonStyle.Primary);
+								new ButtonBuilder()
+								.setCustomId("422")
+								.setLabel("<a:moderacao:569064320156172299>")
+								.setStyle(ButtonStyle.Primary)
+							)
+							
+							message.channel.send({ embeds: [helpAutoMute], components: [row4] }).then((m) => {
+								const collectoramon = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
+								
+								collectoramon.on("collect", async i => {
+									switch(i.customId) {
+										case "421":
+											m.delete()
+											server.warnTag = 'Desativado'
+											server.save()
+											message.channel.send({content: '**Sistema de auto Silenciamento desativado.**'})
+										break;
+										case "422":
+											message.channel.send('**Envie o novo número de warns máximos(Apenas números)**').then(msg422 => {
+												const coletorWN2 = await msg422.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
+													let numberFirst2 = collected.content
+													if(!numberFirst2) return message.channel.send('Alterado para padrão.')
+
+													server.warnNumber = numberFirst2
+													server.save()
+													message.channel.send({content: `**Número máximo de warns alterado para \`${numberFirst2}\`**`)
+												})//colletorWN2
+											})//m warnnumberedit
+									}//switch automuteon
+								})//collectoramon
+							})//m do embed warnTag ativado
+
+						}//else do if warnTag ativado
+						//fim case "4"
+					break;
+					case "5":
+						const embedInit = new EmbedBuilder()
+							.setTitle('**Cargo de Moderação**')
+							.setDescription(`Aquele que possuir este cargo terá permissões em vários comandos exclusivos e configurações automáticas do bot. \n \n **Cargo Atual:** ${server.staffRole} \n \n Reaja com "<:lolipolice:669705464447107073>" para alterar. `)
+								
+						const row5 = new ActionRowBuilder()
+						.addComponents(
+							new ButtonBuilder()
+							.setCustomId("51")
+							.setLabel("<:lolipolice:669705464447107073>")
+							.setSytle(ButtonStyle.Primary);
+							)
+						
+						message.channel.send({ embeds: [embedInit], components: [row5] }).then((m) => {
+							const collectorcm = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
+							collectorcm.on("collect", async i => {
+								m.delete()
+								message.channel.send({content: '**Mencione o novo cargo de Moderação**'}).then(msg2 => {
+									const coletorstaffRole = await msg2.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
+										let newStaffRole = collected.content
+										let staffRoleFind = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" ")) 
+										
+										staffRoleFind = newStaffRole
+										server.staffRole = staffRoleFind
+										server.save()
+										msg2.delete()
+										message.channel.send({content: `**Cargo de moderação alterado para ${staffRoleFind} com sucesso!**`})
+									})//coletorstaffrole
+								})//msg2 cargomod
+							})//collectorcm
+						})//m cargo mod edit
+					break;
+					case "6":
+						const row6 = new ActionRowBuilder()
+						.addComponents(
+							new EmbedBuilder()
+							.setTitle('**Categoria de Monitoramento**')
+							.setDescription(`Definirá a categoria onde serão criados os canais de Monitoramento. Digite \`${server.prefix}monitor\` para saber mais. \n \n Reaja com "<:MotivosparaViver:572157111471964200>" para modificar a categoria.`)
+						 	new ButtonBuilder()
+							.setCustomId("61")
+							.setLabel("<:MotivosparaViver:572157111471964200>")
+							.setStyle(ButtonStyle.Primary);
+								)
+
+						message.channel.send({ embeds: [embedHelpC], components: [row6] }).then((m6) => {
+							const collectormc = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
+							collectormc.on("collect", async i => {
+								m6.delete()
+								 message.channel.send({content: '**Digite o nome ou ID da nova categoria. Inclua espaçamentos, acentos, pontuações e outros caracteres especiais. \n \n AVISO: Pode demorar até 15s para confirmação**'}).then(msg2 => {
+									 const coletornewCategory = await m6.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
+										 let colectF = collected.content
+										 let newCategory = message.guild.channels.cache.find(c => c.name == "Text Channels" && c.type == "category")  || message.guild.channels.cache.find(c => c.id == args[0] && c.type == "category")
+										 newCategory = colectF
+										 if(!newCategory) {
+											 message.channel.send([content: '**Categoria não existente, verifique a ortografia e tente novamente.**'})
+											 
+											 server.monitorCategory = newCategory
+											 server.save()
+											 message.channel.send({content: `**Categoria de Monitoramento alterada para ${message.guild.channels.cache.find(c => c.id == server.monitorCategory && c.type == "category").name}**`})
+										 }//if !newCategory
+									 })//coletornewCategory
+								 })//msg2 monitoramento categoria
+							})//collectormc
+						})//m monitoramento categoria
+					break;
+				}//switch
+			    })//collector
 		   })//msg
                       
 
