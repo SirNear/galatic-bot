@@ -72,6 +72,7 @@ module.exports = class GuildCreate {
 		  }else {
 			  
 			if(server.banned === true) {
+				guild.leave()
 				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
 
 			}else {
