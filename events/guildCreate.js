@@ -14,6 +14,7 @@ module.exports = class GuildCreate {
 		.setColor(color.red)
 		.setTitle('<:errorYaro:816811156512440331> | **Seu servidor está banido**')
 		.setDescription(`Você me adicionou ao ${guild.name} e fico feliz por me escolher, mas eu fui retirado do seu servidor por um dos meus administradores. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais.`)
+		.addFields({name: '**Motivo do Banimento**', value: server.banReason, inline: true})
 				
 		let embedCreated = new EmbedBuilder()
 		.setColor(color.green)
