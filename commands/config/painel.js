@@ -261,8 +261,9 @@ module.exports = class painel extends Command {
 							const collectormc =  await m6.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 							collectormc.on("collect", async i => {
 								m6.delete()
-								 message.channel.send({content: '**Digite o nome ou ID da nova categoria. Inclua espaçamentos, acentos, pontuações e outros caracteres especiais. \n \n AVISO: Pode demorar até 15s para confirmação**'}).then(async msg2 => {
-									 const coletornewCategory = await m6.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
+								 let m6 = await message.channel.send({content: '**Digite o nome ou ID da nova categoria. Inclua espaçamentos, acentos, pontuações e outros caracteres especiais. \n \n AVISO: Pode demorar até 15s para confirmação**'})
+								const coletornewCategory = await m6.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+								coletornewCategory.on('collect', async (collected) => {
 										 let colectF = collected.content
 										 let newCategory = message.guild.channels.cache.find(c => c.name == "Text Channels" && c.type == "category")  || message.guild.channels.cache.find(c => c.id == args[0] && c.type == "category")
 										 newCategory = colectF
