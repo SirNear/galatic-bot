@@ -40,16 +40,15 @@ module.exports = class GuildCreate {
 				       .setLabel('SAIR')
 				       .setStyle(ButtonStyle.Danger),
 				)
-		})
-		
-		let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
-		
-		const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
-		
-		collector.on('collect', async i => {
-			msgLeave.delete()
-			guild.leave()
-		})//collector
+			let msgLeave = await msg.channel.send({content: 'Devo sair do servidor?', components: [row] })
+
+			const collector = msgLeave.createMessageComponentCollector({ filter: i => i.user.id === '540725346241216534', time: 15000 });
+
+			collector.on('collect', async i => {
+				msgLeave.delete()
+				guild.leave()
+			})//collector
+		})//canal.send
 	  
 	  
 	  if(!server) {
