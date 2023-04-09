@@ -11,6 +11,15 @@ module.exports = class GuildDelete {
 		
 		const server = await this.client.database.Guilds.findById(guild.id)
 		
+		let embedCreated = new EmbedBuilder()
+		.setColor(color.red)
+		.setTitle('**SAI DE UM SERVIDOR**')
+		.addFields(
+			{name: '**Servidor:**', value: guild.name},
+			{name: '**ID**', value: guild.id},
+			{name: '**Dono**', value: guild.ownerId},
+		)
+		
 		if(server.banned === true) {
 			if(server.tryAdd === true) return
 			
