@@ -257,7 +257,7 @@ module.exports = class painel extends Command {
 							.setStyle(ButtonStyle.Primary),
 								)
 
-						message.channel.send({ embeds: [embedHelpC], components: [row6] }).then(async m6 => {
+						let m6 = await message.channel.send({ embeds: [embedHelpC], components: [row6] })
 							const collectormc =  await m6.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 							collectormc.on("collect", async i => {
 								m6.delete()
@@ -279,9 +279,7 @@ module.exports = class painel extends Command {
 							})//collectormc
 					break;
 				}//switch
-			    })//collector
-		   })//msg
-                      
+			    })//collector                      
 
 
 				break;
