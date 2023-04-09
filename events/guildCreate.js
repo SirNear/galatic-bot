@@ -43,15 +43,16 @@ module.exports = class GuildCreate {
 		    collector.on('collect', async i => {			    
 			    msgLeave.delete()
 			    
-			    const msgReason = await msgLeave.channel.send({content: '**Qual é o motivo?'})
+			    const msgReason = await msgLeave.channel.send({content: '**Qual é o motivo?**'})
 			    
-			    const colletorReason = msgReason.channel.createMessageCollector({filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+			    const colletorReason = msgReason.channel.createMessageCollector({filter: (m) => m.author.id === '540725346241216534', time: 120000, max: 1})
 			    
 			    colletorReason.on('collect', (collected) => {
 				    server.banReason = collected.content
 				    server.banned = true
 				    server.save().then(msg => {
-					    guild.leave()  
+					    guild.leave()
+					    msgReason.delete()
 				    })   
 			    })//colletorReason
 		    })//collector
