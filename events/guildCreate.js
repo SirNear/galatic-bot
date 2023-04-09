@@ -24,7 +24,7 @@ module.exports = class GuildCreate {
 			{name: '**Dono**', value: guild.ownerId},
 		)
 		
-		async function msgLog(guild, embedCreated, client) {
+		async function msgLog(guild, embedCreated, client, context) {
 		  const canal = this.client.channels.cache.get('1094070734151766026')
 
 		  canal.send({ embeds: [embedCreated] }).then(async (msg) => {
@@ -64,7 +64,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${prefix}painel ver** para configurar algumas coisas do servidor!`)
 
 				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
-				 msgLog(guild, embedCreated, this.client)
+				 msgLog(guild, embedCreated, this.client, context)
 			 })
 
 		  }else {
@@ -80,7 +80,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
-				  msgLog(guild, embedCreated, this.client)
+				  msgLog(guild, embedCreated, this.client, context)
 			  }//else do if server	
 		  }//else do if server.banned
        }
