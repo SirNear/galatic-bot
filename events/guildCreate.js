@@ -47,35 +47,34 @@ module.exports = class GuildCreate {
 				
 			})//collector
 		})//canal.send
-		
-		if(server.banned === true) {
-			this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
-			
-		}else {
-			
-			if(!server) {
-				 this.client.database.Guilds({
-					 _id: guild.id,
-				 }).save().then(msg => {
-				
-					let embedNew = new EmbedBuilder()
-					.setColor(color.green)
-					.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
-					.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
-					 
-					 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
-				 })
+					
+		if(!server) {
+			 this.client.database.Guilds({
+				 _id: guild.id,
+			 }).save().then(msg => {
 
-			  }else {
-				  
+				let embedNew = new EmbedBuilder()
+				.setColor(color.green)
+				.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
+				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
+
+				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
+			 })
+
+		  }else {
+			  
+			if(server.banned === true) {
+				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
+
+			}else {
+
 				let embedOld = new EmbedBuilder()
 				.setColor(color.green)
 				.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
-		
+
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
-			  }//else do if server
-		}//else if server.banned	
-			
+			  }//else do if server	
+		  }//else do if server.banned
        }
 }
