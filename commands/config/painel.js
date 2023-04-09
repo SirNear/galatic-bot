@@ -226,7 +226,7 @@ module.exports = class painel extends Command {
 							const collectorcm = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 							collectorcm.on("collect", async i => {
 								m.delete()
-								message.channel.send({content: '**Mencione o novo cargo de Moderação**'}).then(msg2 => {
+								message.channel.send({content: '**Mencione o novo cargo de Moderação**'}).then(async msg2 => {
 									const coletorstaffRole = await msg2.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1}).then(collected => {
 										let newStaffRole = collected.content
 										let staffRoleFind = message.mentions.roles.first() || message.guild.roles.cache.get(args.slice(0).join(" ")) 
