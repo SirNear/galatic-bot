@@ -242,19 +242,19 @@ module.exports = class painel extends Command {
 						})//m cargo mod edit
 					break;
 					case "6":
-						const row6 = new ActionRowBuilder()
-						.addComponents(
-							new EmbedBuilder()
+							let embedHelpC = new EmbedBuilder()
 							.setTitle('**Categoria de Monitoramento**')
 							.setDescription(`Definirá a categoria onde serão criados os canais de Monitoramento. Digite \`${server.prefix}monitor\` para saber mais. \n \n Reaja com "<:MotivosparaViver:572157111471964200>" para modificar a categoria.`)
+						const row6 = new ActionRowBuilder()
+						.addComponents(
 						 	new ButtonBuilder()
 							.setCustomId("61")
 							.setLabel("<:MotivosparaViver:572157111471964200>")
 							.setStyle(ButtonStyle.Primary),
 								)
 
-						message.channel.send({ embeds: [embedHelpC], components: [row6] }).then((m6) => {
-							const collectormc = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
+						message.channel.send({ embeds: [embedHelpC], components: [row6] }).then(async m6 => {
+							const collectormc =  await msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 							collectormc.on("collect", async i => {
 								m6.delete()
 								 message.channel.send({content: '**Digite o nome ou ID da nova categoria. Inclua espaçamentos, acentos, pontuações e outros caracteres especiais. \n \n AVISO: Pode demorar até 15s para confirmação**'}).then(msg2 => {
