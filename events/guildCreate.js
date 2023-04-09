@@ -10,23 +10,10 @@ module.exports = class GuildCreate {
 	async run(guild, client) {
 		const server = await this.client.database.Guilds.findById(guild.id);
 		
-		let embedNew = new EmbedBuilder()
-		.setColor(color.green)
-		.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
-		.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
-		.setThumbnail(guild.icon);
-		
-		let embedOld = new EmbedBuilder()
-		.setColor(color.green)
-		.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
-		.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
-		.setThumbnail(guild.icon);
-		
 		let embedBanned = new EmbedBuilder()
 		.setColor(color.red)
 		.setTitle('<:errorYaro:816811156512440331> | **Seu servidor está banido**')
 		.setDescription(`Você me adicionou ao ${guild.name} e fico feliz por me escolher, mas eu fui retirado do seu servidor por um dos meus administradores. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais.`)
-		.setThumbnail(guild.icon);
 				
 		let embedCreated = new EmbedBuilder()
 		.setColor(color.green)
@@ -70,10 +57,22 @@ module.exports = class GuildCreate {
 				 this.client.database.Guilds({
 					 _id: guild.id,
 				 }).save().then(msg => {
+				
+					let embedNew = new EmbedBuilder()
+					.setColor(color.green)
+					.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
+					.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${server.prefix}painel ver** para configurar algumas coisas do servidor!`)
+					 
 					 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
 				 })
 
 			  }else {
+				  
+				let embedOld = new EmbedBuilder()
+				.setColor(color.green)
+				.setTitle('<a:hypeneon:729338461454205059> | **Você me adicionou ao seu servidor! = )**')
+				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
+		
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
 			  }//else do if server
 		}//else if server.banned	
