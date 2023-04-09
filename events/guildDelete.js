@@ -12,6 +12,8 @@ module.exports = class GuildDelete {
 		const server = await this.client.database.Guilds.findById(guild.id)
 		
 		if(server.banned === true) {
+			if(server.tryAdd === true) return
+			
 			let embedBan = new EmbedBuilder()
 			.setColor(color.red)
 			.setTitle('<:errorYaro:816811156512440331> | **Seu servidor acaba de ser banido**')
