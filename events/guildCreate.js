@@ -32,7 +32,7 @@ module.exports = class GuildCreate {
 		)
 		
 		const canal = this.client.channels.cache.get('1094070734151766026')
-		canal.send({ embeds: [embedCreated] }).then(msg => {
+		canal.send({ embeds: [embedCreated] }).then(async (msg) => {
 			 const row = new ActionRowBuilder()
 			 	.addComponents(
 				       new ButtonBuilder()
