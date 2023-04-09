@@ -56,6 +56,8 @@ module.exports = class GuildCreate {
 				 _id: guild.id,
 			 }).save().then(msg => {
 				 
+				msgLog(guild, embedCreated, this.client, this)
+				 
 				let prefix = server ? server.prefix : 'g!';
 
 				let embedNew = new EmbedBuilder()
@@ -64,7 +66,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${prefix}painel ver** para configurar algumas coisas do servidor!`)
 
 				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
-				 msgLog(guild, embedCreated, this.client, this)
+				
 			 })
 
 		  }else {
@@ -73,6 +75,8 @@ module.exports = class GuildCreate {
 				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
 
 			}else {
+				
+				 msgLog(guild, embedCreated, this.client, this)
 
 				let embedOld = new EmbedBuilder()
 				.setColor(color.green)
@@ -80,7 +84,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
-				  msgLog(guild, embedCreated, this.client, this)
+				  
 			  }//else do if server	
 		  }//else do if server.banned
        }
