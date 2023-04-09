@@ -31,7 +31,7 @@ module.exports = class GuildCreate {
 			{name: '**Dono**', value: guild.ownerId},
 		)
 		
-		const canal = client.channels.cache.get('1094070734151766026')
+		const canal = this.client.channels.cache.get('1094070734151766026')
 		canal.send({ embeds: [embedCreated] }).then(msg => {
 			 const row = new ActionRowBuilder()
 			 	.addComponents(
