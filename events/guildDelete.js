@@ -8,15 +8,28 @@ module.exports = class GuildDelete {
 	}
 
 	async run(guild, client) {
+		
+		const server = this.client.database.Guilds.findById(guild.id)
+		
+		if(server.banned === true) {
+			let embedBan = new EmbedBuilder()
+			.setColor(color.red)
+			.setTitle('<:errorYaro:816811156512440331> | **Seu servidor acaba de ser banido**')
+			.setDescription(`Um dos meus administradores acabou de expulsar-me do seu servidor ${guild.name}. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais`)
+			
+			this.client.users.send(guild.ownerId, {embeds: [embedBan]})
+		}else {
     
-		let embed = new EmbedBuilder()
-		.setColor(color.green)
-		.setTitle('<:GadgetLeave:821521172956053513> | **Você me tirou do seu servidor! = (**')
-		.setDescription(`Você me expulsou do ${guild.name}, espero que eu não tenha feito nada de errado =( \n \n Entra em contato com o [suporte](https://discord.gg/EsAb4jDAvx) pra falar sobre sua insatisfação!`)
-   		 .addFields({name: `**Se quiser me adicionar novamente**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=634216294710771713&scope=bot&permissions=8)"})
-		.setThumbnail(guild.icon);
-    
-    this.client.users.send(guild.ownerId, {embeds: [embed]})
+			let embed = new EmbedBuilder()
+			.setColor(color.green)
+			.setTitle('<:GadgetLeave:821521172956053513> | **Você me tirou do seu servidor! = (**')
+			.setDescription(`Você me expulsou do ${guild.name}, espero que eu não tenha feito nada de errado =( \n \n Entra em contato com o [suporte](https://discord.gg/EsAb4jDAvx) pra falar sobre sua insatisfação!`)
+			 .addFields({name: `**Se quiser me adicionar novamente**`, value: "[CLIQUE AQUI](https://discord.com/oauth2/authorize?client_id=634216294710771713&scope=bot&permissions=8)"})
+			.setThumbnail(guild.icon);
+
+			this.client.users.send(guild.ownerId, {embeds: [embed]})
+			
+		}
 	  
    }
 }
