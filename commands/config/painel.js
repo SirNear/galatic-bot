@@ -60,6 +60,10 @@ module.exports = class painel extends Command {
 			.setCustomId("4")
 			.setLabel("SISTEMA DE MUTE AUTOMATICO")
 			.setStyle(ButtonStyle.Primary),
+		     )
+		    
+		    const row12 = new ActionRowBuilder()
+		    .addComponents(
 		     new ButtonBuilder()
 			.setCustomId("5")
 			.setLabel("CARGO DE MODERAÇÃO")
@@ -68,9 +72,9 @@ module.exports = class painel extends Command {
 			.setCustomId("6")
 			.setLabel("CATEGORIA DE MONITORAMENTOS")
 			.setStyle(ButtonStyle.Primary),
-		     )
+			    )
 		    
-		    message.channel.send({ embeds: [embedv], components: [row]}).then((msg) => {
+		    message.channel.send({ embeds: [embedv], components: [row, row12]}).then((msg) => {
 			    const collector = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000 });
 	
 			    collector.on("collect", async i => {
