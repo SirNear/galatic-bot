@@ -51,23 +51,23 @@ module.exports = class painel extends Command {
 		     new ButtonBuilder()
 			.setCustomId("2")
 			.setLabel("PREFIX")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary),
 		     new ButtonBuilder()
 			.setCustomId("3")
 			.setLabel("CARGO DE MUTE")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary),
 		     new ButtonBuilder()
 			.setCustomId("4")
 			.setLabel("SISTEMA DE MUTE AUTOMATICO")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary),
 		     new ButtonBuilder()
 			.setCustomId("5")
 			.setLabel("CARGO DE MODERAÇÃO")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary),
 		     new ButtonBuilder()
 			.setCustomId("6")
 			.setLabel("CATEGORIA DE MONITORAMENTOS")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary),
 		     )
 		    
 		    message.channel.send({ embeds: [embedv], components: [row]}).then((msg) => {
@@ -128,7 +128,7 @@ module.exports = class painel extends Command {
 							  new ButtonBuilder()
 								.setCustomId("41")
 								.setLabel("<:StatusOn:572210002039668818>")
-								.setStyle(ButtonStyle.Primary);
+								.setStyle(ButtonStyle.Primary),
 								)
 							
 							message.channel.send({ embeds: [helpAutoMute], components: [row2] }).then((msg2) => {
@@ -143,7 +143,7 @@ module.exports = class painel extends Command {
 											new ButtonBuilder()
 											.setCustomId("411")
 											.setLabel("<a:a:moderacao:569064320156172299>")
-											.setStyle(ButtonStyle.Primary);
+											.setStyle(ButtonStyle.Primary),
 											)
 										message.channel.send({ content:'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
 											const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
@@ -173,11 +173,11 @@ module.exports = class painel extends Command {
 							        new ButtonBuilder()
 								.setCustomId("421")
 								.setLabel("<a:negativo:563096795907883010>")
-								.setStyle(ButtonStyle.Primary);
+								.setStyle(ButtonStyle.Primary),
 								new ButtonBuilder()
 								.setCustomId("422")
 								.setLabel("<a:moderacao:569064320156172299>")
-								.setStyle(ButtonStyle.Primary)
+								.setStyle(ButtonStyle.Primary),
 							)
 							
 							message.channel.send({ embeds: [helpAutoMute], components: [row4] }).then((m) => {
@@ -219,7 +219,7 @@ module.exports = class painel extends Command {
 							new ButtonBuilder()
 							.setCustomId("51")
 							.setLabel("<:lolipolice:669705464447107073>")
-							.setSytle(ButtonStyle.Primary);
+							.setSytle(ButtonStyle.Primary),
 							)
 						
 						message.channel.send({ embeds: [embedInit], components: [row5] }).then((m) => {
@@ -250,7 +250,7 @@ module.exports = class painel extends Command {
 						 	new ButtonBuilder()
 							.setCustomId("61")
 							.setLabel("<:MotivosparaViver:572157111471964200>")
-							.setStyle(ButtonStyle.Primary);
+							.setStyle(ButtonStyle.Primary),
 								)
 
 						message.channel.send({ embeds: [embedHelpC], components: [row6] }).then((m6) => {
