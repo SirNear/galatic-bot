@@ -17,7 +17,8 @@ module.exports = class GuildDelete {
 			let embedBan = new EmbedBuilder()
 			.setColor(color.red)
 			.setTitle('<:errorYaro:816811156512440331> | **Seu servidor acaba de ser banido**')
-			.setDescription(`Um dos meus administradores acabou de expulsar-me do seu servidor ${guild.name}. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais`)
+			.setDescription(`Um dos meus administradores acabou de expulsar-me do seu servidor ${guild.name}. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais.`)
+			.addFields({name: '**Motivo do Banimento**', value: server.banReason, inline: true})
 			
 			this.client.users.send(guild.ownerId, {embeds: [embedBan]})
 		}else {
