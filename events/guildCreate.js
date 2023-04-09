@@ -64,7 +64,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por ter me escolhido! Em seu servidor, dê o comando **${prefix}painel ver** para configurar algumas coisas do servidor!`)
 
 				 this.client.users.send(guild.ownerId, {embeds: [embedNew]})
-				 msgLog(guild, embedCreated, this.client, context)
+				 msgLog(guild, embedCreated, this.client, this)
 			 })
 
 		  }else {
@@ -80,7 +80,7 @@ module.exports = class GuildCreate {
 				.setDescription(`Você me adicionou ao ${guild.name}, fico feliz por voltar! Verifique as configurações anteriores em **${server.prefix}painel ver**.`)
 
 				  this.client.users.send(guild.ownerId, {embeds: [embedOld]})
-				  msgLog(guild, embedCreated, this.client, context)
+				  msgLog(guild, embedCreated, this.client, this)
 			  }//else do if server	
 		  }//else do if server.banned
        }
