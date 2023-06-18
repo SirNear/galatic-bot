@@ -276,7 +276,8 @@ module.exports = class painel extends Command {
 										 }//if !newCategory
 									 })//coletornewCategory
 								 })//msg2 monitoramento categoria
-					break;
+						break;
+						default: return
 				}//switch
 			    })//collector
 			    	break;
