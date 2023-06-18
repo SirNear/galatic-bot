@@ -279,9 +279,6 @@ module.exports = class painel extends Command {
 					break;
 				}//switch
 			    })//collector                      
-
-
-				break;
         			default: 
 		     
 
