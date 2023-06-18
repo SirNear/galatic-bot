@@ -276,10 +276,6 @@ module.exports = class painel extends Command {
 										 }//if !newCategory
 									 })//coletornewCategory
 								 })//msg2 monitoramento categoria
-						break;
-						default: return
-				}//switch
-			    })//collector
 			    	break;
         			default: 
 					const embedd = new EmbedBuilder()
