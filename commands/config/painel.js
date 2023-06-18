@@ -5,7 +5,7 @@ const color = require('../../api/colors.json')
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, ButtonStyle, MessageCollector } = require('discord.js');
 
 
-module.exports = class painel extends Command {
+module.exports = class painel extends Command {	
 
 	constructor(client) {
 		super(client, {
@@ -18,7 +18,7 @@ module.exports = class painel extends Command {
 		})
 	}
   
-	 run({ message, args, client, server}) {
+	 run({ message, args, client, server}) {	
 		 
 		 
 		 let guildicon = message.guild.iconURL()
@@ -92,7 +92,7 @@ module.exports = class painel extends Command {
 							if(!nc) nc = '``padrão``.';
 							server.save()
 							message.channel.send({content: `**Canal de punições alterado para \`${nc}\`**`})
-						})
+						})//collectorMsg
 							
 					break;
 					case "2":
@@ -151,20 +151,18 @@ module.exports = class painel extends Command {
 											)
 										message.channel.send({ content:'**Envie o novo número de warns máximos(Apenas números)**', components: [row3] }).then((m) => {
 											const filterwarnumber = (interaction) => interaction.user.id === message.author.id;
-											const collectorwn = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000, max: 1 });
-											
+											const collectorwn = msg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 15000, max: 1 });	
 											collectorwn.on("collect", (interaction) => {
 												const fWN = m => m.author.id === message.author.id 
 												const coletorWN = message.channel.awaitMessages(fWN, {time:20000}).then(collected => {
 													let numberFirst = collected.content
 													if(!numberFirst) return message.channel.send('Alterado para padrão.')
-													
 													server.warnNumber = numberFirst
 													server.save()
-													
 													message.channel.send({content: `**Número máximo de warns alterado para \`${numberFirst}\`**`})
 												})//coletorWN
 											})//collectorwn
+									
 										})//m
 									})//ms
 								})//colletoram
@@ -211,6 +209,7 @@ module.exports = class painel extends Command {
 							})//m do embed warnTag ativado
 
 						}//else do if warnTag ativado
+					})
 						//fim case "4"
 					break;
 					case "5":
@@ -288,7 +287,7 @@ module.exports = class painel extends Command {
 				        message.channel.send({ embeds: [embedd] });
      }//switch
     })
-}
+		    }
   
   getCategory(category, prefix) {
 		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${prefix}${c.config.name}\``).join(", ")
