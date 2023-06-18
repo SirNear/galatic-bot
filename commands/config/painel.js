@@ -288,6 +288,7 @@ module.exports = class painel extends Command {
 				        message.channel.send({ embeds: [embedd] });
      }//switch
     })
+}
   
   getCategory(category, prefix) {
 		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${prefix}${c.config.name}\``).join(", ")
