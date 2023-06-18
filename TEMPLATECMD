@@ -16,6 +16,5 @@ module.exports = class {nome do cmd} extends Command {
   
 async run({ message, args, client, server}) {
 
-
   }
 }
