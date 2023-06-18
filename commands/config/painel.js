@@ -209,7 +209,6 @@ module.exports = class painel extends Command {
 							})//m do embed warnTag ativado
 
 						}//else do if warnTag ativado
-					})
 						//fim case "4"
 					break;
 					case "5":
