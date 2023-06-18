@@ -273,7 +273,7 @@ module.exports = class painel extends Command {
 											 message.channel.send({content: `**Categoria de Monitoramento alterada para ${message.guild.channels.cache.find(c => c.id == server.monitorCategory && c.type == "category").name}**`})
 										 }//if !newCategory
 									 })//coletornewCategory
-								 })//msg2 monitoramento categoria
+							})
 			    	break;
         			default: 
 					const embedd = new EmbedBuilder()
@@ -286,7 +286,10 @@ module.exports = class painel extends Command {
 				        message.channel.send({ embeds: [embedd] });
      }//switch
     })
-		    }
+			})
+	 }
+	 }
+			
   
   getCategory(category, prefix) {
 		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${prefix}${c.config.name}\``).join(", ")
@@ -297,4 +300,4 @@ module.exports = class painel extends Command {
 		return this.client.commands.filter(c => c.config.category === category).size
 	}
   
-}
+	}
