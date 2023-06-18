@@ -278,11 +278,9 @@ module.exports = class painel extends Command {
 								 })//msg2 monitoramento categoria
 					break;
 				}//switch
-			    })//collector                      
+			    })//collector
+			    	break;
         			default: 
-		     
-
-		     
 					const embedd = new EmbedBuilder()
 					    .setTitle('<:engrenagem:564590880707837991> | ***Painel do Servidor***')
 					    .setDescription(`<:dnd:572210462993940482> | Utilize \`${server.prefix}painel ver\` para editar o painel.`)
