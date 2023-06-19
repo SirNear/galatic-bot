@@ -22,7 +22,7 @@ async run({ message, args, client, server}) {
     const embedh = new EmbedBuilder()
   .setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO MUTE** | <:DuvidaMario:566084477114384387>`)
   .setDescription(`Utilize \`${server.prefix}mute <usuario> <tempo> <motivo>\``)
-  .setColor('RANDOM');
+  .setColor('#FFFF00');
 
   if(!args[0]||args[0].includes("help")||args[0].includes("ajuda")) return message.channel.send(embedh)
 
