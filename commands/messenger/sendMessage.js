@@ -28,8 +28,11 @@ async function sendCommandArgument() {
   await page.goto('https://www.messenger.com');
 
   // Fazer login
+  await page.click('div')
   await page.type('#email', 'offhenriquebj@gmail.com');
   await page.type('#pass', 'henriquebj25');
+  await page.waitForSelector('#loginbutton', { visible: true });
+  await page.waitForTimeout(1000);
   await page.click('#loginbutton');
 
   // Aguardar o carregamento da página
