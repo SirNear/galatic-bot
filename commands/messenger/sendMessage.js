@@ -39,7 +39,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-const conversa = '#:rk: [href="/t/5124318804265221/"]'
+const conversa = '#:rk: [class="x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft"]'
 	await page.click(conversa)
   const searchResultSelector = '#:r17f: [aria-label="Mensagem"]';
   await page.waitForSelector(searchResultSelector);
