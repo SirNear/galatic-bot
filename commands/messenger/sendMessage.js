@@ -36,7 +36,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-  const conversationSelector = '#\:rk\: > div > div > div > div > div:nth-child(2) > div > div:nth-child(1) > div > div:nth-child(1)';
+  const conversationSelector = '#\:rk\: > div > div > div > div > div:nth-child(2) > div > div:nth-child(1) > div > div:nth-child(1) > a > div > div > div.x9f619.x1n2onr6.x1ja2u2z.x78zum5.x1iyjqo2.xs83m0k.xeuugli.x1qughib.x6s0dn4.x1a02dak.x1q0g3np.xdl72j9 > div > div > span > div.x6s0dn4.xi81zsa.x78zum5.x1hshjfz';
   await page.waitForSelector(conversationSelector);
   await page.click(conversationSelector);
 
