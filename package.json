@@ -32,6 +32,7 @@
     "node.js": "0.0.1-security",
     "parse": "^2.19.0",
     "parse-duration": "^0.4.4",
+    "puppeteer": "^20.7.2",
     "quick.hook": "^1.5.1",
     "sql": "^0.78.0",
     "util": "^0.12.3"
