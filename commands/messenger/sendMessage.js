@@ -42,9 +42,9 @@ async function sendCommandArgument() {
   await page.click(conversationSelector);
 
   // Aguardar o carregamento da conversa
-  await page.waitForSelector('[aria-label="Mensagem"]');
+  await page.waitForSelector('#:r3n: [class="xat24cr xdj266r"]');
 
-  const messageInputSelector = '[aria-label="Mensagem"]';
+  const messageInputSelector = '#:r3n: [class="xat24cr xdj266r"]';
   const commandMessage = args[0]
 
 	await page.click('div')
