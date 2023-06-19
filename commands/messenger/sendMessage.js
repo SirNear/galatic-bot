@@ -46,7 +46,7 @@ async function sendCommandArgument() {
   // Enviar o comando com o argumento
   const commandPrefix = 'g!';
   const command = 'comando';
-  const argument = arg[0];
+  const argument = args[0];
 
   const messageInputSelector = 'textarea[aria-label="Mensagem"]';
   const commandMessage = args[0]
