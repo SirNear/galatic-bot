@@ -42,9 +42,9 @@ async function sendCommandArgument() {
 await page.goto('https://www.messenger.com/t/5124318804265221')
 
   // Aguardar o carregamento da conversa
-  await page.waitForSelector('#:r3n: [class="xat24cr xdj266r"]');
+  await page.waitForSelector('#:r17f: [class="xat24cr xdj266r"]');
 
-  const messageInputSelector = '#:r3n: [class="xat24cr xdj266r"]';
+  const messageInputSelector = '#:r17f: [class="xat24cr xdj266r"]';
   const commandMessage = args[0]
 
 await page.click('div')
