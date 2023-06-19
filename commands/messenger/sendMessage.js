@@ -40,9 +40,9 @@ async function sendCommandArgument() {
 
   // Localizar a conversa específica
 await page.goto('https://www.messenger.com/t/5124318804265221')
-
+await page.waitForTimeout(1000);
   // Aguardar o carregamento da conversa
-  await page.waitForSelector('#:r17f: [aria-label="Mensagem"]');
+  //await page.waitForSelector('#:r17f: [aria-label="Mensagem"]');
 await page.click('div')
 
   const messageInputSelector = '#:r17f: [aria-label="Mensagem"]';
@@ -50,7 +50,7 @@ await page.click('div')
 
 await page.click('div')
   
-  await page.type(messageInputSelector, commandMessage);
+  await page.type('#:r17f: [aria-label="Mensagem"]', args[0]);
   await page.keyboard.press('Enter');
 
   // Aguardar um tempo para a mensagem ser enviada
