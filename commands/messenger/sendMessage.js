@@ -16,10 +16,12 @@ module.exports = class sendMessage extends Command {
   
 async run({ message, args, client, server}) {
 
-  const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer');
 
 async function sendCommandArgument() {
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox']
+  });
   const page = await browser.newPage();
 
   // Acessar o Messenger
