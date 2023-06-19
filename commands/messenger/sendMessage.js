@@ -36,7 +36,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-  const conversationSelector = 'span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft';
+  const conversationSelector = '#\:rk\: > div > div > div > div > div:nth-child(2) > div > div:nth-child(1) > div > div:nth-child(1)';
   await page.waitForSelector(conversationSelector);
   await page.click(conversationSelector);
 
