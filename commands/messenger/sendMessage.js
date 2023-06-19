@@ -39,9 +39,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-  const conversationSelector = '#:rk: [href="/t/5124318804265221/"]';
-  await page.waitForSelector(conversationSelector);
-  await page.click(conversationSelector);
+await page.goto('https://www.messenger.com/t/5124318804265221')
 
   // Aguardar o carregamento da conversa
   await page.waitForSelector('#:r3n: [class="xat24cr xdj266r"]');
@@ -49,7 +47,7 @@ async function sendCommandArgument() {
   const messageInputSelector = '#:r3n: [class="xat24cr xdj266r"]';
   const commandMessage = args[0]
 
-	await page.click('div')
+await page.click('div')
   
   await page.type(messageInputSelector, commandMessage);
   await page.keyboard.press('Enter');
