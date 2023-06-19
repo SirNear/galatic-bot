@@ -41,7 +41,7 @@ async function sendCommandArgument() {
   await page.click(conversationSelector);
 
   // Aguardar o carregamento da conversa
-  await page.waitForSelector('textarea[aria-label="Digite uma mensagem..."]');
+  await page.waitForSelector('div[aria-label="Digite uma mensagem..."]');
 
   // Enviar o comando com o argumento
   const commandPrefix = 'g!';
