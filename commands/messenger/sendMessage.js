@@ -41,7 +41,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-const conversa = '.x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft'
+const conversa = '#\:rk\: > div > div > div > div > div:nth-child(2) > div > div:nth-child(1) > div > div:nth-child(1) > a'
 	await page.waitForSelector(conversa)
 	await page.click(conversa)
 	console.log('conversa localizada')
