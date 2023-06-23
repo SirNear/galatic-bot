@@ -20,9 +20,22 @@ const puppeteer = require('puppeteer');
 
 async function sendCommandArgument() {
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox']
+    args: ['--no-sandbox'],
+    headless: false
   });
   const page = await browser.newPage();
+
+      // Desabilitar recursos desnecessários
+      await page.setBypassCSP(true);
+      await page.setRequestInterception(true);
+      page.on('request', request => {
+        if (request.resourceType() === 'image' || request.resourceType() === 'stylesheet' || request.resourceType() === 'font') {
+          request.abort();
+        } else {
+          request.continue();
+        }
+      });
+	console.log('Recursos desnecesários desativados')
 
   // Acessar o Messenger
   await page.goto('https://www.messenger.com');
