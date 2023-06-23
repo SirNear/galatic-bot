@@ -26,7 +26,6 @@ async function sendCommandArgument() {
 
       // Desabilitar recursos desnecessários
       await page.setBypassCSP(true);
-      await page.setRequestInterception(true);
       page.on('request', request => {
         if (request.resourceType() === 'image' || request.resourceType() === 'stylesheet' || request.resourceType() === 'font') {
           request.abort();
