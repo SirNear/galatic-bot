@@ -43,7 +43,7 @@ async function sendCommandArgument() {
 
   // Localizar a conversa específica
 const conversa = '.x1lliihq.x6ikm8r.x10wlt62.x1n2onr6.xlyipyv.xuxw1ft.x1j85h84'
-	await page.waitForSelector(conversa, { timeout: 60000 })
+	await page.waitForSelector(conversa, { timeout: 120000 })
 	await page.click(conversa)
 	console.log('conversa localizada')
   const searchResultSelector = '#:r17f: [aria-label="Mensagem"]';
