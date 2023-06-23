@@ -21,7 +21,6 @@ const puppeteer = require('puppeteer');
 async function sendCommandArgument() {
   const browser = await puppeteer.launch({
     args: ['--no-sandbox'],
-    headless: false
   });
   const page = await browser.newPage();
 
