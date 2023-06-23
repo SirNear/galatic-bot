@@ -29,7 +29,7 @@ async function sendCommandArgument() {
       await page.setBypassCSP(true);
       await page.setRequestInterception(true);
       page.on('request', request => {
-        if (request.resourceType() === 'image' || request.resourceType() === 'stylesheet' || request.resourceType() === 'font') {
+        if (request.resourceType() === 'image') {
           request.abort();
         } else {
           request.continue();
