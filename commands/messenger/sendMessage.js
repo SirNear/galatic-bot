@@ -44,8 +44,8 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
  */
 	
-	const searchResultSelector = '::-p-aria([name="Message"][role="textbox"])';
-	await page.locator('textbox').click()
+	const searchResultSelector = '/html/body/div[1]/div/div/div/div[2]/div/div/div/div[1]/div[1]/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[4]/div[2]/div/div/div[1]/p';
+	await page.waitForXPath(searchResultSelector)
 	console.log('caixa de texto selecionada')
 
 	await page.click(searchResultSelector);
