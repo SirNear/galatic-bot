@@ -41,7 +41,7 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
 
 
-	await page.goto('https://www.messenger.com/t/5124318804265221/');
+	await page.goto('https://www.messenger.com/t/5124318804265221/', {waitUntil: 'load', timeout:0);
 	console.log('entrei na conversa')
 	
 	const searchResultSelector = 'div#mount_0_0_Af p';
