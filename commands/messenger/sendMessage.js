@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.goto('https://www.messenger.com/t/5124318804265221/');
 	console.log('entrei na conversa')
 	
-	const searchResultSelector = 'div[contenteditable="true"]';
+	const searchResultSelector = await page.$('p.xat24cr.xdj266r');
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
 	await page.click(searchResultSelector);
