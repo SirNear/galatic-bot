@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.goto('https://www.messenger.com/t/5124318804265221/');
 	console.log('entrei na conversa')
 	
-	const searchResultSelector = 'div > .xat24cr xdj266r';
+	const searchResultSelector = '::-p-aria([aria-label="Mensagem"][role="textbox"])';
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
 	await page.click(searchResultSelector);
