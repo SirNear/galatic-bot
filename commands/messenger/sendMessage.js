@@ -30,7 +30,7 @@ async function sendCommandArgument() {
 	// Fazer login
 	await page.click('div')
 	await page.type('#email', 'offhenriquebj@gmail.com');
-		console.log('email digitado')
+	console.log('email digitado')
 	await page.type('#pass', 'henriquebj25');
 	console.log('senha digitada')
 	await page.waitForSelector('#loginbutton', { visible: true });
@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.goto('https://www.messenger.com/t/5124318804265221/');
 	console.log('entrei na conversa')
 	
-	const searchResultSelector = await page.$('p.xat24cr.xdj266r');
+	const searchResultSelector = '#:r45:';
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
 	await page.click(searchResultSelector);
