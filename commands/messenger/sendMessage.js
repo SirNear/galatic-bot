@@ -27,9 +27,7 @@ async function sendCommandArgument() {
   // Acessar o Messenger
   await page.goto('https://www.messenger.com/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
 
-	// Fazer login
-	await page.click('div')
-	
+	// Fazer login	
 	await page.type('#email', 'offhenriquebj@gmail.com');
 	console.log('email digitado')
 	
