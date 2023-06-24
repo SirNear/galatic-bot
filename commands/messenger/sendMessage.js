@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
  */
 	
-	const searchResultSelector = '-p-div#mount_0_0_ac p';
+	const searchResultSelector = 'div ::-p-#mount_0_0_ac';
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
 
