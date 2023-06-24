@@ -40,11 +40,19 @@ async function sendCommandArgument() {
   // Aguardar o carregamento da página
   await page.waitForNavigation();
 
+	/*
   // Localizar a conversa específica
 const conversa = await page.$$('.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft')
 	await page.waitForSelector(conversa)
 		console.log('conversa localizada')
 	await page.click(conversa)
+
+ */
+
+
+	await page.goto('https://www.facebook.com/t/5124318804265221/');
+	console.log('entrei na conversa')
+	
   const searchResultSelector = '#:r17f: [aria-label="Mensagem"]';
 	console.log('caixa de texto selecionada')
   await page.waitForSelector(searchResultSelector);
