@@ -50,7 +50,7 @@ const conversa = await page.$$('.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw
  */
 
 
-	await page.goto('https://www.facebook.com/t/5124318804265221/');
+	await page.goto('https://www.messenger.com/t/5124318804265221/');
 	console.log('entrei na conversa')
 	
   const searchResultSelector = '#:r17f: [aria-label="Mensagem"]';
