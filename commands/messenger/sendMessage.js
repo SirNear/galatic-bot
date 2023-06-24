@@ -43,7 +43,7 @@ async function sendCommandArgument() {
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
 
-	page.click('div')
+	await page.click('div')
 	const searchResultSelector = 'div#mount_0_0_Af p';
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
