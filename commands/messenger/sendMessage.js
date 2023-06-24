@@ -27,6 +27,7 @@ async function sendCommandArgument() {
   // Acessar o Messenger
   await page.goto('https://www.messenger.com/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
 
+	/*
 	// Fazer login	
 	await page.type('#email', 'offhenriquebj@gmail.com');
 	console.log('email digitado')
@@ -37,7 +38,9 @@ async function sendCommandArgument() {
 	await page.waitForSelector('#loginbutton', { visible: true });
 	await page.click('#loginbutton');
 	console.log('logado no messenger')
-	
+
+ 	*/
+ 
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
 	
