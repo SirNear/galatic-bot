@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
  */
 	
-	const searchResultSelector = 'aria([name="Mensagem"][role="textbox"])';
+	const searchResultSelector = 'aria([name="Message"][role="textbox"])';
 	await page.waitForSelector(searchResultSelector);
 	console.log('caixa de texto selecionada')
 
