@@ -41,7 +41,7 @@ async function sendCommandArgument() {
   await page.waitForNavigation();
 
   // Localizar a conversa específica
-const conversa = await page.$$('.classe-do-elemento')
+const conversa = await page.$$('.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft')
 	await page.waitForSelector(conversa)
 		console.log('conversa localizada')
 	await page.click(conversa)
