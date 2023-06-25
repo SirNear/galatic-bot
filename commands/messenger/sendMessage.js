@@ -43,7 +43,7 @@ async function sendCommandArgument() {
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
  */
-	const msg = '[placeholder="Message"]'
+	const msg = '[placeholder="Mensagem"]'
 	await page.$(msg)
 	console.log('caixa de texto selecionada')
 
