@@ -43,14 +43,13 @@ async function sendCommandArgument() {
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
  */
-	
-	const searchResultSelector = '/html/body/div[1]/div/div/div/div[2]/div/div/div/div[1]/div[1]/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[4]/div[2]/div/div/div[1]/p';
-	await page.waitForXPath(searchResultSelector)
+	const msg = '[placeholder="Message"]'
+	await page.$(msg)
 	console.log('caixa de texto selecionada')
 
-	await page.click(searchResultSelector);
+	await page.click(msg);
 	  
-	await page.type(searchResultSelector, args[0]);
+	await page.type(args[0]);
 	await page.press('Enter');
 	
 	// Aguardar um tempo para a mensagem ser enviada
