@@ -44,8 +44,8 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
 	*/
   
-	const msg = '.xat24cr xdj266r'
-	await page.$(msg)
+	await page.querySelector('#mount_0_0_en p');
+	await element.textContent();
 	console.log('caixa de texto selecionada')
 
 	await page.click(msg);
