@@ -52,7 +52,7 @@ async function sendCommandArgument() {
 	await page.type(ct, args[0], {delay: 100})
 	console.log('escrevi')
 	await page.click('[aria-label="Pressione Enter para enviar"]')
-	consloe.log('enviei a msg')
+	console.log('enviei a msg')
 	
 	/*
 	await page.waitForSelector('[placeholder="Pesquisar no Messenger"]')
