@@ -73,7 +73,7 @@ async function sendCommandArgument() {
  	*/
  
 	// Aguardar um tempo para a mensagem ser enviada
-	await page.waitForTimeout(2000);
+	await page.waitForTimeout(2000000);
 
 	await browser.close();
 
