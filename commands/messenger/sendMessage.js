@@ -44,7 +44,8 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
 	
   
-	await page.querySelector('div#mount_0_0_bI p');
+	await page.waitForSelector('div#mount_0_0_bI p');
+	await page.click('div#mount_0_0_bI p');
 	await element.textContent();
 	console.log('caixa de texto selecionada')
 
