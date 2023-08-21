@@ -48,7 +48,7 @@ async function sendCommandArgument() {
 	await page.waitForSelector(ct)
 	console.log('achei a caixa de texto do chat')
 	await page.click(ct)
-	conselo.log('cliquei na caixa de texto')
+	console.log('cliquei na caixa de texto')
 	await page.type(ct, args[0], {delay: 100})
 	console.log('escrevi')
 	await page.press('Enter')
