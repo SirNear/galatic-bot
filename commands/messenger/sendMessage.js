@@ -51,7 +51,7 @@ async function sendCommandArgument() {
 	console.log('cliquei na caixa de texto')
 	await page.type(ct, args[0], {delay: 100})
 	console.log('escrevi')
-	await page.press('Enter')
+	await page.click('[aria-label="Pressione Enter para enviar"]')
 	consloe.log('enviei a msg')
 	
 	/*
