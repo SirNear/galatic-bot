@@ -34,7 +34,6 @@ async function sendCommandArgument() {
          if (texto.includes('g!')) {
             console.log('encontrei uma mensagem com o comando')
          }
-         
       })
    })
 }
