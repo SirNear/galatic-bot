@@ -49,8 +49,14 @@ async function sendCommandArgument() {
 	console.log('cliquei na barra de pesquisa')
 
 	await page.type('[placeholder="Pesquisar no Messenger"]', args[0])
-	await page.press('Enter')
-	console.log('digitei')
+	await page.waitForSelector(`[id="${args[0]}]`)
+	console.log('encontrei as pesquisas')
+
+	let contador = '0'
+	let paginas = await page.waitForSelector('[div="row']')
+	paginas.forEach = contador++
+	
+	console.log(`Encontrei ${contador} resultados`)
 	
 	// Aguardar um tempo para a mensagem ser enviada
 	await page.waitForTimeout(2000);
