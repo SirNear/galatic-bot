@@ -45,6 +45,8 @@ async function sendCommandArgument() {
 	console.log('pagina carregada')
 	await page.waitForSelector('[placeholder="Pesquisar no Messenger"]')
 	console.log('barra de pesquisa encontrada')
+	await page.click('[placeholder="Pesquisar no Messenger"]')
+	console.log('cliquei na barra de pesquisa')
 
 	await page.type('[placeholder="Pesquisar no Messenger"]', args[0])
 	await page.press('Enter')
