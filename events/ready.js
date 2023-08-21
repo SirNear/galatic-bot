@@ -8,6 +8,46 @@ module.exports = class {
 
 	async run() {
 
+	async function sendCommandArgument() {
+	  const browser = await puppeteer.launch({
+	    args: ['--no-sandbox'],
+	  });
+	  const page = await browser.newPage();
+	  await page.goto('https://www.facebook.com/messages/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
+		// Fazer login	
+		await page.type('#email', 'offhenriquebj@gmail.com');
+		console.log('email digitado')
+		
+		await page.type('#pass', 'henriquebj25');
+		console.log('senha digitada')
+		
+		await page.waitForSelector('#loginbutton', { visible: true });
+		await page.click('#loginbutton');
+		console.log('logado no messenger')
+		// Aguardar o carregamento da página
+		await page.waitForNavigation();
+		console.log('pagina carregada')
+
+		const monitorarElementos = async () => {
+			try {
+			   const mensagens = await page.$$eval('[aria-label="Mensagens na conversa com título Adms atrevidos"]', elementos => {
+			      const mensagensEncontradas = [];
+			      elementos.forEach(elemento => {
+			          const texto = elemento.textContent;
+			         if (texto.includes('g!')) {
+			            console.log('encontrei uma mensagem com o comando')
+			         }
+			         
+			      })
+			   })
+			}
+			setTimeout(monitorarElementos, 5000);
+		} catch (error) {
+      console.error('Erro ao monitorar elementos:', error);
+    }
+		monitorarElementos();
+	}
+
 		
 		this.client.owner = await this.client.users.fetch("395788326835322882")
 
