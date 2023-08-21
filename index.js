@@ -43,8 +43,7 @@ async function sendCommandArgument() {
          
       })
    })
-   const texto = await elemento.$eval(el => el.textContent);
-
+})
 
 client.loadCommands('./commands')
 client.loadEvents('./events')
