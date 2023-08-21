@@ -43,11 +43,12 @@ async function sendCommandArgument() {
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
 	console.log('pagina carregada')
-	await page.waitForSelector('#search')
+	await page.waitForSelector('[placeholder="Pesquisar no Messenger"]')
 	console.log('barra de pesquisa encontrada')
 
-	await page.type('#search', args[0])
+	await page.type('[placeholder="Pesquisar no Messenger"]', args[0])
 	await page.press('Enter')
+	console.log('digitei')
 	
 	// Aguardar um tempo para a mensagem ser enviada
 	await page.waitForTimeout(2000);
