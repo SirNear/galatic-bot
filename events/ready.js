@@ -40,11 +40,15 @@ module.exports = class {
 			         
 			      })
 			   })
-			}
-			setTimeout(monitorarElementos, 5000);
-		} catch (error) {
-      console.error('Erro ao monitorar elementos:', error);
-    }
+
+				setTimeout(monitorarElementos, 5000);
+				
+			}catch (error) {
+    			  console.error('Erro ao monitorar elementos:', error);
+    			}
+			
+		} 
+		
 		monitorarElementos();
 	}
 
