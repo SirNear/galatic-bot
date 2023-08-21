@@ -53,7 +53,7 @@ async function sendCommandArgument() {
 	console.log('encontrei as pesquisas')
 
 	let contador = '0'
-	let paginas = await page.waitForSelector('[div="row"]')
+	let paginas = await page.waitForSelector('[role="row"]')
 	paginas.forEach = contador++
 	
 	console.log(`Encontrei ${contador} resultados`)
