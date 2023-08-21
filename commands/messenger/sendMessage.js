@@ -44,6 +44,7 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
 	console.log('pagina carregada')
 
+	/*
 	let ct = '[aria-label="Mensagem"]'
 	await page.waitForSelector(ct)
 	console.log('achei a caixa de texto do chat')
@@ -53,8 +54,9 @@ async function sendCommandArgument() {
 	console.log('escrevi')
 	await page.click('[aria-label="Pressione Enter para enviar"]')
 	console.log('enviei a msg')
+
+	*/
 	
-	/*
 	await page.waitForSelector('[placeholder="Pesquisar no Messenger"]')
 	console.log('barra de pesquisa encontrada')
 	await page.click('[placeholder="Pesquisar no Messenger"]')
@@ -64,14 +66,14 @@ async function sendCommandArgument() {
 	await page.waitForSelector(`[id="${args[0]}"]`)
 	console.log('encontrei as pesquisas')
 
-	let contador = '0'
-	let paginas = await page.waitForSelector('[role="row"]')
-	paginas.forEach = contador++
-	
-	 console.log(`Encontrei ${contador} resultados`)
+	 const grupos = await page.evaluate(() => {
+	        const gruposElementos = Array.from(document.querySelectorAll(`[id="${args[0]}"]`)).map(el => el.innerText);
+	        return gruposElementos;
+     	 });
 
- 	*/
- 
+	
+
+ 	
 	// Aguardar um tempo para a mensagem ser enviada
 	await page.waitForTimeout(2000000);
 
