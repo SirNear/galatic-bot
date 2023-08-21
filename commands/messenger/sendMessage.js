@@ -42,10 +42,10 @@ async function sendCommandArgument() {
  
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
-	
+	console.log('pagina carregada')
   
 	await page.waitForSelector('div#mount_0_0_bI p');
-	await page.click('div#mount_0_0_bI p');
+	await page.click('#Mensagem');
 	await element.textContent();
 	console.log('caixa de texto selecionada')
 
