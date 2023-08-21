@@ -25,9 +25,9 @@ async function sendCommandArgument() {
   const page = await browser.newPage();
 
   // Acessar o Messenger
-  await page.goto('https://www.messenger.com/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
+  await page.goto('https://www.facebook.com/messages/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
 
-	/*
+	
 	// Fazer login	
 	await page.type('#email', 'offhenriquebj@gmail.com');
 	console.log('email digitado')
@@ -42,9 +42,9 @@ async function sendCommandArgument() {
  
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
-	*/
+	
   
-	await page.querySelector('#mount_0_0_en p');
+	await page.querySelector('div#mount_0_0_bI p');
 	await element.textContent();
 	console.log('caixa de texto selecionada')
 
