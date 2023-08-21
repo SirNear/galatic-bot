@@ -44,7 +44,7 @@ async function sendCommandArgument() {
 	await page.waitForNavigation();
 	console.log('pagina carregada')
 	  
-	await page.type('#Mensagem', args[0], {delay: 100});
+	await page.type('#:r2r4:', args[0], {delay: 100});
 	await page.press('Enter');
 	
 	// Aguardar um tempo para a mensagem ser enviada
