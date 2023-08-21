@@ -43,9 +43,11 @@ async function sendCommandArgument() {
 	// Aguardar o carregamento da página
 	await page.waitForNavigation();
 	console.log('pagina carregada')
-	  
-	await page.type('#:r2r4:', args[0], {delay: 100});
-	await page.press('Enter');
+	await page.waitForSelector('#search')
+	console.log('barra de pesquisa encontrada')
+
+	await page.type('#search', args[0])
+	await page.press('Enter')
 	
 	// Aguardar um tempo para a mensagem ser enviada
 	await page.waitForTimeout(2000);
