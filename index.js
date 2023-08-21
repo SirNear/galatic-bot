@@ -5,50 +5,45 @@ const client = new Client({
    intents: ["MessageContent"],
    disableMentions: "everyone",
 })
-const express = require('express');
-const bodyParser = require('body-parser');
-const app = express();
-const VERIFY_TOKEN = "8392b740301147aa366dde933daaab9d";
-const PAGE_ACCESS_TOKEN = "EAAMfAcCY4qQBADgniec6IVNh5eBjkm4MhyS82o2tTgxhLyEvJngtrssMZCMuE1nZCZBHZBf1rhKDqXLWZCIpp8c6YMZCAO1BDUfijZBZC2ZAtG8XCzIWN4IZB6czstn5ZANHjcml4YTofwjacptWydUgvaYLSARfB3hf3jZAWVcwwZAvxe2wZByeAiOlIb";
+const puppeteer = require('puppeteer');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+async function sendCommandArgument() {
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage();
 
-app.get('/webhook', (req, res) => {
-  if (req.query['hub.mode'] && req.query['hub.verify_token'] === VERIFY_TOKEN) {
-    res.status(200).send(req.query['hub.challenge']);
-  } else {
-    res.status(403).send('Acesso negado.');
-  }
-});
+  // Acessar o Messenger
+  await page.goto('https://www.facebook.com/messages/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
 
-app.post('/webhook', (req, res) => {
-  let body = req.body;
+	
+	// Fazer login	
+	await page.type('#email', 'offhenriquebj@gmail.com');
+	console.log('email digitado')
+	
+	await page.type('#pass', 'henriquebj25');
+	console.log('senha digitada')
+	
+	await page.waitForSelector('#loginbutton', { visible: true });
+	await page.click('#loginbutton');
+	console.log('logado no messenger')
 
-  if (body.object === 'page') {
-    body.entry.forEach(entry => {
-      let webhook_event = entry.messaging[0];
-      console.log(webhook_event);
-       
-       if (webhook_event.message) {
-        let sender_psid = webhook_event.sender.id;
-        sendTextMessage(sender_psid, "Testando vc bro");
-      }
-    });//body.entry
-    res.status(200).send('EVENT_RECEIVED');
-  } else {
-    res.status(404).send();
-  }//else
-   
-});//app.post
+ 
+	// Aguardar o carregamento da página
+	await page.waitForNavigation();
+	console.log('pagina carregada')
 
-app.listen(3000, () => {
-  console.log('Servidor iniciado na porta 3000');
-});
-
-
-
-
+   const mensagens = await page.$$eval('[aria-label="Mensagens na conversa com título Adms atrevidos"]', elementos => {
+      const mensagensEncontradas = [];
+      elementos.forEach(elemento => {
+          const texto = elemento.textContent;
+         if (texto.includes('g!')) {
+            console.log('encontrei uma mensagem com o comando')
+         }
+         
+      })
+   })
+   const texto = await elemento.$eval(el => el.textContent);
 
 
 client.loadCommands('./commands')
