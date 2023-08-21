@@ -54,9 +54,9 @@ async function sendCommandArgument() {
 
 	let contador = '0'
 	let paginas = await page.waitForSelector('[role="row"]')
-	paginas.forEach = contador++
+	await paginas.forEach = contador++
 	
-	console.log(`Encontrei ${contador} resultados`)
+	 console.log(`Encontrei ${contador} resultados`)
 	
 	// Aguardar um tempo para a mensagem ser enviada
 	await page.waitForTimeout(2000);
