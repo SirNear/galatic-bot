@@ -71,6 +71,23 @@ async function sendCommandArgument() {
 	        return gruposElementos;
      	 });
 
+	await page.waitForSelector(`[role="grid"]`)
+	let element = page.$(`[role="row"]`)
+	let textSearched = page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x1nxh6w3 x1fcty0u xi81zsa xq9mrsl"]')
+	let value = await page.evaluate(el => el.textContent, element)
+
+	const select = new StringSelectMenuBuilder()
+			.setCustomId('encontrados')
+			.setPlaceholder('Selecione um dos grupos para ver as mensagens correspondentes!')
+
+	     grupos.forEach((grupo, index) => {
+	        selectMenu.addOption({
+	          label: grupo,
+	          value: String(index),
+	          description: value,
+	        });
+	      });
+
 	
 
  	
