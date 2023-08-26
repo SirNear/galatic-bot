@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder, Discord } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 
@@ -62,45 +62,40 @@ async function sendCommandArgument() {
 	await page.click('[placeholder="Pesquisar no Messenger"]')
 	console.log('cliquei na barra de pesquisa')
 
+	let chatNumber = {}
+	let contador = 1
+	
 	await page.type('[placeholder="Pesquisar no Messenger"]', args[0])
 	await page.waitForSelector(`[id="${args[0]}"]`)
 	console.log('encontrei as pesquisas')
-
-	 const grupos = await page.evaluate(() => {
-	        const gruposElementos = Array.from(document.querySelectorAll(`[id="${args[0]}"]`)).map(el => el.innerText);
-	        return gruposElementos;
-     	 });
-
-	await page.waitForSelector(`[role="grid"]`)
-	let element = page.$(`[role="row"]`)
-	let textSearched = page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x1nxh6w3 x1fcty0u xi81zsa xq9mrsl"]')
-	let value = await page.evaluate(el => el.textContent, element)
+	const chats = await page.$('[role="row"]')
+	const elementoChats = await page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x6prxxf x1fcty0u xzsf02u xq9mrsl"]')
+	const elementoMsgs = await page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x1nxh6w3 x1fcty0u xi81zsa xq9mrsl"]')
+	const nomeChats = await page.evaluate(element => element.textContent, elementoChats);
+	const qntMsg = await page.evalute(element => element.textContent, elementoMsgs);
 
 	const select = new StringSelectMenuBuilder()
 			.setCustomId('encontrados')
 			.setPlaceholder('Selecione um dos grupos para ver as mensagens correspondentes!')
 
-	     grupos.forEach((grupo, index) => {
-	        selectMenu.addOption({
-	          label: grupo,
-	          value: String(index),
-	          description: value,
-	        });
-	      });
+	chats.forEach((element) => {
+		chatNumber[element] = contador;
+		contador++
 
-	
+		select.addOption({
+			label: nomeChats,
+			description: qntMsg
+	       })
+		
+		
+	})//forEach
 
- 	
-	// Aguardar um tempo para a mensagem ser enviada
-	await page.waitForTimeout(2000000);
+	const row = new ActionRowBuilder()
+		.addComponents(select);
 
-	await browser.close();
+	const msgSelector = await message.reply({content: 'testezasso', components: [row] });
 
 	}
-	
-	// Executar a função principal
-	sendCommandArgument();
-	
 	
 	}
 	}
