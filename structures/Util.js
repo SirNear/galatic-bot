@@ -1,6 +1,5 @@
 const path = require('path');
-const { promisify } = require('util');
-const glob = promisify(require('glob'));
+const glob = require('glob')
 const Command = require('./Command.js');
 const Event = require('./EventManager.js');
 
