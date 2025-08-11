@@ -1,8 +1,7 @@
 {
     "prefix": "g!",
     "token": "NjM0MjE2Mjk0NzEwNzcxNzEz.Xay-9Q.EyvkWAxc3bX13Q8X-NMmiE3Z4Vg",
-    "mongoose": "mongodb+srv://neear:hbj123@cluster0.srmeb.mongodb.net/test?retryWrites=true",
-    "dbrpg": "mongodb+srv://rpg:hbj123@cluster0.5xp48.mongodb.net/dbrpg?retryWrites=true",
+    "mongoose": "mongodb+srv://atrevibot:atrevibot-admod@cluster0.csoj25b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
     "owners": ["540725346241216534"],
     "block": [""]
 }
