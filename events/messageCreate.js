@@ -12,17 +12,25 @@ module.exports = class MessageReceive {
 
 	async run(message, client, translate, interaction) {
 		
-		
 		if (message.channel.type === "dm") return
 		if (message.author.bot) return //se for msg de bot
 		
-		const server = await this.client.database.Guilds.findById(message.guild.id) //database
+		let server = await this.client.database.Guilds.findById(message.guild.id) //CARREGAMENTO DATABASE
+
+		if (!server) { //Se a guilda não tiver salva
+		      await this.client.database.Guilds({
+				_id: message.guild.id
+				}).save().then(msg => {
+					console.log(`Servidor ${message.guild.name} armazenado na database!`)
+		       	})
+		}
 		
 		if (message.content.replace(/!/g, "") === message.guild.members.me.toString().replace(/!/g, "")) { //menção do bot
+			if (!server) { server.prefix == "g!" }
 			message.channel.send(` **Hey ${message.author}, Tudo bom? Meu nome é Galatic, sou o Deus deste universo, para me pedir algo, utilize meu prefix que é** \`\`${server.prefix}\`\`**, Caso queira saber mais comandos meus, basta usar o comando \`\`${server.prefix}ajuda\`\`, espero que se divirta comigo!**`) 
 		}
 		
-		//Pokemon
+		//*Pokemon
 		
 		const chance = 0.2
 		const random = Math.random()
@@ -98,19 +106,10 @@ module.exports = class MessageReceive {
 			}//if
 		}//else
 		
-		//pokemon
-
-		 if (!server) { //Se a guilda não tiver salva
-		      this.client.database.Guilds({
-			  _id: message.guild.id
-		      }).save().then(msg =>{
-			  console.log('Deu certo bro')
-		      })
-		    }
+		//*pokemon
 		
 		let userDb = await this.client.database.userData.findById(message.author.id)
 
-		
 		 if(!userDb) {//se o usuário não estiver salvo
 		      this.client.database.userData({
 			 _id: message.author.id,
@@ -120,12 +119,12 @@ module.exports = class MessageReceive {
 		     }).save()
 		 }
 
-	          if(userDb.monitor == 'ativado') {// se o monitoramento do usuario estiver ativo
-		          if(!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {//se não tiver canal de monitoramento
-				  userDb.monitor = 'desativado'
-				  userDb.save()
+		if(userDb.monitor == 'ativado') {// se o monitoramento do usuario estiver ativo
+				if(!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {//se não tiver canal de monitoramento
+					userDb.monitor = 'desativado'
+					userDb.save()
 
-		 	  }else { //se tiver canal de monitoramento
+		 	  	}else { //se tiver canal de monitoramento
 				  let embedMonitor = new EmbedBuilder()
 				      .setTitle(`<:nani:572425789178642472> | **Nova mensagem de ${message.author.username}** | <:nani:572425789178642472>`)
 				      .setDescription(message.content)
