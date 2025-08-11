@@ -108,20 +108,20 @@ module.exports = class MessageReceive {
 		
 		//*pokemon
 
-		let userDb = await this.client.database.userData.find({ uid: `${message.author.id}` })
+		let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`)
 
-		 if(!userDb && userDb.uServer !== message.guild.id) {//se o usuário não estiver salvo
+		 if(!userDb) {//se o usuário não estiver salvo
 		     await this.client.database.userData({
-				_id: `${message.author.name} ${message.guild.name}`,
+				_id: `${message.author.globalName} ${message.guild.name}`,
 				uid: message.author.id,
 				uName: message.author.username,
 				uServer: message.guild.id,
+				monitor: 'desativado'
 		     }).save().then(() => {
-				console.log(`USER DATABASE | Usuário ${message.author.name} registrado no servidor ${message.guild.name}!`)
+				console.log(`USER DATABASE | Usuário ${message.author.globalName} registrado no servidor ${message.guild.name}!`)
 			 })
-		 }
+		 }else {
 		 
-		if(!userDb.monitor) { userDb.monitor == 'desativado' }
 		if(userDb.monitor == 'ativado'&& userDb.uServer == message.guild.id) {// se o monitoramento do usuario estiver ativo
 				if(!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {//se não tiver canal de monitoramento
 					userDb.monitor = 'desativado'
@@ -138,6 +138,7 @@ module.exports = class MessageReceive {
 
 			}//else
 		  }//if se monitorar
+		} // else monitoramento criado
 		
 		let prefix = server ? server.prefix : 'g!';
  

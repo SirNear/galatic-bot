@@ -1,10 +1,10 @@
 const config = require('./config.json')
 const mongoose = require('mongoose')
 
-mongoose.connect(config.mongoose, { useNewUrlParser: true}, { useUnifiedTopology: true }, (err) => { //Vamos fazer o bot se conectar no banco de dados
-  if (err) console.error(`Não foi possível se conectar ao banco de dados ${err}`) //Caso dê algum erro, Whoops.
-})
-
+ mongoose.connect(config.mongoose, { useNewUrlParser: true}, { useUnifiedTopology: true }, (err) => { //Vamos fazer o bot se conectar no banco de dados
+	if (err) console.error(`Não foi possível se conectar ao banco de dados ${err}`) //Caso dê algum erro, Whoops.
+}).then(() => { console.log('conectado ao banco de dados') })
+	
 let Guild = new mongoose.Schema({ 
 	_id: {type: String}, 
 	prefix: {type: String, default: "g!"},
@@ -40,14 +40,17 @@ let Puni = new mongoose.Schema({
 
 let uD = new mongoose.Schema({
   _id: {type: String}, 
-  uid: {type: String},
+  uid: {type: String , required: true},
   uName: {type: String},
-  uServer: {type: String},
+  uServer: {type: String , required: true},
   monitor: {type: String, default: 'Desativado'},
   monitorChannelId: {type: String},
   punishNumber: {type: String}
 
 })
+
+uD.index({ uid: 1, uServer: 1 });
+
 
 let pokemonFicha = new mongoose.Schema({
 	_id: {type: String},
