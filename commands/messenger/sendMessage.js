@@ -16,27 +16,29 @@ module.exports = class sendMessage extends Command {
   
 async run({ message, args, client, server}) {
 
+
 const puppeteer = require('puppeteer');
 
 async function sendCommandArgument() {
+
   const browser = await puppeteer.launch({
     args: ['--no-sandbox'],
   });
   const page = await browser.newPage();
 
   // Acessar o Messenger
-  await page.goto('https://www.facebook.com/messages/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
+  await page.goto('https://www.facebook.com/groups/atrevimentorpg?locale=pt_BR', {waitUntil: 'load', timeout: 0});
 
 	
 	// Fazer login	
 	await page.type('#email', 'offhenriquebj@gmail.com');
 	console.log('email digitado')
 	
-	await page.type('#pass', 'henriquebj25');
+	await page.type('#pass', 'hb205266@facebook');
 	console.log('senha digitada')
 	
-	await page.waitForSelector('#loginbutton', { visible: true });
-	await page.click('#loginbutton');
+	await page.waitForSelector('#u_0_5_Sy', { visible: true });
+	await page.click('#u_0_5_Sy');
 	console.log('logado no messenger')
 
  
@@ -57,43 +59,37 @@ async function sendCommandArgument() {
 
 	*/
 	
-	await page.waitForSelector('[placeholder="Pesquisar no Messenger"]')
+	await page.waitForSelector('div > .html-div xdj266r xat24cr xexx8yu xyri2b x18d9i69 x1c1uobl x6s0dn4 x78zum5 xl56j7k x14ayic xwyz465 x1e0frkt')
 	console.log('barra de pesquisa encontrada')
-	await page.click('[placeholder="Pesquisar no Messenger"]')
+	await page.click('div > .html-div xdj266r xat24cr xexx8yu xyri2b x18d9i69 x1c1uobl x6s0dn4 x78zum5 xl56j7k x14ayic xwyz465 x1e0frkt')
 	console.log('cliquei na barra de pesquisa')
 
 	let chatNumber = {}
 	let contador = 1
 	
-	await page.type('[placeholder="Pesquisar no Messenger"]', args[0])
-	await page.waitForSelector(`[id="${args[0]}"]`)
+	await page.type('[placeholder="Pesquisar neste grupo"]', args[0])
+	await page.keyboard.press('Enter')
 	console.log('encontrei as pesquisas')
-	const chats = await page.$('[role="row"]')
-	const elementoChats = await page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x6prxxf x1fcty0u xzsf02u xq9mrsl"]')
-	const elementoMsgs = await page.$('[class="x193iq5w xeuugli x13faqbe x1vvkbs xt0psk2 x1xmvt09 x1nxh6w3 x1fcty0u xi81zsa xq9mrsl"]')
-	const nomeChats = await page.evaluate(element => element.textContent, elementoChats);
-	const qntMsg = await page.evalute(element => element.textContent, elementoMsgs);
 
-	const select = new StringSelectMenuBuilder()
-			.setCustomId('encontrados')
-			.setPlaceholder('Selecione um dos grupos para ver as mensagens correspondentes!')
+	const posts = [ "post1 texto", "post2 texto", ... ];
+let currentIndex = 0;
 
-	chats.forEach((element) => {
-		chatNumber[element] = contador;
-		contador++
+function sendPost(index) {
+  const texto = posts[index];
+  // criar arquivo TXT com 'texto'
+  // enviar arquivo com botões ← e →
+}
 
-		select.addOption({
-			label: nomeChats,
-			description: qntMsg
-	       })
-		
-		
-	})//forEach
+bot.on('buttonClick', async (buttonId) => {
+  if(buttonId === 'prev') {
+    currentIndex = (currentIndex === 0) ? posts.length - 1 : currentIndex - 1;
+  } else if(buttonId === 'next') {
+    currentIndex = (currentIndex === posts.length - 1) ? 0 : currentIndex + 1;
+  }
+  await sendPost(currentIndex);
+});
 
-	const row = new ActionRowBuilder()
-		.addComponents(select);
 
-	const msgSelector = await message.reply({content: 'testezasso', components: [row] });
 
 	}
 	
