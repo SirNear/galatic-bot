@@ -1,4 +1,4 @@
-const Discord = require('discord.js');
+const { Discord, ModalBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, TextInputStyle, TextInputBuilder, fetchRecommendedShardCount } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
 

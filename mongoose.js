@@ -67,6 +67,28 @@ let pokeRegistro = new mongoose.Schema({
 	pokeTitle: {type: String}
 })
 
+let fichaCabecalho = new mongoose.Schema({
+	_id: {type: String},
+	nome: {type: String},
+	reino: {type: String},
+	raca: {type: String},
+	aparencia: {type: String}
+})
+
+const habilidadeSubSchema = new mongoose.Schema({
+  _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, // id interno da habilidade (útil pra editar)
+  nome: { type: String, required: true }, //nome da skill
+  descricao: { type: String, required: true }, //descricao da skill
+  tipo: { type: String, enum: ['magica','fisica','passiva'], required: true }
+}, { _id: true });
+
+let fichaHabilidades = new mongoose.Schema({ 
+	_id: {type: String},
+	nome: {type: String},
+	descricao: {type: String},
+	tipo: {type: String}
+})
+
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg
 

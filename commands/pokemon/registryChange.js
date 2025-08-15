@@ -206,10 +206,10 @@ async run({ message, args, client, server}) {
 		  if (interaction.customId === 'confirma') {
 			  await interaction.showModal(formularioRegisto, {client: this.client, interaction: interaction,})
 
-			  const filter = (interaction) => interaction.customId === 'change'
+			  const filter = (interaction) => interaction.customId === 'confirma'
 
 			  interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => {
-					  if (interaction.customId === 'change') {
+					  if (interaction.customId === 'confirma') {
 
 						  //pegando parametros das caixas de texto
 						  let pName = await interaction.fields.getTextInputValue('campoNome')
