@@ -31,6 +31,14 @@ module.exports = class aparencia extends Command {
                     .setLabel('Pesquisar Aparência')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
+                    .setCustomId('pesquisar_verso')
+                    .setLabel('Pesquisar Verso')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                        .setCustomId('registrar_verso')
+                        .setLabel('Registrar Verso')
+                        .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
                     .setCustomId('registrar')
                     .setLabel('Registrar Aparência')
                     .setStyle(ButtonStyle.Success),
