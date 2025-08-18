@@ -45,7 +45,7 @@ module.exports = class Aparencia extends Command {
             await interaction.deferUpdate();
 
             if (interaction.customId === 'pesquisar') {
-                message.channel.send('Digite o nome da aparência que deseja pesquisar:');
+                await message.channel.send('Digite o nome da aparência que deseja pesquisar:');
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 60000 });
 
                 msgCollector.on('collect', async (msg) => {
@@ -63,20 +63,23 @@ module.exports = class Aparencia extends Command {
                         const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'A:d' });
                         const rows = res.data.values;
 
-                        let found = false;
+                        let resultados = [];
+
                         for (let i = 1; i < rows.length; i++) {
                             const [aparencia, universo, personagem, jogador] = rows[i];
                             if (aparencia.toLowerCase() === appearanceName.toLowerCase()) {
-                                found = true;
-                                const embed = new EmbedBuilder()
-                                    .setTitle('⚠️ Aparência em Uso')
-                                    .setColor('Red')
-                                    .setDescription(`Aparência: **${aparencia}**\nVerso: **${universo}**\nPersonagem: **${personagem}**\nJogador: **${jogador}**`);
-                                return message.channel.send({ embeds: [embed] });
+                                resultados.push({ aparencia, universo, personagem, jogador });
                             }
                         }
 
-                        if (!found) {
+                        if (resultados.length > 0) {
+                            const description = resultados.map(r => `Aparência: **${r.aparencia}**\nVerso: **${r.universo}**\nPersonagem: **${r.personagem}**\nJogador: **${r.jogador}**`).join('\n\n');
+                            const embed = new EmbedBuilder()
+                                .setTitle('⚠️ Aparências em Uso')
+                                .setColor('Red')
+                                .setDescription(description);
+                            message.channel.send({ embeds: [embed] });
+                        } else {
                             const embed = new EmbedBuilder()
                                 .setTitle('✅ Aparência Disponível')
                                 .setColor('Green')
