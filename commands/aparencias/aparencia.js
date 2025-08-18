@@ -60,18 +60,18 @@ module.exports = class Aparencia extends Command {
                     const SPREADSHEET_ID = '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo'; // ID da planilha
 
                     try {
-                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'A:C' });
+                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'A:d' });
                         const rows = res.data.values;
 
                         let found = false;
                         for (let i = 1; i < rows.length; i++) {
-                            const [aparencia, personagem, jogador] = rows[i];
+                            const [aparencia, universo, personagem, jogador] = rows[i];
                             if (aparencia.toLowerCase() === appearanceName.toLowerCase()) {
                                 found = true;
                                 const embed = new EmbedBuilder()
                                     .setTitle('⚠️ Aparência em Uso')
                                     .setColor('Red')
-                                    .setDescription(`Aparência: **${aparencia}**\nPersonagem: **${personagem}**\nJogador: **${jogador}**`);
+                                    .setDescription(`Aparência: **${aparencia}**\nVerso: **${universo}**\nPersonagem: **${personagem}**\nJogador: **${jogador}**`);
                                 return message.channel.send({ embeds: [embed] });
                             }
                         }
