@@ -19,6 +19,7 @@ module.exports = class aparencia extends Command {
     }
 
     async run({ message, args }) {
+        
         const embedMenu = new EmbedBuilder()
             .setTitle('🎨 Menu de Aparências')
             .setDescription('Selecione uma opção clicando no botão abaixo:')
