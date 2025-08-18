@@ -33,7 +33,7 @@ module.exports = class aparencia extends Command {
                 new ButtonBuilder()
                     .setCustomId('pesquisar_verso')
                     .setLabel('Pesquisar Verso')
-                    .setStyle(ButtonStyle.Success),
+                    .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                         .setCustomId('registrar_verso')
                         .setLabel('Registrar Verso')
@@ -103,11 +103,11 @@ module.exports = class aparencia extends Command {
 
             if (interaction.customId === 'pesquisar_verso') {
 
-                 await message.channel.send('Digite o nome da aparência que deseja pesquisar:');
+                 await message.channel.send('Digite o nome do verso que deseja pesquisar:');
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 60000 });
 
                 msgCollector.on('collect', async (msg) => {
-                    const appearanceName = msg.content;
+                    const verseName = msg.content;
 
                     // Conexão com Google Sheets
     
@@ -115,14 +115,14 @@ module.exports = class aparencia extends Command {
                     const SPREADSHEET_ID = '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo'; // ID da planilha
 
                     try {
-                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'UNIVERSO!A:d' });
+                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'UNIVERSO!A:c' });
                         const rows = res.data.values;
 
                         let resultados = [];
 
                         for (let i = 1; i < rows.length; i++) {
                             const [universo, uso, jogador] = rows[i];
-                            if (aparencia.toLowerCase() === appearanceName.toLowerCase()) {
+                            if (universo.toLowerCase() === verseName.toLowerCase()) {
                                 resultados.push({ universo, uso, jogador });
                             }
                         }
@@ -136,7 +136,7 @@ module.exports = class aparencia extends Command {
                             message.channel.send({ embeds: [embed] });
                         } else {
                             const embed = new EmbedBuilder()
-                                .setTitle('✅ Aparência Disponível')
+                                .setTitle('✅ Verso Disponível')
                                 .setColor('Green')
                                 .setDescription(`Verso **${appearanceName}** não está sendo utilizada.`);
                             message.channel.send({ embeds: [embed] });
