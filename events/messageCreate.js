@@ -31,7 +31,7 @@ module.exports = class MessageReceive {
 		}
 		
 		//*Pokemon
-		
+	/*	
 	if(message.author.id == '540725346241216534') {
 			const chance = 0.2
 			const random = Math.random()
@@ -107,13 +107,14 @@ module.exports = class MessageReceive {
 
 						}//if g!capturar
 					})//collector
-					*/
+					
 
 				}//if
 			}//else
 		
 	}
-		//*pokemon
+		//*pokemon 
+		*/
 
 		let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`)
 
