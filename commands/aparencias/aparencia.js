@@ -101,6 +101,54 @@ module.exports = class aparencia extends Command {
                 });
             }
 
+            if (interaction.customId === 'pesquisar_verso') {
+
+                 await message.channel.send('Digite o nome da aparência que deseja pesquisar:');
+                const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 60000 });
+
+                msgCollector.on('collect', async (msg) => {
+                    const appearanceName = msg.content;
+
+                    // Conexão com Google Sheets
+    
+                    const sheets = google.sheets({ version: 'v4', auth: API_KEY });
+                    const SPREADSHEET_ID = '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo'; // ID da planilha
+
+                    try {
+                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'UNIVERSO!A:d' });
+                        const rows = res.data.values;
+
+                        let resultados = [];
+
+                        for (let i = 1; i < rows.length; i++) {
+                            const [universo, uso, jogador] = rows[i];
+                            if (aparencia.toLowerCase() === appearanceName.toLowerCase()) {
+                                resultados.push({ universo, uso, jogador });
+                            }
+                        }
+
+                        if (resultados.length > 0) {
+                            const description = resultados.map(r => `Verso: **${r.universo}**\n% de Uso: **${r.uso}**\nJogador: **${r.jogador}**`).join('\n\n');
+                            const embed = new EmbedBuilder()
+                                .setTitle('⚠️ Aparências em Uso')
+                                .setColor('Red')
+                                .setDescription(description);
+                            message.channel.send({ embeds: [embed] });
+                        } else {
+                            const embed = new EmbedBuilder()
+                                .setTitle('✅ Aparência Disponível')
+                                .setColor('Green')
+                                .setDescription(`Verso **${appearanceName}** não está sendo utilizada.`);
+                            message.channel.send({ embeds: [embed] });
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        message.channel.send('Erro ao acessar a planilha.');
+                    }
+                });
+
+            }
+
             if (interaction.customId === 'registrar') {
                 message.channel.send('Função de registro ainda não implementada.');
             }
