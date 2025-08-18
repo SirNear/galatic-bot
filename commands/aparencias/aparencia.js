@@ -130,7 +130,7 @@ module.exports = class aparencia extends Command {
                         if (resultados.length > 0) {
                             const description = resultados.map(r => `Verso: **${r.universo}**\n% de Uso: **${r.uso}**\nJogador: **${r.jogador}**`).join('\n\n');
                             const embed = new EmbedBuilder()
-                                .setTitle('⚠️ Aparências em Uso')
+                                .setTitle('⚠️ Verso em Uso')
                                 .setColor('Red')
                                 .setDescription(description);
                             message.channel.send({ embeds: [embed] });
@@ -138,7 +138,7 @@ module.exports = class aparencia extends Command {
                             const embed = new EmbedBuilder()
                                 .setTitle('✅ Verso Disponível')
                                 .setColor('Green')
-                                .setDescription(`Verso **${appearanceName}** não está sendo utilizada.`);
+                                .setDescription(`Verso **${verseName}** não está sendo utilizado.`);
                             message.channel.send({ embeds: [embed] });
                         }
                     } catch (err) {
