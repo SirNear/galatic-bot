@@ -1,9 +1,12 @@
-const { Command } = require('../../structures/Command');
+const Discord = require('discord.js');
+const  Command  = require('../../structures/Command');
+const error = require('../../api/error.js')
+const color = require('../../api/colors.json')
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { google } = require('googleapis');
-const creds = require('../../credenciais.json');
+const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 
-module.exports = class Aparencia extends Command {
+module.exports = class aparencia extends Command {
     constructor(client) {
         super(client, {
             name: 'aparencia',
@@ -52,11 +55,8 @@ module.exports = class Aparencia extends Command {
                     const appearanceName = msg.content;
 
                     // Conexão com Google Sheets
-                    const auth = new google.auth.GoogleAuth({
-                        credentials: creds,
-                        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], // Mudar quando colocar funcionalidade de registro
-                    });
-                    const sheets = google.sheets({ version: 'v4', auth });
+    
+                    const sheets = google.sheets({ version: 'v4', auth: API_KEY });
                     const SPREADSHEET_ID = '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo'; // ID da planilha
 
                     try {
