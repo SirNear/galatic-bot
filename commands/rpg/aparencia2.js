@@ -9,7 +9,7 @@ module.exports = class apout extends Command {
 		super(client, {
 			name: "apout",
 			category: "rpg",
-			aliases: ['aparencias', 'ap'],
+			aliases: [],
 			UserPermission: [""],
 			clientPermission: null,
 			OnlyDevs: true
