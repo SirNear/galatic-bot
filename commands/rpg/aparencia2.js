@@ -4,15 +4,15 @@ const error = require('../../api/error.js')
 const { google } = require('googleapis');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 
-module.exports = class aparencia2 extends Command {
+module.exports = class apout extends Command {
 	constructor(client) {
 		super(client, {
-			name: "aparencia",
+			name: "apout",
 			category: "rpg",
 			aliases: ['aparencias', 'ap'],
 			UserPermission: [""],
 			clientPermission: null,
-			OnlyDevs: false
+			OnlyDevs: true
 		})
 	}
   
@@ -48,6 +48,9 @@ async run({ message, args, client, server}) {
         if (i.customId === 'ap') {
             
             // !FRONTEND DE APARENCIA
+
+            // ?PAGINAÇÃO EMBED
+
             const EmbedPagesAparencia = resultados.map((r, idx) => { 
                 return new EmbedBuilder()
                 .setColor('#212416ff')
@@ -56,9 +59,11 @@ async run({ message, args, client, server}) {
                 .setFooter({ text: 'envie apenas o nome da aparência, sem emojis, acentuações ou outros caracteres.' });
             })
 
+             // ?PAGINAÇÃO EMBED
+
             const msgAparencia = await msgNavegacao.edit({ embeds: [embedAparencia], ephemeral: true})
 
-            // contador editável para mostrar o tempo restante
+            // ?contador de tempo para enviar o nome da aparencia
             let remaining = 15; // segundos
             const contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${remaining} segundos para enviar a aparência...`, ephemeral: true});
 
@@ -104,7 +109,7 @@ async run({ message, args, client, server}) {
                         }
                     }
 
-                    if (resultados.length == 1) {
+                    if (resultados.length == 1) { //se tiver uma aparecia
                        EmbedPagesAparencia.setDescription(`Aparência em uso!`)
                        EmbedPagesAparencia.setColor('#8f0808ff')
                        EmbedPagesAparencia.addFields(
@@ -116,7 +121,7 @@ async run({ message, args, client, server}) {
 
                        msgNavegacao.edit({ embeds: [EmbedPagesAparencia] });
 
-                       if(resultados.length > 1) {
+                       if(resultados.length > 1) { //se tiver mais de uma aparencia
 
                            const botaoNavegacao = new ButtonBuilder()
                                .setLabel('AVANÇAR')
@@ -129,7 +134,7 @@ async run({ message, args, client, server}) {
                             coletorBotoesNavegacao.on('collect', async i => {
                                 if (i.customId === 'avancar') {
                                     page = (page - 1 + pages.length) % pages.length
-                                    await msgNavegacao.edit({ embeds: [pages[page]], components: });
+                                    await msgNavegacao.edit({ embeds: [pages[page]], components:  ''});
                                 }
                             });
 
