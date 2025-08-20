@@ -39,7 +39,7 @@ module.exports = class painel extends Command {
               { name: '<a:latencia:562893011021987852> | **Sistema de Mute Automático**', value: server.warnTag },
               { name: '<:lolipolice:669705464447107073> | **Cargo de Moderação**', value: server.staffRole },
               {
-                name: '<:MotivosparaViver:572157111471964200> | **Categoria para Monitoramentos**',
+                name: '<:MotivosparaViver:1406837922401091735> | **Categoria para Monitoramentos**',
                 value: '<#' + server.monitorCategory + '>'
               }
             )
