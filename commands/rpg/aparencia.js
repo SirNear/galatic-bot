@@ -15,7 +15,7 @@ module.exports = class aparencia extends Command {
             aliases: ['ap', 'aparencias', 'aparência', 'aparências', 'pesquisaraparencia', 'pesquisaraparência', 'pesquisarap', 'pesquisaraparecia', 'pesquisaraparencias', 'pesquisaraparências    ', 'pesquisaraparecias'],
             UserPermission: [""],
             clientPermission: null,
-            OnlyDevs: true
+            OnlyDevs: false
         })
     }
   
