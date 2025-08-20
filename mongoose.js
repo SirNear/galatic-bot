@@ -1,10 +1,18 @@
 const config = require('./config.json')
 const mongoose = require('mongoose')
 
- mongoose.connect(config.mongoose, { useUnifiedTopology: true }, (err) => { //Vamos fazer o bot se conectar no banco de dados
-	if (err) console.error(`Não foi possível se conectar ao banco de dados ${err}`) //Caso dê algum erro, Whoops.
-}).then(() => { console.log('conectado ao banco de dados') })
-	
+const mongoose = require('mongoose');
+const config = require('./config.json');
+
+// Conectar ao banco de dados 
+mongoose.connect(config.mongoose, { useUnifiedTopology: true })
+  .then(() => {
+    console.log('MONGOOSE | Conectado ao banco de dados!');
+  })
+  .catch(err => {
+    console.error(`'MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
+  });
+
 let Guild = new mongoose.Schema({ 
 	_id: {type: String}, 
 	prefix: {type: String, default: "g!"},
