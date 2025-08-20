@@ -156,12 +156,15 @@ module.exports = class MessageReceive {
 		const comando = this.client.commands.get(command) || this.client.commands.get(this.client.aliases.get(command))
    
 		try {
-			
+			if(comando) {
 		        new Promise((res, rej) => {
-				message.channel.sendTyping()
-				res(comando.run({ message, args, server }))
-			})
-	    
+					message.channel.sendTyping()
+					res(comando.run({ message, args, server }))
+				})
+	    	}else {
+				message.channel.send(`**Erro:** O comando \`${command}\` não foi encontrado. Acesse \`\`${server.prefix}help\`\` para ver a lista de comandos disponíveis.`);
+
+			}
 		       const bt = message.guild.members.cache.get(this.client.user.id)
 
 			if(!bt.permissions.has("ADMINISTRATOR")) {
