@@ -19,7 +19,7 @@ module.exports = class registryChange extends Command {
   
 async run({ message, args, client, server}) {
 	let msgArg = args.slice(0).join(' '); //ARGUMENTO DIGITADO PELO USUARIO
-	if(!msgArg.trim() || args.length > 1) { message.reply(`O comando é ** ${server.prefix}rc [NOME DO POKÉMON]** apenas. As instruções serão dadas em seguida!`)}else {
+	if(!msgArg.trim() || args.length > 1) { error.helpCmd(server, this.config, message) }else {
 		// SE O ARGUMENTO FOR VALIDO (UNICA PALAVRA OU NÃO VAZIO)
 
 		const pokeReg = await this.client.database.pokeReg.findOne({ pokeName: msgArg}) // ACHAR DATABASE COM NOME DO POKEMON DIGITADO
