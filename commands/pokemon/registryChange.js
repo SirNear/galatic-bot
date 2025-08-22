@@ -13,7 +13,8 @@ module.exports = class registryChange extends Command {
 			aliases: ['rc'],
 			UserPermission: ["ADMINISTRATOR"],
 			clientPermission: null,
-			OnlyDevs: false
+			OnlyDevs: false,
+			structure: `\`nome do pokemon\``
 		})
 	}
   
