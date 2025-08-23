@@ -6,36 +6,9 @@ const ms = require('ms');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 const sheets = google.sheets({ version: 'v4', auth: API_KEY });
 const colors = require('../../api/colors.json')
-
+const {iniciarContador, pararContador} = require('../../api/contador.js');
 
                 
-
-async function iniciarContador(sujeito, msgNavegacao, message) {
-    
-                    let tempoRestante = 15;
-                    let contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar o ${sujeito}... ` });
-                    let intervalo = setInterval(() => {
-                        tempoRestante--;
-
-
-                        if (tempoRestante <= 0) {
-                            clearInterval(intervalo);
-                            msgNavegacao.delete().catch(() => { });
-                            contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
-                        } else {
-                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para responder...` }).catch(() => { });
-
-                        }
-                    }, 1000);
-                        return{intervalo, contador};
-                }
-
-async function pararContador(m, intervalo, contador) {
-
-    clearInterval(intervalo); // parar o contador
-                contador.edit({ content: '<a:AmongUs3D:1407001955699785831>  | Resposta recebida.' }).catch(() => {});
-    return m.content;
-}
 
 
 
