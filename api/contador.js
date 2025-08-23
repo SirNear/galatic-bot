@@ -36,3 +36,5 @@ Deve receber os parâmetros m (mensagem enviada pelo usuario), intervalo (interv
 Retorna o nome da aparencia capturada na mensagem do usuario
 */
 }
+
+module.exports = { iniciarContador, pararContador };
