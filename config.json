@@ -2,6 +2,6 @@
     "prefix": "g!",
     "token": "NjM0MjE2Mjk0NzEwNzcxNzEz.Xay-9Q.EyvkWAxc3bX13Q8X-NMmiE3Z4Vg",
     "mongoose": "mongodb+srv://atrevibot:atrevibot-admod@cluster0.csoj25b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-    "owners": ["540725346241216534"],
+    "owners": ["540725346241216534", "611264312316788758"],
     "block": [""]
 }
