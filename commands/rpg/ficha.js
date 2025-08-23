@@ -68,9 +68,9 @@ async run({ message, args, client, server}) {
 
     let mensagemConfirmacao = await message.reply({ content: 'Deseja iniciar a inscrição da ficha de um novo personagem?', ephemeral: true, components: [botoesConfirmacao] })
 
-	const coletorBotao = msgPadrao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 }); //60s de espera
+	const coletorBotao = mensagemConfirmacao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 }); //60s de espera
 
-    coletorBotao.on('collect', async i => {
+    coletorBotao.on('collect', async interaction => {
         if (interaction.customId === 'confirma') { 
             interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => { 
 
@@ -97,7 +97,7 @@ async run({ message, args, client, server}) {
 
 
             })
-        } 
+        }else return error.cancelMsg(mensagemConfirmacao)
     })
 
 
