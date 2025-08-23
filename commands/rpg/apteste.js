@@ -6,34 +6,18 @@ const ms = require('ms');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 const sheets = google.sheets({ version: 'v4', auth: API_KEY });
 const colors = require('../../api/colors.json')
-const tempoLimite = 15; // Tempo de resposta em segundos, padrão para a espera;
+const {iniciarContador, pararContador} = require('../../api/contador.js');
 
-                async function iniciarContador(sujeito) {
-
-                    let tempoRestante = tempoLimite;
-                    let contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar o verso... ` });
-                    let intervalo = setInterval(() => {
-                        tempoRestante--;
+                
 
 
-                        if (tempoRestante <= 0) {
-                            clearInterval(intervalo);
-                            msgNavegacao.delete().catch(() => { });
-                            contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
-                        } else {
-                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para responder...` }).catch(() => { });
-
-                        }
-                    }, 1000);
-
-                }
 
 module.exports = class aparenciateste extends Command {
     constructor(client) {
         super(client, {
             name: "apteste",
             category: "rpg",
-            aliases: ['aptest', 'aparencias', 'aparência', 'aparências', 'pesquisaraparencia', 'pesquisaraparência', 'pesquisarap', 'pesquisaraparecia', 'pesquisaraparencias', 'pesquisaraparências    ', 'pesquisaraparecias'],
+            aliases: ['apt'],
             UserPermission: [""],
             clientPermission: null,
             OnlyDevs: false
@@ -93,7 +77,7 @@ module.exports = class aparenciateste extends Command {
                 // ----------------- CONTADOR VISUAL (TEMPO PARA O USUÁRIO RESPONDER) -----------------
                 // * ------------------------- contador de tempo para enviar a aparência -------------------------
 
-                iniciarContador(sujeito);
+                    let {intervalo, contador} = await iniciarContador(sujeito, msgNavegacao, message);
 
 
                 // ----------------- COLETOR DE MENSAGENS (APARENCIA) -----------------
@@ -102,9 +86,8 @@ module.exports = class aparenciateste extends Command {
 
                 coletorAparencia.on('collect', async m => {
                     // * ------------------------- RESPOSTA RECEBIDA / LIMPAR INTERVALO -------------------------
-                    clearInterval(interval); // parar o contador
-                    contador.edit({ content: '<a:AmongUs3D:1407001955699785831>  | Resposta recebida.' }).catch(() => { });
-                    const nomeAparencia = m.content;
+                
+               const nomeAparencia = await pararContador(m, intervalo, contador);
 
                     // ? ------------------------- BUSCA NA PLANILHA -------------------------
                     let resultados = [];
@@ -308,7 +291,7 @@ module.exports = class aparenciateste extends Command {
                 // ----------------- COLETOR APARENCIA END (LIMPEZA) -----------------
                 coletorAparencia.on('end', (collected, reason) => {
                     // garante que o intervalo foi limpo e mostra mensagem final se o tempo acabou
-                    clearInterval(interval);
+                    clearInterval(intervalo);
                     if (reason === 'time' && collected.size === 0) {
                         contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
                         msgNavegacao.delete().catch(() => { });
@@ -317,157 +300,7 @@ module.exports = class aparenciateste extends Command {
                     msgNavegacao.edit({ embeds: [], components: [] }).catch(() => { });
                 }); //!COLETORAPARENCIA.END
 
-                // ----------------- FLUXO: VERSO -----------------
-            } else if (i.customId === 'verso') {
-                // fluxo equivalente para pesquisar versos (adaptado do aparencia.js -> pesquisar_verso)
-                await i.update({ components: [] }).catch(() => { });
-
-                // * ------------------------- EMBED VERSO -------------------------
-                const embedVerso = new EmbedBuilder()
-                    .setColor('#212416')
-                    .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **')
-                    .setDescription('Envie no chat o nome do verso que deseja pesquisar.')
-                    .setFooter({ text: 'envie apenas o nome do verso.' });
-
-                await msgNavegacao.edit({ embeds: [embedVerso], components: [] }).catch(() => { });
-
-                // ----------------- CONTADOR VERSO -----------------
-                let tempoV = 15;
-                const contadorV = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoV} segundos para enviar o verso...` });
-                const intervalV = setInterval(() => {
-                    tempoV--;
-                    if (tempoV <= 0) {
-                        clearInterval(intervalV);
-                        msgNavegacao.delete().catch(() => { });
-                        contadorV.edit({ content: 'Tempo esgotado.' }).catch(() => { });
-                    } else {
-                        contadorV.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoV} segundos para responder...` }).catch(() => { });
-                    }
-                }, 1000);
-
-                // ----------------- COLETOR VERSO -----------------
-                const coletorVerso = msgNavegacao.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, time: 15000, max: 1 });
-
-                coletorVerso.on('collect', async m => {
-                    // * ------------------------- RESPOSTA VERSO / LIMPEZA -------------------------
-                    clearInterval(intervalV);
-                    contadorV.edit({ content: '<a:AmongUs3D:1407001955699785831>  | Resposta recebida.' }).catch(() => { });
-                    const verseName = m.content;
-
-                    // normaliza texto: remove acentos, caracteres extras, trim e lowercase
-                    function normalizeText(s) {
-                        return String(s || '')
-                            .normalize('NFD')
-                            .replace(/[\u0300-\u036f]/g, '')
-                            .replace(/[^\w\s-]/g, '')
-                            .replace(/\s+/g, ' ')
-                            .trim()
-                            .toLowerCase();
-                    }
-                    const targetV = normalizeText(verseName);
-
-                    // ----------------- BUSCA NA PLANILHA (VERSO) -----------------
-
-                    let resultadosVerso = [];
-                    try {
-                        const res = await sheets.spreadsheets.values.get({
-                            spreadsheetId: '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo',
-                            range: 'UNIVERSO!A:C'
-                        });
-                        const rows = res.data.values || [];
-
-                        for (let r = 1; r < rows.length; r++) {
-                            const row = rows[r];
-                            if (!row) continue;
-                            const [universo, uso, jogador] = row;
-                            if (!universo) continue;
-
-                            const uniNorm = normalizeText(universo);
-
-                            // Ignora entradas muito curtas/ruidosas (ex.: "N")
-                            if (uniNorm.length < 2) continue;
-
-                            // aceitar igualdade e correspondência parcial com limites (evita "N" casando)
-                            if (
-                                uniNorm === targetV ||
-                                (uniNorm.length >= 3 && uniNorm.includes(targetV)) ||
-                                (targetV.length >= 3 && targetV.includes(uniNorm))
-                            ) {
-                                resultadosVerso.push({ universo, uso, jogador });
-                            }
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        await message.channel.send('Erro ao acessar a planilha de versos.');
-                        return;
-                    }
-
-                    // ----------------- CASO: VERSO NÃO ENCONTRADO -----------------
-                    if (resultadosVerso.length === 0) {
-                        const embedOk = new EmbedBuilder()
-                            .setTitle('✅ Verso Disponível')
-                            .setColor('#00ff00')
-                            .setDescription(`Verso **${verseName}** não está sendo utilizado.`);
-                        await msgNavegacao.edit({ embeds: [embedOk], components: [] }).catch(() => { });
-                        return;
-                    }
-
-                    // ----------------- MONTAR PAGES DE VERSOS -----------------
-                    // monta páginas para versos
-                    const pagesV = resultadosVerso.map((r, idx) => new EmbedBuilder()
-                        .setTitle(`<:DNAstrand:1406986203278082109> | VERSO | Resultado ${idx + 1} de ${resultadosVerso.length}`)
-                        .setColor('#212416')
-                        .setDescription(`Verso: **${r.universo ?? '—'}**`)
-                        .addFields(
-                            { name: 'USO (%)', value: String(r.uso ?? '—') },
-                            { name: 'JOGADOR', value: r.jogador ?? '—' }
-                        )
-                        .setFooter({ text: `Página ${idx + 1}/${resultadosVerso.length}` })
-                    );
-
-                    // ----------------- NAVEGAÇÃO DE PÁGINAS (VERSO) -----------------
-                    let pageV = 0;
-                    const navRowV = (idx) => new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('prev_v').setLabel('⏪').setStyle(ButtonStyle.Primary).setDisabled(idx === 0),
-                        new ButtonBuilder().setCustomId('next_v').setLabel('⏩').setStyle(ButtonStyle.Primary).setDisabled(idx === pagesV.length - 1),
-                        new ButtonBuilder().setCustomId('close_v').setLabel('❌').setStyle(ButtonStyle.Danger)
-                    );
-
-                    await msgNavegacao.edit({ embeds: [pagesV[pageV]], components: [navRowV(pageV)] }).catch(() => { });
-
-                    const navCollectorV = msgNavegacao.createMessageComponentCollector({ filter: ii => ii.user.id === message.author.id, time: 60000 });
-                    navCollectorV.on('collect', async ii => {
-                        await ii.deferUpdate().catch(() => { });
-                        if (ii.customId === 'prev_v') {
-                            pageV = Math.max(0, pageV - 1);
-                            await msgNavegacao.edit({ embeds: [pagesV[pageV]], components: [navRowV(pageV)] }).catch(() => { });
-                        } else if (ii.customId === 'next_v') {
-                            pageV = Math.min(pagesV.length - 1, pageV + 1);
-                            await msgNavegacao.edit({ embeds: [pagesV[pageV]], components: [navRowV(pageV)] }).catch(() => { });
-                        } else if (ii.customId === 'close_v') {
-                            navCollectorV.stop('closed');
-                            msgNavegacao.delete().catch(() => { });
-                            message.reply({ content: '<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**' }).catch(() => { });
-                        }
-                    });
-
-                    navCollectorV.on('end', async () => {
-                        // remove botões e limpa embeds ao finalizar a navegação de versos
-                        await msgNavegacao.edit({ embeds: [], components: [] }).catch(() => { });
-                    });
-                });
-
-                // ----------------- COLETOR VERSO END (LIMPEZA) -----------------
-                coletorVerso.on('end', (collected, reason) => {
-                    clearInterval(intervalV);
-                    if (reason === 'time' && collected.size === 0) {
-                        contadorV.edit({ content: 'Tempo esgotado.' }).catch(() => { });
-                    }
-                    // limpa o embed de resultado do fluxo de versos ao terminar
-                    msgNavegacao.edit({ embeds: [], components: [] }).catch(() => { });
-                });
-
-            }
+                     }
         })
     }
 }
