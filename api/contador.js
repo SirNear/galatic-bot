@@ -3,7 +3,7 @@
 async function iniciarContador(sujeito, msgNavegacao, message) {
     
                     let tempoRestante = 15; // Tempo em segundos, genérico, pode ser alterado de forma global
-                    let contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar o ${sujeito}... ` });
+                    let contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar ${sujeito}... ` });
                     let intervalo = setInterval(() => {
                         tempoRestante--; // decrementar o tempo restante
 
@@ -13,7 +13,7 @@ async function iniciarContador(sujeito, msgNavegacao, message) {
                             msgNavegacao.delete().catch(() => { });
                             contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
                         } else {
-                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para responder...` }).catch(() => { });
+                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar ${sujeito}...` }).catch(() => { });
 
                         }
                     }, 1000);
