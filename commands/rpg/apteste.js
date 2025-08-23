@@ -28,12 +28,12 @@ const tempoLimite = 15; // Tempo de resposta em segundos, padrão para a espera;
 
                 }
 
-module.exports = class aparencia extends Command {
+module.exports = class aparenciateste extends Command {
     constructor(client) {
         super(client, {
-            name: "aparencia",
+            name: "apteste",
             category: "rpg",
-            aliases: ['ap', 'aparencias', 'aparência', 'aparências', 'pesquisaraparencia', 'pesquisaraparência', 'pesquisarap', 'pesquisaraparecia', 'pesquisaraparencias', 'pesquisaraparências    ', 'pesquisaraparecias'],
+            aliases: ['aptest', 'aparencias', 'aparência', 'aparências', 'pesquisaraparencia', 'pesquisaraparência', 'pesquisarap', 'pesquisaraparecia', 'pesquisaraparencias', 'pesquisaraparências    ', 'pesquisaraparecias'],
             UserPermission: [""],
             clientPermission: null,
             OnlyDevs: false
