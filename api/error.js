@@ -16,6 +16,8 @@ module.exports.Ban = (message) => { //ban
   message.channel.send({ embeds: [embed] })
 }
 
+module.exports.cancelMsg = (message) => { message.edit({content: '<a:cdfpatpat:1407135944456536186> AÇÃO CANCELADA | Tudo bem! Você pode refazer mais tarde!', components: [], embeds: []})}
+
 module.exports.helpCmd = (server, config, message) => {
 
   let aliases = config.aliases
