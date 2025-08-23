@@ -47,6 +47,7 @@ let uD = new mongoose.Schema({
   _id: {type: String}, 
   uid: {type: String , required: true},
   uName: {type: String},
+  jogador: {type: String , default: 'nrpg'},
   uServer: {type: String , required: true},
   monitor: {type: String, default: 'Desativado'},
   monitorChannelId: {type: String},
