@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const ms = require('ms');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 const sheets = google.sheets({ version: 'v4', auth: API_KEY });
+const colors = require('../../api/colors.json')
 
 
 module.exports = class aparencia extends Command {
@@ -235,6 +236,55 @@ async run({ message, args, client, server}) {
                     coletorBotoesRegistro.on('collect', async ii => {
                         await ii.deferUpdate().catch(() => {});
                         if (ii.customId === 'sim_ap') {
+                            if(!row) {
+
+                                let tempoRA = 15;
+                                const contadorRA = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRA} segundos para enviar o verso...` });
+                                const intervalRA = setInterval(() => {
+                                    tempoRA--;
+                                    if (tempoRA <= 0) {
+                                        clearInterval(intervalRA);
+                                        msgNavegacao.delete().catch(() => {});
+                                        contadorRA.edit({ content: 'Tempo esgotado.' }).catch(() => {});
+                                    } else {
+                                        contadorRA.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRA} segundos para responder...` }).catch(() => {});
+                                    }
+                                }, 1000);
+
+                                let embedRegistro = new EmbedBuilder()
+                                    .setColor(Colors.green)
+                                    .setTitle ('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
+                                    .setDescription('**Iniciando registro de aparência...** /n Por favor, envie no chat o nome completo da aparência.')
+                                    .setFooter('Por enquanto, envie apenas o nome, sem abreviações ou universo pertencente.')
+
+                                await msgNavegacao.edit({ embeds: [embedRegistro]})
+
+                                const registroCollector = msg.createMessageComponentCollector({ filter: ii => ii.user.id === message.author.id, time: 60000 });
+
+                                registroCollector.on('collect', async m => {
+                                    clearInterval(intervalRA); 
+                                    contadorRA.edit({ content: '<a:AmongUs3D:1407001955699785831> | Resposta recebida.' }).catch(() => {});
+
+                                    function normalizeText(s) {
+                                        return String(s || '')
+                                            .normalize('NFD')
+                                            .replace(/[\u0300-\u036f]/g, '')
+                                            .replace(/[^\w\s-]/g, '')
+                                            .replace(/\s+/g, ' ')
+                                            .trim()
+
+                                    }
+
+                                    let aparenciaRegistro = m.content;
+                                    let targetRA = normalizeText(aparenciaRegistro)
+
+                                    
+
+                                    
+                                })
+
+                                
+                            }
 
                             await message.reply({ content: `Registro: ainda implementado.` }).catch(() => {});
                         } else if (ii.customId === 'nao_ap') {
