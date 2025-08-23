@@ -53,7 +53,7 @@ async run({ message, args, client, server}) {
 
     coletorBotoesNavegacao.on('collect', async i => {
         if (i.customId === 'botaoNavAparencia') {
-        let acao = 'enviar ';
+        let acao = 'enviar';
         let sujeito = 'a aparência';
            // * -------------------------  EMBED APARENCIA -------------------------
 
