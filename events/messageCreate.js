@@ -145,6 +145,40 @@ module.exports = class MessageReceive {
 				  message.guild.channels.cache.get(`${userDb.monitorChannelId}`).send({embeds: [embedMonitor]})
 
 			}//else
+
+				const embedRegistroPlayer = new EmbedBuilder()
+					.setColor('#13d510')
+					.setTitle('<a:pingugun:1408888581929439402> | QUEM É VOCÊ?')
+					.setDescription(`Olá, ${message.author.username}! Você não está associado a nenhum jogador do Atrevimento RPG em meus dados! Poderia, por favor, dizer o seu primeiro nome para que eu possa conhece-lo? Isso irá facilitar sua experiência, já que poderei associar você à uma ficha e ao sistema de aparências automaticamente, além de outras funcionalidades!`)
+					.setThumbnail('vscode-webview://0cte5847148k0v62lsul5fivsa7mg1k64ut8h7avsm84bvucrj9t/message.author.avatarURL()')
+					.setAuthor({ name: `Olá, ${message.author.username} !`, iconURL: message.author.avatarURL() })
+					.setFooter({ text: 'Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!'})
+					.setTimestamp()
+
+ 
+				if(message.guild.id === '731974689798488185' || userDb.jogador === 'nrpg') { 
+					const msgDm = await this.client.users.send(message.author.id, {embeds: [embedRegistroPlayer] })
+
+					const coletorDM = await msgDm.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 600000, max: 1})
+
+					coletorDM.on('collect', async m => {
+						let jogador = m.content;
+
+						userDb.jogador = `${jogador}`
+						userDb.save()
+
+						await message.reply({content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador ${jogador}. Se deseja alterar, entre em contato com um dos admods para tanto.`})
+					})
+
+					collectorDM.on('end', (collected, reason) => {
+						if (reason === 'time' && collected.size === 0) {
+							message.reply({content: 'Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.'})
+						}
+					});
+
+
+				}  
+
 		  }//if se monitorar
 		} // else monitoramento criado
 		
