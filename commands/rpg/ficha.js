@@ -1,6 +1,7 @@
 const { Discord, ModalBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, TextInputStyle, TextInputBuilder, fetchRecommendedShardCount } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
+const color = require('../../api/colors.json')
 
 module.exports = class ficha extends Command {
     constructor(client) {
@@ -14,45 +15,42 @@ module.exports = class ficha extends Command {
         })
     }
   
-async run({ message, args, client, server}) {
-
-    /* #region  FORMULARIO */
+async run({ message, args, client, server }) {
     let formularioRegisto = new ModalBuilder()
         .setCustomId('esqueletoFormularioRegistro')
-        .setTitle('Registro de Ficha')
+        .setTitle('Registro de Ficha');
 
     let campoNome = new TextInputBuilder()
-        .setCustomId('nome')
+        .setCustomId('campoNome')
         .setLabel('Nome do Personagem')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true)
+        .setRequired(true);
 
     let campoReino = new TextInputBuilder()
-        .setCustomId('reino')
+        .setCustomId('campoReino')
         .setLabel('Reino')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true)
+        .setRequired(true);
 
     let campoRaca = new TextInputBuilder()
-        .setCustomId('raca')
+        .setCustomId('campoRaca')
         .setLabel('Raça')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true)
+        .setRequired(true);
 
     let campoAparencia = new TextInputBuilder()
-        .setCustomId('aparencia')
+        .setCustomId('campoAparencia')
         .setLabel('Aparência')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setValue('Insira o nome do personagem e o universo pertencente')
+        .setValue('Insira o nome do personagem e o universo pertencente');
 
     const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
     const actionRowReino = new ActionRowBuilder().addComponents(campoReino);
     const actionRowRaca = new ActionRowBuilder().addComponents(campoRaca);
     const actionRowAparencia = new ActionRowBuilder().addComponents(campoAparencia);
 
-    formularioRegisto.addComponents(actionRowNome, actionRowReino, actionRowRaca, actionRowAparencia)
-    /* #endregion */
+    formularioRegisto.addComponents(actionRowNome, actionRowReino, actionRowRaca, actionRowAparencia);
 
     const botoesConfirmacao = new ActionRowBuilder()
         .addComponents(
@@ -64,22 +62,28 @@ async run({ message, args, client, server}) {
                 .setCustomId('cancela')
                 .setLabel('CANCELAR')
                 .setStyle(ButtonStyle.Danger),
-        )
+        );
 
-    let mensagemConfirmacao = await message.reply({ content: 'Deseja iniciar a inscrição da ficha de um novo personagem?', ephemeral: true, components: [botoesConfirmacao] })
+    let mensagemConfirmacao = await message.reply({ content: 'Deseja iniciar a inscrição da ficha de um novo personagem?', ephemeral: true, components: [botoesConfirmacao] });
 
-	const coletorBotao = mensagemConfirmacao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 }); //60s de espera
+    const coletorBotao = mensagemConfirmacao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 });
 
-    coletorBotao.on('collect', async interaction => {
-        if (interaction.customId === 'confirma') { 
-            interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (interaction) => { 
+    coletorBotao.on('collect', async (interaction) => {
+        if (interaction.customId === 'confirma') {
+            console.log('Botão SIM clicado, exibindo o modal...');
+            await interaction.showModal(formularioRegisto);
 
-                /* #region PARÂMETROS DA FICHA  */
-                let pName = modalInteraction.fields.getTextInputValue('nome');
-                let pRaca = modalInteraction.fields.getTextInputValue('raca');
-                let pReino = modalInteraction.fields.getTextInputValue('reino');
-                let pAparencia = modalInteraction.fields.getTextInputValue('aparencia');
-                /* #endregion */
+            // Agora, esperando pela interação no modal
+            const filter = (interaction) => interaction.customId === 'esqueletoFormularioRegistro';
+            interaction.awaitModalSubmit({ filter, time: 150000 }).then(async (modalInteraction) => {
+                console.log('Modal enviado e recebido com sucesso!');
+                await modalInteraction.deferUpdate();
+
+                // Coletando valores do modal
+                let pName = await modalInteraction.fields.getTextInputValue('campoNome');
+                let pRaca = await modalInteraction.fields.getTextInputValue('campoRaca');
+                let pReino = await modalInteraction.fields.getTextInputValue('campoReino');
+                let pAparencia = await modalInteraction.fields.getTextInputValue('campoAparencia');
 
                 let embedSucess = new EmbedBuilder()
                     .setColor(color.green)
@@ -92,14 +96,20 @@ async run({ message, args, client, server}) {
                         {name: '<:iglu:1408859733632483388>| **Reino**', value: pReino, inline: true},
                     );
 
-                await mensagemConfirmacao.edit({embeds: [embedSucess], components: []})
-                message.channel.send('**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora?')
+                await mensagemConfirmacao.edit({ embeds: [embedSucess], components: [] });
+                message.channel.send('**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora?');
 
+            }).catch(err => {
+                console.error('Erro ao capturar o modal:', err);
+                message.channel.send('Houve um erro ao processar o formulário.');
+            });
 
-            })
-        }else return error.cancelMsg(mensagemConfirmacao)
-    })
-
-
+        } else {
+            console.log('Botão CANCELAR clicado, cancelando a ação...');
+            return error.cancelMsg(mensagemConfirmacao);
+        }
+    });
 }
+
+
 }
