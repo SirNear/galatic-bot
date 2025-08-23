@@ -53,6 +53,7 @@ async run({ message, args, client, server}) {
 
     coletorBotoesNavegacao.on('collect', async i => {
         if (i.customId === 'botaoNavAparencia') {
+        let acao = 'enviar ';
         let sujeito = 'a aparência';
            // * -------------------------  EMBED APARENCIA -------------------------
 
@@ -71,7 +72,7 @@ async run({ message, args, client, server}) {
             const msgAparencia = msgNavegacao; // mensagem padrão para editar/mostrar embeds
             // ----------------- CONTADOR VISUAL (TEMPO PARA O USUÁRIO RESPONDER) -----------------
             // * ------------------------- contador de tempo para enviar a aparência -------------------------
-            let {intervalo, contador} = await iniciarContador(sujeito, msgNavegacao, message);
+            let {intervalo, contador} = await iniciarContador(sujeito, msgNavegacao, message, acao);
 
 
             // ----------------- COLETOR DE MENSAGENS (APARENCIA) -----------------
