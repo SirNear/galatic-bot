@@ -19,7 +19,7 @@ async function iniciarContador(sujeito, msgNavegacao, message, acao) {
                     }, 1000);
                         return{intervalo, contador}; 
  /* 
-Deve receber os parâmetros sujeito (verso ou aparencia), msgNavegacao (Mensagem genérica de nav) e message (mensagem enviada pelo usuário)
+Deve receber os parâmetros a acao (ação a ser feita pelo usuário no tempo do contador), sujeito (com oque deve ser feito), msgNavegacao (Mensagem genérica de nav) e message (mensagem enviada pelo usuário)
 Retornar o intervalo restante e o contador
 */
                 }
