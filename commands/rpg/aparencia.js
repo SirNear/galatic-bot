@@ -6,6 +6,7 @@ const ms = require('ms');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
 const sheets = google.sheets({ version: 'v4', auth: API_KEY });
 const colors = require('../../api/colors.json')
+const {iniciarContador, pararContador} = require('../../api/contador.js');
 
 
 module.exports = class aparencia extends Command {
@@ -71,20 +72,8 @@ async run({ message, args, client, server}) {
 
             // ----------------- CONTADOR VISUAL (TEMPO PARA O USUÁRIO RESPONDER) -----------------
             // * ------------------------- contador de tempo para enviar a aparência -------------------------
-            let tempoRestante = 15; // segundos
-            const contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para enviar a aparência...` });
+            let {intervalo, contador} = await iniciarContador(sujeito, msgNavegacao, message);
 
-            // inicia o intervalo que atualiza a mensagem a cada segundo
-            const interval = setInterval(() => { // não usar callback async aqui para evitar concorrência
-                tempoRestante--; // redução a cada tick
-                if (tempoRestante <= 0) {
-                    clearInterval(interval);
-                    contador.edit({ content: 'Tempo esgotado.' }).catch(() => {});
-                    msgNavegacao.delete().catch(() => {});
-                } else {
-                    contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para responder...` }).catch(() => {});
-                }
-            }, 1000); // a cada 1s atualiza
 
             // ----------------- COLETOR DE MENSAGENS (APARENCIA) -----------------
             // * ------------------------- COLETOR DE MENSAGENS PARA APARENCIA -------------------------
@@ -92,9 +81,8 @@ async run({ message, args, client, server}) {
              
             coletorAparencia.on('collect', async m => {
                 // * ------------------------- RESPOSTA RECEBIDA / LIMPAR INTERVALO -------------------------
-                clearInterval(interval); // parar o contador
-                contador.edit({ content: '<a:AmongUs3D:1407001955699785831>  | Resposta recebida.' }).catch(() => {});
-                const nomeAparencia = m.content;
+
+            const nomeAparencia = await pararContador(m, intervalo, contador);
 
                 // ? ------------------------- BUSCA NA PLANILHA -------------------------
                 let resultados = [];
@@ -298,7 +286,7 @@ async run({ message, args, client, server}) {
             // ----------------- COLETOR APARENCIA END (LIMPEZA) -----------------
             coletorAparencia.on('end', (collected, reason) => {
                  // garante que o intervalo foi limpo e mostra mensagem final se o tempo acabou
-                 clearInterval(interval);
+                 clearInterval(intervalo);
                  if (reason === 'time' && collected.size === 0) {
                      contador.edit({ content: 'Tempo esgotado.' }).catch(() => {});
                      msgNavegacao.delete().catch(() => {});
