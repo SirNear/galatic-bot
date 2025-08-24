@@ -1,6 +1,7 @@
 const { Discord, ModalBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, TextInputStyle, TextInputBuilder, fetchRecommendedShardCount } = require('discord.js');
 const Command = require('../../structures/Command.js');
 const error = require('../../api/error.js')
+const logs = require('../../api/logs.js')
 const { google } = require('googleapis');
 const ms = require('ms');
 const API_KEY = 'AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ';
@@ -71,7 +72,7 @@ async run({ message, args, client, server}) {
             const msgAparencia = msgNavegacao; // mensagem padrão para editar/mostrar embeds
             // ----------------- CONTADOR VISUAL (TEMPO PARA O USUÁRIO RESPONDER) -----------------
             // * ------------------------- contador de tempo para enviar a aparência -------------------------
-            tempoRestante = 15
+            let tempoRestante = 15
             let sujeito = 'enviar a aparência'
             let msgAlvo = msgNavegacao
             let {intervalo, contador} = await iniciarContador(tempoRestante, sujeito, msgAlvo, message);
@@ -157,6 +158,13 @@ async run({ message, args, client, server}) {
 
                     await msgNavegacao.edit({ embeds: [EmbedPagesAparencia[0]], components: [] }).catch(() => {});
 
+                    // nenhum resultado — apresenta opção de registrar
+                    const embedEmpty = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
+                        .setDescription('Aparência disponível!')
+                        .addFields({name: 'Deseja registrar a aparência?', value: 'Clique no botão para responder'});
+
                 // ----------------- CASO: MULTIPLOS RESULTADOS (PAGINAÇÃO) -----------------
                 } else if (resultados.length > 1) { // se tiver mais de uma aparencia
 
@@ -179,6 +187,7 @@ async run({ message, args, client, server}) {
                         new ButtonBuilder().setCustomId('next_ap').setLabel('⏩').setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1),
                         new ButtonBuilder().setCustomId('close_ap').setLabel('❌').setStyle(ButtonStyle.Danger)
                     );
+                    
 
                     await msgNavegacao.edit({ embeds: [EmbedPagesAparencia[page]], components: [navRow(page)] }).catch(() => {});
 
@@ -206,12 +215,6 @@ async run({ message, args, client, server}) {
 
                 // ----------------- CASO: NENHUM RESULTADO (OFERECE REGISTRO) -----------------
                 } else {
-                    // nenhum resultado — apresenta opção de registrar
-                    const embedEmpty = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
-                        .setDescription('Aparência disponível!')
-                        .addFields({name: 'Deseja registrar a aparência?', value: 'Clique no botão para responder'});
 
                     const botaoSelecaoRegistro = new ActionRowBuilder() 
                         .addComponents(
@@ -221,67 +224,104 @@ async run({ message, args, client, server}) {
 
                     await msgNavegacao.edit({ embeds: [embedEmpty], components: [botaoSelecaoRegistro] }).catch(() => {});
 
-                    // collector para registro (responder ao clique)
+                    // ?--------------------- ABA REGISTRO ----------------------
                     const coletorBotoesRegistro = msgNavegacao.createMessageComponentCollector({ filter: ii => ii.user.id === message.author.id, time: 15000 });
-                    coletorBotoesRegistro.on('collect', async ii => {
-                        await ii.deferUpdate().catch(() => {});
+                    coletorBotoesRegistro.on('collect', async (ii) => {
                         if (ii.customId === 'sim_ap') {
-                            if(!row) {
+                            
+                            /* #region  FORMULARIO */
+                            let formularioRegisto = new ModalBuilder()
+                                .setCustomId('esqueletoFormularioRegistro')
+                                .setTitle('Registro de Ficha');
 
-                                let tempoRA = 15;
-                                const contadorRA = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRA} segundos para enviar o verso...` });
-                                const intervalRA = setInterval(() => {
-                                    tempoRA--;
-                                    if (tempoRA <= 0) {
-                                        clearInterval(intervalRA);
-                                        msgNavegacao.delete().catch(() => {});
-                                        contadorRA.edit({ content: 'Tempo esgotado.' }).catch(() => {});
-                                    } else {
-                                        contadorRA.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRA} segundos para responder...` }).catch(() => {});
-                                    }
-                                }, 1000);
+                            let campoNome = new TextInputBuilder()
+                                .setCustomId('campoNome')
+                                .setLabel('Nome da Aparência')
+                                .setStyle(TextInputStyle.Short)
+                                .setRequired(true);
 
-                                let embedRegistro = new EmbedBuilder()
-                                    .setColor(Colors.green)
-                                    .setTitle ('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
-                                    .setDescription('**Iniciando registro de aparência...** /n Por favor, envie no chat o nome completo da aparência.')
-                                    .setFooter('Por enquanto, envie apenas o nome, sem abreviações ou universo pertencente.')
+                            let campoUniverso = new TextInputBuilder()
+                                .setCustomId('campoUniverso')
+                                .setLabel('Universo de Origem')
+                                .setStyle(TextInputStyle.Short)
+                                .setRequired(true);
 
-                                await msgNavegacao.edit({ embeds: [embedRegistro]})
+                            let campoPersonagem = new TextInputBuilder()
+                                .setCustomId('campoPersonagem')
+                                .setLabel('Personagem do RPG')
+                                .setStyle(TextInputStyle.Short)
+                                .setRequired(true);
 
-                                const registroCollector = msg.createMessageComponentCollector({ filter: ii => ii.user.id === message.author.id, time: 60000 });
+                            const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
+                            const actionRowUniverso = new ActionRowBuilder().addComponents(campoUniverso);
+                            const actionRowPersonagem = new ActionRowBuilder().addComponents(campoPersonagem);
 
-                                registroCollector.on('collect', async m => {
-                                    clearInterval(intervalRA); 
-                                    contadorRA.edit({ content: '<a:AmongUs3D:1407001955699785831> | Resposta recebida.' }).catch(() => {});
+                            formularioRegisto.addComponents(actionRowNome, actionRowUniverso, actionRowPersonagem);
+                            /* #endregion */
 
-                                    function normalizeText(s) {
-                                        return String(s || '')
-                                            .normalize('NFD')
-                                            .replace(/[\u0300-\u036f]/g, '')
-                                            .replace(/[^\w\s-]/g, '')
-                                            .replace(/\s+/g, ' ')
-                                            .trim()
+                            await ii.showModal(formularioRegisto);
 
-                                    }
+                            const filter = (ii) => ii.customId === 'esqueletoFormularioRegistro';
+                            ii.awaitModalSubmit({ filter, time: 150000 }).then(async (modalInteraction) => {
+                                await modalInteraction.deferUpdate();
 
-                                    let aparenciaRegistro = m.content;
-                                    let targetRA = normalizeText(aparenciaRegistro)
+                                /* #region  PARAMETROS DE REGISTRO */
+                                let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`)
 
-                                    
-
-                                    
-                                })
-
+                                let argNome = await modalInteraction.fields.getTextInputValue('campoNome')
+                                let argUniverso = await modalInteraction.fields.getTextInputValue('campoUniverso')
+                                let argPersonagem = await modalInteraction.fields.getTextInputValue('campoPersonagem')
+                                let argJogador = await userDb.jogador
                                 
-                            }
+                                /* #endregion */
 
-                            await message.reply({ content: `Registro: ainda implementado.` }).catch(() => {});
+                                /* #region   ACHJAR LINHA VAZIA*/
+                                const res = await sheets.spreadsheets.values.get({ spreadsheetId: '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo', range: 'A:D' });
+                                const rows = res.data.values || [];
+                                let i = 0;
+                                for (i = 0; i < rows.length; i++) {
+                                    if (!rows[i][0]) break;
+                                }
+                                const path = require('path');
+                                const keyFilePath = path.join(__dirname, '../../api/regal-primacy-233803-4fc7ea1a8a5a.json');
+
+                                let authUp = new google.auth.GoogleAuth({
+                                    keyFile: keyFilePath,
+                                    scopes: ['https://www.googleapis.com/auth/spreadsheets'], // Escopo para ler e escrever
+                                });
+                                let sheetsUp = google.sheets({ version: 'v4', auth: authUp });
+
+                                await sheetsUp.spreadsheets.values.update(
+                                    {
+                                        spreadsheetId: '17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo',
+                                        range: `INDIVIDUAIS!A${i + 1}:D${i +1}`,
+                                        valueInputOption: "USER_ENTERED",
+                                        resource: {
+                                            majorDimension: "ROWS",
+                                            values: [[argNome, argUniverso, argPersonagem, argJogador]]
+                                        }
+                                    }
+                                ) 
+                                /* #endregion */
+
+                                message.reply({content: `<a:cat_dance:1409062402288521266> | A aparência ${argNome} do universo de ${argUniverso} foi registrada com sucesso para o personagem ${argPersonagem} em nome de ${argJogador}`})
+                                let sChannel = await message.guild.channels.cache.find(i => i.id === '1409063037905670154')
+                                logs.AparenciaRegistrada(message, userDb, argNome, argUniverso, argPersonagem, sChannel)
+
+
+                            })
+
+                            
                         } else if (ii.customId === 'nao_ap') {
                             msgNavegacao.delete().catch(() => {});
                             await message.reply({ content: '<a:cdfpatpat:1407135944456536186> | **REGISTRO CANCELADO!** Tudo bem, você pode reservar depois, se estiver disponível' }).catch(() => {});
+
                         }
+
                     });
+
+                    // ?--------------------- ABA REGISTRO ----------------------
+
                 }
              });
  
