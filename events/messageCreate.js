@@ -1,9 +1,10 @@
-const { EmbedBuilder, Discord } = require('discord.js')
+const { EmbedBuilder, Discord, ChannelType } = require('discord.js')
 const fetch = require('node-fetch');
 const axios = require('axios');
 const { handlePokemonType } = require('../api/typeTranslate.js');
 const { tiposPokemon } = require('../api/tiposPokemon.js');
 const { handleTypeIdentifier } = require('../api/typeIdentifier.js');
+const {iniciarContador, pararContador} = require('../api/contador.js');
 
 module.exports = class MessageReceive {
 	constructor(client) {
@@ -12,7 +13,7 @@ module.exports = class MessageReceive {
 
 	async run(message, client, translate, interaction) {
 		
-		if (message.channel.type === "dm") return
+		if (message.channel.type === ChannelType.DM) return
 		if (message.author.bot) return //se for msg de bot
 		
 		let server = await this.client.database.Guilds.findById(message.guild.id) //CARREGAMENTO DATABASE
@@ -146,31 +147,40 @@ module.exports = class MessageReceive {
 
 			}//else
 
+		  }//if se monitorar
+
+
 				const embedRegistroPlayer = new EmbedBuilder()
 					.setColor('#13d510')
 					.setTitle('<a:pingugun:1408888581929439402> | QUEM É VOCÊ?')
 					.setDescription(`Olá, ${message.author.username}! Você não está associado a nenhum jogador do Atrevimento RPG em meus dados! Poderia, por favor, dizer o seu primeiro nome para que eu possa conhece-lo? Isso irá facilitar sua experiência, já que poderei associar você à uma ficha e ao sistema de aparências automaticamente, além de outras funcionalidades!`)
-					.setThumbnail('vscode-webview://0cte5847148k0v62lsul5fivsa7mg1k64ut8h7avsm84bvucrj9t/message.author.avatarURL()')
+					.setThumbnail(message.author.avatarURL())
 					.setAuthor({ name: `Olá, ${message.author.username} !`, iconURL: message.author.avatarURL() })
 					.setFooter({ text: 'Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!'})
 					.setTimestamp()
 
- 
-				if(message.guild.id === '731974689798488185' || userDb.jogador === 'nrpg') { 
+				if(message.guild.id === '731974689798488185' && userDb.jogador === 'nrpg') { 
 					const msgDm = await this.client.users.send(message.author.id, {embeds: [embedRegistroPlayer] })
+
+					let tempoRestante = 600
+					let sujeito = 'apresentar-se'
+					let msgAlvo = msgDm
+					let { intervalo, contador } = await iniciarContador(tempoRestante, sujeito, msgAlvo, message);
+
 
 					const coletorDM = await msgDm.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 600000, max: 1})
 
 					coletorDM.on('collect', async m => {
-						let jogador = m.content;
+						const jogador = await pararContador(m.content, intervalo, contador);
 
 						userDb.jogador = `${jogador}`
 						userDb.save()
+						console.log(`RPG - SISTEMA DE REGISTRO | usuário ${message.author.username} associado ao jogador ${jogador}`)
 
-						await message.reply({content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador ${jogador}. Se deseja alterar, entre em contato com um dos admods para tanto.`})
+						await msgDm.reply({content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador ${jogador}. Se deseja alterar, entre em contato com um dos admods para tanto.`})
 					})
 
-					collectorDM.on('end', (collected, reason) => {
+					coletorDM.on('end', (collected, reason) => {
 						if (reason === 'time' && collected.size === 0) {
 							message.reply({content: 'Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.'})
 						}
@@ -179,7 +189,7 @@ module.exports = class MessageReceive {
 
 				}  
 
-		  }//if se monitorar
+
 		} // else monitoramento criado
 		
 		let prefix = server ? server.prefix : 'g!';
