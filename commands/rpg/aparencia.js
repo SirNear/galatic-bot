@@ -52,6 +52,12 @@ async run({ message, args, client, server}) {
     //? COLETOR DOS BOTÕES
     const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 }); //60s de espera
 
+    const embedEmpty = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
+        .setDescription('Aparência disponível!')
+        .addFields({name: 'Deseja registrar a aparência?', value: 'Clique no botão para responder'});
+
     coletorBotoesNavegacao.on('collect', async i => {
         if (i.customId === 'botaoNavAparencia') {
 
@@ -159,11 +165,6 @@ async run({ message, args, client, server}) {
                     await msgNavegacao.edit({ embeds: [EmbedPagesAparencia[0]], components: [] }).catch(() => {});
 
                     // nenhum resultado — apresenta opção de registrar
-                    const embedEmpty = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **')
-                        .setDescription('Aparência disponível!')
-                        .addFields({name: 'Deseja registrar a aparência?', value: 'Clique no botão para responder'});
 
                 // ----------------- CASO: MULTIPLOS RESULTADOS (PAGINAÇÃO) -----------------
                 } else if (resultados.length > 1) { // se tiver mais de uma aparencia
