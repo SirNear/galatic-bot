@@ -53,8 +53,7 @@ async run({ message, args, client, server}) {
 
     coletorBotoesNavegacao.on('collect', async i => {
         if (i.customId === 'botaoNavAparencia') {
-        let acao = 'enviar';
-        let sujeito = 'a aparência';
+
            // * -------------------------  EMBED APARENCIA -------------------------
 
             // título genérico do embed (mantendo front/estrutura)
@@ -72,7 +71,10 @@ async run({ message, args, client, server}) {
             const msgAparencia = msgNavegacao; // mensagem padrão para editar/mostrar embeds
             // ----------------- CONTADOR VISUAL (TEMPO PARA O USUÁRIO RESPONDER) -----------------
             // * ------------------------- contador de tempo para enviar a aparência -------------------------
-            let {intervalo, contador} = await iniciarContador(sujeito, msgNavegacao, message, acao);
+            tempoRestante = 15
+            let sujeito = 'enviar a aparência'
+            let msgAlvo = msgNavegacao
+            let {intervalo, contador} = await iniciarContador(tempoRestante, sujeito, msgAlvo, message);
 
 
             // ----------------- COLETOR DE MENSAGENS (APARENCIA) -----------------
@@ -82,7 +84,7 @@ async run({ message, args, client, server}) {
             coletorAparencia.on('collect', async m => {
                 // * ------------------------- RESPOSTA RECEBIDA / LIMPAR INTERVALO -------------------------
 
-            const nomeAparencia = await pararContador(m, intervalo, contador);
+            const nomeAparencia = await pararContador(m.content, intervalo, contador);
 
                 // ? ------------------------- BUSCA NA PLANILHA -------------------------
                 let resultados = [];
