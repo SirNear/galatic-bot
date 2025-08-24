@@ -1,19 +1,18 @@
 
 // Função de inicializar o contador
-async function iniciarContador(sujeito, msgNavegacao, message, acao) {
+async function iniciarContador(tempoRestante, sujeito, msgAlvo, message) {
     
-                    let tempoRestante = 15; // Tempo em segundos, genérico, pode ser alterado de forma global
-                    let contador = await message.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${acao} ${sujeito}... ` });
+                    let contador = await msgAlvo.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
                     let intervalo = setInterval(() => {
                         tempoRestante--; // decrementar o tempo restante
 
 
                         if (tempoRestante <= 0) {
                             clearInterval(intervalo);
-                            msgNavegacao.delete().catch(() => { });
+                            msgAlvo.delete().catch(() => { });
                             contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
                         } else {
-                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${acao} ${sujeito}...` }).catch(() => { });
+                            contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}...` }).catch(() => { });
 
                         }
                     }, 1000);
@@ -30,7 +29,7 @@ async function pararContador(m, intervalo, contador) {
 
     clearInterval(intervalo); // Parar o contador
                 contador.edit({ content: '<a:AmongUs3D:1407001955699785831>  | Resposta recebida.' }).catch(() => {});
-    return m.content; 
+    return m; 
 /* 
 Deve receber os parâmetros m (mensagem enviada pelo usuario), intervalo (intervalo atual do contador) e contador (mensagem do contador)
 Retorna o nome da aparencia capturada na mensagem do usuario
