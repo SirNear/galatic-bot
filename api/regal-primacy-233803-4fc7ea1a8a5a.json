@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "regal-primacy-233803",
+  "private_key_id": "4fc7ea1a8a5acf35f24d8fd6c42887d832248e7f",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC0ifzmZ7XXb2iz\n9v8YL8P8igcbD4zpB4SWzopLJyd7lflYxJg2wea/Qp6+QyY46Ujsz/NvEWuGJqtC\nVNarhG8L0xjva810ef9D0N5ZaJ79gIBwPFAT/0bQovATmVDL8NlHxyP8o+i2Ge2a\nttf1OEBbqhO9HMmf0Dfj9cF5lOX9+LhsA4sdnMoOa6P2gLshshQuxGyARQ04ytkX\nsj7Ev2GetXYvX85shHBu423DTg4oT+23LE4sdcv61WB21Tx6Uh+zWTFF79RiAI7q\nucE3IMgV5qwBCCz6jXreyYJ/je9UGNNwEWcLcaHxjppEkhDVU3O8ZtOT0Ns43jLh\nXdsV6vMNAgMBAAECggEAHAXZG/hYGN8BnQGHOf1cCexwyuoAgME6euAHRkAHGF9A\ni19EkydIxkI0eqrYmXfYam2ixwgorPN+nLandYsCY476LVuJ0f0HusKGaNFc8FNM\nXF94PIpgtwy7gAdJq8YwK7yE4PeeLPncUCn2XmlDUBcXpkB8KVK8AiXIyLLseh2o\n3/6W7CxWnfG6LLS6BEAs0bP+Fv1bMTwKLnY4aU3qTWbx7GcgAMu3BoK5rUnY1etl\nii6yEdY/LMINuwzGiCFqMZi0D4a9VdMQE7GcYDYs0jfD7RFruG4WoGwccgKCGccd\nshKELS7vIWuGOmUevgV4xoaIPpB+K/hjyZstI5sLbwKBgQDZn0Gj1Uk1ESwXkFRo\nzDczetb7qM/UzQj2REmX6pbpIi7a+1as3AAkZcc+r5AB75I8jBJliTbnwoeHPBnx\nPp9m6dP2W/RIkNGnF6FM13l03LU2m/hTeeAbASNnpm28SQxDFBopGRYlyGMvlXZi\nXO0AR8Jl1m+6fOxaHCjZC+rGRwKBgQDUYJUvjWZ5abRdkSvp0g8T8ZN6WtM/hyt1\nhIqXVje7J8xyLJKgl2GvktYxXesQ/xe5W514O8FtORDfNCaMgNe+yfnbhFR8Y4m7\nUyj2LwtfCp8dhQn9xTvjMZik+wzx1/6fZ1kX4NbQq+pCLnn8u5AEf9IfhZFth18i\nvt29NAkiCwKBgQCWR8TjZ2FjlRU2vIOdzxB7q2OUbBIBaQm8TpHnp6dJHULwE8ra\nGh67A9HgtwoiXBdHWo9FsMjKqOpAeD+N+enH/sdSBFQgXGl7EvVfhBkqm1NEf9av\nhqU84L9bT3HOKT+fft1F7j3+H3BnJraW3IcJv4Q+ISQMy0HIRFPs9q7M9wKBgBK4\nhM4RR9QyBi0tS9KrqpqWc+qYMQDrmGAek9ztQ7JiurnhxfcUAQ9qASmO3ta7tcqo\nEcR0eAN5wUv7m95MyTfPNBAupQfl+lEh7n1s/jKdjBMdFBljlnjbeVopqyVyZcaF\nZKwfLLBuRxMYZ7ZojjRnVA1lR8GA6lj0vDUebiOrAoGAcJN1DSE+XShqUtgI2MN8\nXH64gAXpL9M0z6UCuOyE51fLxDVjmAEezPqycBeQS666YISfdib3pa4r0K+W155y\nLFB83diYsoQ7+OWDXzmDQ8qa7wT3aIMZV5iTakEZBWSh/JpM6e6qta0bWXwRveXz\njqCBbKXuFAuT/06L24rdcHI=\n-----END PRIVATE KEY-----\n",
+  "client_email": "galatic-bot@regal-primacy-233803.iam.gserviceaccount.com",
+  "client_id": "102741701053615408628",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/galatic-bot%40regal-primacy-233803.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
