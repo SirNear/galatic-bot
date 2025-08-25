@@ -34,6 +34,8 @@ module.exports = class aparencia extends Command {
 
   async run({ message, args, client, server }) {
     const sChannel = await message.guild.channels.cache.find((i) => i.id === "1409063037905670154");
+const userDb = await client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+
 
     async function handleRegistro(msgNavegacao, message, client, embedEmpty, sChannel, target) {
         const botaoSelecaoRegistro = new ActionRowBuilder().addComponents(
@@ -133,8 +135,7 @@ module.exports = class aparencia extends Command {
                             await modalInteraction.deferUpdate();
 
                             /* #region  PARAMETROS DE REGISTRO */
-                            let userDb = await client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
-
+                            
                             let argNome =
                             await modalInteraction.fields.getTextInputValue(
                                 "campoNome"
