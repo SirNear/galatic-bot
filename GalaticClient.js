@@ -9,7 +9,6 @@ module.exports = class GalaticClient extends Client {
     super({
       options,
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildEmojisAndStickers, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers, GatewayIntentBits.DirectMessages]
-
     });
 	    
      this.database = require('./mongoose.js')
