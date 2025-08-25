@@ -20,10 +20,10 @@ const sheets = google.sheets({ version: "v4", auth: API_KEY });
 const colors = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
 
-module.exports = class apteste extends Command {
+module.exports = class aparencia extends Command {
   constructor(client) {
     super(client, {
-      name: "apteste",
+      name: "aparencia",
       category: "rpg",
       aliases: ['ap', 'aparencias', 'aparência', 'aparências', 'pesquisaraparencia', 'pesquisaraparência', 'pesquisarap', 'pesquisaraparecia', 'pesquisaraparencias', 'pesquisaraparências    ', 'pesquisaraparecias'],
       UserPermission: [""],
