@@ -34,7 +34,7 @@ module.exports = class aparencia extends Command {
 
   async run({ message, args, client, server }) {
     const sChannel = await message.guild.channels.cache.find((i) => i.id === "1409063037905670154");
-const userDb = await client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+const userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
 
 
     async function handleRegistro(msgNavegacao, message, client, embedEmpty, sChannel, target) {
