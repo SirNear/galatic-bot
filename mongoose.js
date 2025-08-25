@@ -2,7 +2,7 @@ const config = require('./config.json')
 const mongoose = require('mongoose')
 
 // Conectar ao banco de dados 
-mongoose.connect(config.mongoose, { useUnifiedTopology: true })
+mongoose.connect(config.mongoose)
   .then(() => {
     console.log('MONGOOSE | Conectado ao banco de dados!');
   })
