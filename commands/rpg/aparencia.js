@@ -133,10 +133,7 @@ module.exports = class apteste extends Command {
                             await modalInteraction.deferUpdate();
 
                             /* #region  PARAMETROS DE REGISTRO */
-                            let userDb =
-                            await this.client.database.userData.findById(
-                                `${message.author.globalName} ${message.guild.name}`
-                            );
+                            let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
 
                             let argNome =
                             await modalInteraction.fields.getTextInputValue(
