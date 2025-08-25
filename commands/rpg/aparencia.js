@@ -133,7 +133,7 @@ module.exports = class aparencia extends Command {
                             await modalInteraction.deferUpdate();
 
                             /* #region  PARAMETROS DE REGISTRO */
-                            let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+                            let userDb = await client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
 
                             let argNome =
                             await modalInteraction.fields.getTextInputValue(
@@ -288,325 +288,221 @@ module.exports = class aparencia extends Command {
         /* #region  BACK BUSCA E REGISTRO DE APARÊNCIA */
         coletorAparencia.on("collect", async (m) => {
             const nomeAparencia = await pararContador(
-            m.content,
-            intervalo,
-            contador
+                m.content,
+                intervalo,
+                contador
             );
 
             let resultados = [];
 
             function normalizeText(s) {
-            return String(s || "")
-                .normalize("NFD") // separa acentos
-                .replace(/[\u0300-\u036f]/g, "") // remove acentos
-                .replace(/[^\w\s-]/g, "") // remove chars especiais (mantém letras, números, underscore e espaços)
-                .replace(/\s+/g, " ") // normaliza espaços múltiplos
-                .trim()
-                .toLowerCase();
+                return String(s || "")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^\w\s-]/g, "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .toLowerCase();
             }
 
-            const target = normalizeText(nomeAparencia); //normalizar m.content
+            const target = normalizeText(nomeAparencia);
 
             /* #region  BUSCA RESULTADOS NA PLANILHA */
             try {
-            const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-                range: "A:D",
-            });
-            const rows = res.data.values || []; //array de dados das linhas da planilha
-
-            for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
-                const row = rows[rowIndex];
-
-                if (!row) continue;
-
-                const [aparencia, universo, personagem, jogador] = row;
-                if (!aparencia) continue; // pula linha se não tiver aparencia
-
-                const aparNorm = normalizeText(aparencia);
-                if (aparNorm.length < 2) continue; //ignora busca por letras
-
-                /* #region  VERIFICAÇÃO PARCIAL E IGUAL */
-
-                if (
-                aparNorm === target ||
-                (aparNorm.length >= 3 && aparNorm.includes(target)) || // exige ao menos 3 chars para includes em aparência
-                (target.length >= 3 && target.includes(aparNorm)) // exige ao menos 3 chars no target para includes em aparência
-                ) {
-                resultados.push({
-                    aparencia,
-                    universo,
-                    personagem,
-                    jogador,
+                const res = await sheets.spreadsheets.values.get({
+                    spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                    range: "A:D",
                 });
+                const rows = res.data.values || [];
+
+                for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+                    const row = rows[rowIndex];
+                    if (!row) continue;
+                    const [aparencia, universo, personagem, jogador] = row;
+                    if (!aparencia) continue;
+                    const aparNorm = normalizeText(aparencia);
+                    if (aparNorm.length < 2) continue;
+
+                    if (
+                        aparNorm === target ||
+                        (aparNorm.length >= 3 && aparNorm.includes(target)) ||
+                        (target.length >= 3 && target.includes(aparNorm))
+                    ) {
+                        resultados.push({
+                            aparencia,
+                            universo,
+                            personagem,
+                            jogador,
+                        });
+                    }
                 }
-                /* #endregion */
-            }
             } catch (err) {
-            console.error(err);
-            await message.channel.send("Erro ao acessar a planilha.");
-            return;
+                console.error(err);
+                return await message.channel.send("Erro ao acessar a planilha.");
             }
             /* #endregion */
 
-            // !CRIAÇÃO DE EMBED PADRÃO PARA CADA PAGINA
-            const EmbedPagesAparencia = resultados.map(
-            (r, idx) =>
-                new EmbedBuilder()
-                .setTitle(
-                    `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | Resultado ${
-                    idx + 1
-                    } de ${resultados.length}`
-                )
-                .setColor("#212416") // was '#212416ff'
-            );
+            // PONTO-CHAVE 1: Verificamos PRIMEIRO se existe uma correspondência exata.
+            const exactMatch = resultados.find(r => normalizeText(r.aparencia) === target);
 
-            let page = 0;
-
-            const embedEmpty = new EmbedBuilder()
-                .setColor("#00ff00")
-                .setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **")
-                .setDescription(`Aparência ${target} disponível!`)
-                .addFields({
-                    name: "Deseja registrar a aparência?",
-                    value: "Clique no botão para responder",
-                });
-
-
-            switch(resultados.length) {
-                case 1: 
-                    const found = resultados[0]; // pega o primeiro resultado
-
-                    EmbedPagesAparencia[0]
-                        .setDescription( `<:PepeHands:1407563136197984357> | Aparência em uso!`)
-                        .setColor("#8f0808")
-                        .addFields(
-                            { name: "**APARÊNCIA**", value: found.aparencia ?? "—" },
-                            { name: "**UNIVERSO**", value: found.universo ?? "—" },
-                            { name: "**PERSONAGEM**", value: found.personagem ?? "—" },
-                            { name: "**JOGADOR**", value: found.jogador ?? "—" }
-                        );
-
-                    await msgNavegacao.edit({ embeds: [EmbedPagesAparencia[0]], components: [] }).catch(() => {});
-
-                    break;
-                case 0:
+            // CENÁRIO 1: Uma correspondência exata FOI encontrada.
+            if (exactMatch) {
+                const embedExato = new EmbedBuilder()
+                    .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
+                    .setDescription(`<:PepeHands:1407563136197984357> | Aparência em uso!`)
+                    .setColor("#8f0808")
+                    .addFields(
+                        { name: "**APARÊNCIA**", value: exactMatch.aparencia ?? "—" },
+                        { name: "**UNIVERSO**", value: exactMatch.universo ?? "—" },
+                        { name: "**PERSONAGEM**", value: exactMatch.personagem ?? "—" },
+                        { name: "**JOGADOR**", value: exactMatch.jogador ?? "—" }
+                    );
+                await msgNavegacao.edit({ embeds: [embedExato], components: [] }).catch(() => {});
+            
+            // CENÁRIO 2: NENHUMA correspondência exata foi encontrada.
+            } else {
+                // SUB-CENÁRIO 2.1: Não há NENHUM resultado (nem exato, nem similar).
+                if (resultados.length === 0) {
+                    const embedEmpty = new EmbedBuilder()
+                        .setColor("#00ff00")
+                        .setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **")
+                        .setDescription(`Aparência ${target} disponível!`)
+                        .addFields({
+                            name: "Deseja registrar a aparência?",
+                            value: "Clique no botão para responder",
+                        });
                     await handleRegistro(msgNavegacao, message, client, embedEmpty, sChannel, target);
-                    break;
-                default: return
-            } //switch resultados.length
-            if (resultados.length >= 1) {
-                const exactMatchFound = resultados.some(r => normalizeText(r.aparencia) === target);
-                let page = 0;
+                
+                // SUB-CENÁRIO 2.2: Não há resultado exato, MAS HÁ resultados similares.
+                } else {
+                    // PONTO-CHAVE 2: É aqui que a sua lógica desejada é construída.
+                    let pages = [];
 
-                if (!exactMatchFound) {
+                    // Criamos a primeira página especial que oferece o registro.
                     const embedRegistro = new EmbedBuilder()
                         .setTitle(`✅ | **APARÊNCIA DISPONÍVEL!**`)
                         .setDescription(
-                            `Aparência **${target}** disponível. Também encontramos resultados similares.
-                            \nSelecione "sim" para registrar e "não" para ver os outros resultados disponíveis.`
+                            `Aparência **${target}** está disponível para registro.\n\nEncontramos também resultados similares. Selecione "SIM" para registrar **${target}**, ou "NÃO" para ver os outros resultados encontrados.`
                         )
                         .setColor("#00ff00");
+                    pages.push(embedRegistro);
 
-                    EmbedPagesAparencia.unshift(embedRegistro);
-                }
-
-                resultados.forEach((r, idx) => {
-                    const offset = !exactMatchFound ? 1 : 0;
-                    const targetIndex = idx + offset;
+                    // Adicionamos as páginas dos resultados similares.
+                    resultados.forEach((r, idx) => {
+                        const pageEmbed = new EmbedBuilder()
+                            .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
+                            .setColor("#212416")
+                            .setDescription(`<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`)
+                            .addFields(
+                                { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
+                                { name: "**UNIVERSO**", value: r.universo ?? "—" },
+                                { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
+                                { name: "**JOGADOR**", value: r.jogador ?? "—" }
+                            );
+                        pages.push(pageEmbed);
+                    });
                     
-                    EmbedPagesAparencia[targetIndex]
-                        .setDescription(
-                            `<:patrickconcern:1407564230256758855> | Resultado ${idx + 1}`
-                        )
-                        .addFields(
-                            { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
-                            { name: "**UNIVERSO**", value: r.universo ?? "—" },
-                            { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
-                            { name: "**JOGADOR**", value: r.jogador ?? "—" }
-                        )
-                        .setFooter({
-                            text: `Página ${targetIndex + 1}/${
-                                EmbedPagesAparencia.length
-                            } - ⏩ = proxima página | ⏪ = página anterior | ❌ = cancelar busca`,
-                        });
-                });
+                    // A lógica de paginação abaixo é a mesma da versão anterior,
+                    // mas agora ela é acionada no momento correto.
+                    pages.forEach((embed, idx) => {
+                        embed.setFooter({ text: `Página ${idx + 1}/${pages.length}` });
+                    });
 
-                const navRow = (idx) => {
-                    const components = [
-                        new ButtonBuilder()
-                            .setCustomId("prev_ap")
-                            .setLabel("⏪")
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(idx === 0),
-                        new ButtonBuilder()
-                            .setCustomId("next_ap")
-                            .setLabel("⏩")
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(idx === EmbedPagesAparencia.length - 1),
-                        new ButtonBuilder()
-                            .setCustomId("close_ap")
-                            .setLabel("❌")
-                            .setStyle(ButtonStyle.Danger)
-                    ];
+                    let page = 0;
 
-                    if (idx === 0 && !exactMatchFound) {
+                    const navRow = (idx) => {
+                        if (idx === 0) { // A primeira página é sempre a de registro
+                            return new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId("sim_ap").setLabel("SIM").setStyle(ButtonStyle.Success),
+                                new ButtonBuilder().setCustomId("nao_ap").setLabel("NÃO").setStyle(ButtonStyle.Danger)
+                            );
+                        }
+                        
                         return new ActionRowBuilder().addComponents(
-                            new ButtonBuilder()
-                                .setCustomId("sim_ap")
-                                .setLabel("SIM")
-                                .setStyle(ButtonStyle.Success),
-                            new ButtonBuilder()
-                                .setCustomId("nao_ap")
-                                .setLabel("NÃO")
-                                .setStyle(ButtonStyle.Danger)
+                            new ButtonBuilder().setCustomId("prev_ap").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 1),
+                            new ButtonBuilder().setCustomId("next_ap").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === pages.length - 1),
+                            new ButtonBuilder().setCustomId("close_ap").setLabel("❌").setStyle(ButtonStyle.Danger)
                         );
-                    }
+                    };
 
-                    return new ActionRowBuilder().addComponents(...components);
-                };
+                    await msgNavegacao.edit({ embeds: [pages[page]], components: [navRow(page)] }).catch(() => {});
 
-                await msgNavegacao
-                    .edit({
-                        embeds: [EmbedPagesAparencia[page]],
-                        components: [navRow(page)],
-                    })
-                    .catch(() => {});
+                    const navCollector = msgNavegacao.createMessageComponentCollector({ filter: (ii) => ii.user.id === message.author.id, time: 60000 });
 
-                const navCollector = msgNavegacao.createMessageComponentCollector({
-                    filter: (ii) => ii.user.id === message.author.id,
-                    time: 60000,
-                });
+                    navCollector.on("collect", async (ii) => {
+                        // A lógica do coletor permanece a mesma
+                        // ... (código do coletor da versão anterior)
+                        // (O código completo do coletor está incluído abaixo para facilitar o copiar e colar)
+                        switch (ii.customId) {
+                            case 'sim_ap':
+                                navCollector.stop();
+                                const formularioRegisto = new ModalBuilder().setCustomId("esqueletoFormularioRegistro").setTitle("Registro de Ficha");
+                                const campoNome = new TextInputBuilder().setCustomId("campoNome").setLabel("Nome da Aparência").setStyle(TextInputStyle.Short).setRequired(true).setValue(target);
+                                const campoUniverso = new TextInputBuilder().setCustomId("campoUniverso").setLabel("Universo de Origem").setStyle(TextInputStyle.Short).setRequired(true);
+                                const campoPersonagem = new TextInputBuilder().setCustomId("campoPersonagem").setLabel("Personagem do RPG").setStyle(TextInputStyle.Short).setRequired(true);
+                                formularioRegisto.addComponents(new ActionRowBuilder().addComponents(campoNome), new ActionRowBuilder().addComponents(campoUniverso), new ActionRowBuilder().addComponents(campoPersonagem));
+                                await ii.showModal(formularioRegisto);
+                                const filter = (modalInteraction) => modalInteraction.customId === 'esqueletoFormularioRegistro' && modalInteraction.user.id === ii.user.id;
+                                ii.awaitModalSubmit({ filter, time: 150000 })
+                                    .then(async (modalInteraction) => {
+                                        await modalInteraction.deferUpdate();
+                                        await msgNavegacao.edit({ components: [] }).catch(()=>{});
+                                        let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+                                        let argNome = await modalInteraction.fields.getTextInputValue("campoNome");
+                                        let argUniverso = await modalInteraction.fields.getTextInputValue("campoUniverso");
+                                        let argPersonagem = await modalInteraction.fields.getTextInputValue("campoPersonagem");
+                                        let argJogador = await userDb.jogador;
+                                        const res = await sheets.spreadsheets.values.get({ spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo", range: "A:D" });
+                                        const rows = res.data.values || [];
+                                        let i = 0;
+                                        for (i = 0; i < rows.length; i++) { if (!rows[i][0]) break; }
+                                        const path = require("path");
+                                        const keyFilePath = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
+                                        let authUp = new google.auth.GoogleAuth({ keyFile: keyFilePath, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
+                                        let sheetsUp = google.sheets({ version: "v4", auth: authUp });
+                                        await sheetsUp.spreadsheets.values.update({
+                                            spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                                            range: `INDIVIDUAIS!A${i + 1}:D${i + 1}`,
+                                            valueInputOption: "USER_ENTERED",
+                                            resource: { majorDimension: "ROWS", values: [[argNome, argUniverso, argPersonagem, argJogador]] },
+                                        });
+                                        message.reply({ content: `<a:cat_dance:1409062402288521266> | A aparência ${argNome} do universo de ${argUniverso} foi registrada com sucesso para o personagem ${argPersonagem} em nome de ${argJogador}` });
+                                        logs.AparenciaRegistrada(message, userDb, argNome, argUniverso, argPersonagem, sChannel);
+                                    })
+                                    .catch(err => {
+                                        if (err.code !== 'InteractionCollectorError') console.error("Erro ao processar modal de registro:", err);
+                                        msgNavegacao.delete().catch(() => {});
+                                    });
+                                break;
+                            case 'nao_ap':
+                                page = 1;
+                                await ii.update({ embeds: [pages[page]], components: [navRow(page)] }).catch(() => {});
+                                break;
+                            case 'prev_ap':
+                                page = Math.max(1, page - 1); // Não deixa voltar para a página 0
+                                await ii.update({ embeds: [pages[page]], components: [navRow(page)] }).catch(() => {});
+                                break;
+                            case 'next_ap':
+                                page = Math.min(pages.length - 1, page + 1);
+                                await ii.update({ embeds: [pages[page]], components: [navRow(page)] }).catch(() => {});
+                                break;
+                            case 'close_ap':
+                                navCollector.stop("closed");
+                                break;
+                        }
+                    });
 
-                navCollector.on("collect", async (ii) => {
-                    switch (ii.customId) {
-                        case 'sim_ap':
- 
-                            const formularioRegisto = new ModalBuilder()
-                            .setCustomId("esqueletoFormularioRegistro")
-                            .setTitle("Registro de Ficha");
-                            const campoNome = new TextInputBuilder()
-                                .setCustomId("campoNome")
-                                .setLabel("Nome da Aparência")
-                                .setStyle(TextInputStyle.Short)
-                                .setRequired(true);
-                            const campoUniverso = new TextInputBuilder()
-                                .setCustomId("campoUniverso")
-                                .setLabel("Universo de Origem")
-                                .setStyle(TextInputStyle.Short)
-                                .setRequired(true);
-                            const campoPersonagem = new TextInputBuilder()
-                                .setCustomId("campoPersonagem")
-                                .setLabel("Personagem do RPG")
-                                .setStyle(TextInputStyle.Short)
-                                .setRequired(true);
-                            const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
-                            const actionRowUniverso = new ActionRowBuilder().addComponents(campoUniverso);
-                            const actionRowPersonagem = new ActionRowBuilder().addComponents(campoPersonagem);
-                            formularioRegisto.addComponents(actionRowNome, actionRowUniverso, actionRowPersonagem);
-
-                            await ii.showModal(formularioRegisto).catch(() => {});
-
-                            const filter = (modalInteraction) => modalInteraction.customId === "esqueletoFormularioRegistro" && modalInteraction.user.id === ii.user.id; 
-                            
-                            ii.awaitModalSubmit({ filter, time: 150000 }).then(async (modalInteraction) => {
-                                await modalInteraction.deferUpdate();
-
-                                const argNome = modalInteraction.fields.getTextInputValue("campoNome");
-                                const argUniverso = modalInteraction.fields.getTextInputValue("campoUniverso");
-                                const argPersonagem = modalInteraction.fields.getTextInputValue("campoPersonagem");
-                                const userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
-                                const argJogador = userDb.jogador;
-
-                                /* #region   ACHJAR LINHA VAZIA*/
-                                const res = await sheets.spreadsheets.values.get({
-                                spreadsheetId:
-                                    "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-                                range: "A:D",
-                                });
-                                const rows = res.data.values || [];
-                                let i = 0;
-                                for (i = 0; i < rows.length; i++) {
-                                if (!rows[i][0]) break;
-                                }
-                                const path = require("path");
-                                const keyFilePath = path.join(
-                                __dirname,
-                                "../../api/regal-primacy-233803-4fc7ea1a8a5a.json"
-                                );
-
-                                let authUp = new google.auth.GoogleAuth({
-                                keyFile: keyFilePath,
-                                scopes: [
-                                    "https://www.googleapis.com/auth/spreadsheets",
-                                ], // Escopo para ler e escrever
-                                });
-                                let sheetsUp = google.sheets({
-                                version: "v4",
-                                auth: authUp,
-                                });
-
-                                await sheetsUp.spreadsheets.values.update({
-                                spreadsheetId:
-                                    "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-                                range: `INDIVIDUAIS!A${i + 1}:D${i + 1}`,
-                                valueInputOption: "USER_ENTERED",
-                                resource: {
-                                    majorDimension: "ROWS",
-                                    values: [
-                                    [argNome, argUniverso, argPersonagem, argJogador],
-                                    ],
-                                },
-                                });
-                                /* #endregion */
-
-                                message.reply({
-                                content: `<a:cat_dance:1409062402288521266> | A aparência ${argNome} do universo de ${argUniverso} foi registrada com sucesso para o personagem ${argPersonagem} em nome de ${argJogador}`,
-                                });
-
-                                logs.AparenciaRegistrada(message,userDb,argNome,argUniverso,argPersonagem,sChannel);
-
-                            }).catch(err => {
-                                console.error("Erro ao enviar modal:", err);
-                            });
-                            break;
-                        case 'nao_ap':
-                            page = 1; 
-                            await msgNavegacao.edit({
-                                embeds: [EmbedPagesAparencia[page]],
-                                components: [navRow(page)],
-                            }).catch(() => {});
-                            break;
-                        case 'prev_ap':
-                            page = Math.max(0, page - 1);
-                            await msgNavegacao.edit({
-                                embeds: [EmbedPagesAparencia[page]],
-                                components: [navRow(page)],
-                            }).catch(() => {});
-                            break;
-                        case 'next_ap':
-                            page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
-                            await msgNavegacao.edit({
-                                embeds: [EmbedPagesAparencia[page]],
-                                components: [navRow(page)],
-                            }).catch(() => {});
-                            break;
-                        case 'close_ap':
-                            navCollector.stop("closed");
+                    navCollector.on("end", async (collected, reason) => {
+                        if (reason === "closed") {
                             await msgNavegacao.delete().catch(() => {});
-                            message.reply({
-                                content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**",
-                            }).catch(() => {});
-                            break;
-                    }
-                });
-
-                navCollector.on("end", async (collected, reason) => {
-                    if (reason === "closed") return;
-                    await msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
-                });
-            }        
-        }) //coletorAparencia
+                            message.reply({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
+                        } else {
+                            await msgNavegacao.edit({ components: [] }).catch(() => {});
+                        }
+                    });
+                }
+            }
+        });
 
         coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
