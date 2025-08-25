@@ -9,7 +9,7 @@ module.exports = class associar extends Command {
 		super(client, {
 			name: "associar",
 			category: "rpg",
-			aliases: ['ass', 'ac', 'registrar'],
+			aliases: ['ass', 'ac'],
 			UserPermission: [""],
 			clientPermission: null,
 			OnlyDevs: true,
