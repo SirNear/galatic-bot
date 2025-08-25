@@ -2,7 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const moment = require('moment')
 const color = require('../../api/colors.json')
-moment.locale("pt-BR");
+moment.updateLocale("pt-BR");
 
 
 module.exports = class emojiinfo extends Command {

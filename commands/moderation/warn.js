@@ -4,7 +4,7 @@ const error = require('../../api/error.js')
 const color = require('../../api/colors.json')
 const mongoose = require('mongoose')
 const moment = require('moment')
-moment.locale('pt-br')
+moment.updateLocale('pt-br')
 
 module.exports = class warn extends Command {
 	constructor(client) {
