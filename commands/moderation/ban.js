@@ -19,7 +19,7 @@ module.exports = class ban extends Command {
  async run({ message, args, client, server}) {
 	 
 	 
- if (!message.member.hasPermission('BAN_MEMBERS')) return error.Adm(message)
+ if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) return error.Adm(message)
 
      
      const embedh = new EmbedBuilder()
