@@ -20,7 +20,7 @@ module.exports = class ban extends Command {
   const mb = await message.guild.members.cache.get(message.author.id)
 	 
 	 
- if (!mb.permissions.has(PermissionsBitField.Flags.BanMembers)) return error.Adm(message)
+ if (!mb.permissions.has(Discord.PermissionsBitField.Flags.BanMembers)) return error.Adm(message)
 
      
      const embedh = new EmbedBuilder()
