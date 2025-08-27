@@ -280,9 +280,9 @@ module.exports = class MessageReceive {
         dono.send(embed);
       } //if bt
     } catch (err) {
-      if(err === !message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator) && message.guild.id === '930871020557062162') return
-      message.channel.send(`**ERRO:**\`${err}\``);
-      console.error(err.stack);
+        if(!message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator) && message.guild.id === '930871020557062162') return
+        message.channel.send(`**ERRO:**\`${err}\``);
+        console.error(err.stack);
     } //error try
   }
 };
