@@ -19,6 +19,7 @@ const API_KEY = "AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ";
 const sheets = google.sheets({ version: "v4", auth: API_KEY });
 const colors = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
+let intervalo, contador ;
 
 module.exports = class aparencia extends Command {
   constructor(client) {
@@ -249,6 +250,11 @@ const userDb = await this.client.database.userData.findById(`${message.author.gl
     ); //60s de espera
 
     coletorBotoesNavegacao.on("collect", async (i) => {
+
+      const tempoRestante = 15;
+      const sujeito = "enviar a aparência";
+      const msgAlvo = msgNavegacao;
+
       switch (i.customId) {
         case "botaoNavAparencia":
             /* #region  embedAparencia */
@@ -268,15 +274,13 @@ const userDb = await this.client.database.userData.findById(`${message.author.gl
               .catch(() => {});
 
             /* #region  CONTADOR */
-            let tempoRestante = 15;
-            let sujeito = "enviar a aparência";
-            let msgAlvo = msgNavegacao;
-            let { intervalo, contador } = await iniciarContador(
+
+            ({intervalo, contador } = await iniciarContador(
               tempoRestante,
               sujeito,
               msgAlvo,
               message
-            );
+            ));
             /* #endregion */
 
             const coletorAparencia =
@@ -530,12 +534,12 @@ const userDb = await this.client.database.userData.findById(`${message.author.gl
             await msgNavegacao.edit({ embeds: [embedVerso], components: [] }).catch(() => {}); 
 
             /* #region contador */
-            intervalo, contador = await iniciarContador(
+            ({ intervalo, contador} = await iniciarContador(
               tempoRestante,
               sujeito,
               msgAlvo,
               message
-            );
+            ))
             /* #endregion */
 
             const coletorVerso = msgNavegacao.channel.createMessageCollector({
@@ -697,7 +701,7 @@ const userDb = await this.client.database.userData.findById(`${message.author.gl
             })
           
            coletorVerso.on("end", (collected, reason) => {
-            clearInterval(intervalV);
+            clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
               contadorV.edit({ content: "Tempo esgotado." }).catch(() => {});
             }
