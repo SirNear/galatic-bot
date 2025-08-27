@@ -17,9 +17,10 @@ module.exports = class ban extends Command {
 	}
   
  async run({ message, args, client, server}) {
+  const mb = await message.guild.members.cache.get(message.author.id)
 	 
 	 
- if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) return error.Adm(message)
+ if (!mb.permissions.has(PermissionsBitField.Flags.BanMembers)) return error.Adm(message)
 
      
      const embedh = new EmbedBuilder()
@@ -41,7 +42,7 @@ if (!member.bannable) return error.botLow(message)
 let reason = args.slice(1).join(' ');
 if(!reason) reason = "Sem motivo";
 
-  const mb = await message.guild.members.cache.get(message.author.id)
+  
   if(member == mb) return error.autoPuni(message)//tentar se punir
   if(mb.roles.highest.rawPosition < member.roles.highest.rawPosition) return error.highRole(message)
   if(mb.roles.highest.rawPosition == member.roles.highest.rawPosition) return error.equalRole(message)
