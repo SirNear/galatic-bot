@@ -1,6 +1,9 @@
 const { Discord, ModalBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, TextInputStyle, TextInputBuilder, fetchRecommendedShardCount } = require('discord.js');
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js')
+const color = require('../../api/colors.json')
+const contador = require('../../api/contador.js')
+const logs = require('../../api/logs.js')
 
 module.exports = class {nome do cmd} extends Command {
 	constructor(client) {
@@ -10,7 +13,8 @@ module.exports = class {nome do cmd} extends Command {
 			aliases: [''],
 			UserPermission: [""],
 			clientPermission: null,
-			OnlyDevs: false
+			OnlyDevs: false,
+			structure
 		})
 	}
   
