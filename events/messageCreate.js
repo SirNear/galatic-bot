@@ -1,4 +1,4 @@
-const { EmbedBuilder, Discord, ChannelType } = require("discord.js");
+const { EmbedBuilder, Discord, ChannelType, PermissionsBitField } = require("discord.js");
 const fetch = require("node-fetch");
 const axios = require("axios");
 const { handlePokemonType } = require("../api/typeTranslate.js");
@@ -280,7 +280,7 @@ module.exports = class MessageReceive {
         dono.send(embed);
       } //if bt
     } catch (err) {
-      if(err === !message.guild.members.me.permissions.has(Discord.PermissionsBitField.Flags.BanMembers) && message.guild.id === '930871020557062162') return
+      if(err === !message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers) && message.guild.id === '930871020557062162') return
       message.channel.send(`**ERRO:**\`${err}\``);
       console.error(err.stack);
     } //error try
