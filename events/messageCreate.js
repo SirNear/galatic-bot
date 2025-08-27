@@ -280,7 +280,7 @@ module.exports = class MessageReceive {
         dono.send(embed);
       } //if bt
     } catch (err) {
-      if(err === !message.guild.members.cache.get(this.client.user.id && message.))
+      if(err === !message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers) && message.guild.id === '930871020557062162') return
       message.channel.send(`**ERRO:**\`${err}\``);
       console.error(err.stack);
     } //error try
