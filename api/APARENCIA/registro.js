@@ -390,9 +390,18 @@ async function handleRegistro(
             // verifica se o uso registrado pelo usuario é maior que 0, então obriga a inserir aparências
             if (tipo === "verso" && parseFloat(args.argUso) > 0) {
               /* #region  FORMULARIO DE APARENCIAS JA USADAS */
+              let title = `Aparências usadas: ${args.argNome}`;
+              if (title.length > 45) {
+                const acronym = args.argNome
+                  .split(/\s+/)
+                  .map((word) => word.charAt(0))
+                  .join('');
+                title = `Aparências usadas: ${acronym}`;
+              }
+
               const formularioAparencias = new ModalBuilder() //formulário para registrar aparencia ja usadas
                 .setCustomId("formularioAparenciasVerso")
-                .setTitle(`Aparências já utilizadas do verso ${args.argNome}`);
+                .setTitle(title.slice(0, 45));
 
               const idParaInput = config.customIdAParenciasUsadas;
               if (typeof idParaInput !== 'string') {
