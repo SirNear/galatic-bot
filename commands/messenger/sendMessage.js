@@ -237,8 +237,13 @@ async run({ message, args, client, server}) {
 				message.channel.send({ content: 've se ta logado ai chefe', files: ['./paginamain2.png'] });
 
 				setTimeout(async () => {
-				await page.screenshot({ path: 'resultadofinal.png' });
-				message.channel.send({ content: 'olha como tá chefe', files: ['./resultadofinal.png'] });
+				  await page.screenshot({ path: 'resultadofinal.png' });
+				  message.channel.send({ content: 'olha como tá chefe', files: ['./resultadofinal.png'] });
+
+          await page.keyboard.press('Tab');
+          await page.keyboard.press('Enter');
+          await page.screenshot({ path: 'final.png' });
+          message.channel.send({ content: 'final', files: ['./final.png'] });
 			
 				}, 10000)
 			} catch (error) {
