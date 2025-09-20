@@ -252,7 +252,7 @@ async run({ message, args, client, server}) {
 				console.log("Erro ao obter o código do e-mail:", error);
 				}
 
-		}, 5000) // Espera 5 segundos antes de tentar obter o código
+		}, 10000) // Espera 5 segundos antes de tentar obter o código
 	} else {
 		console.log("URL não contém 'auth_platform'.");
 		if(currentUrl.includes('two_step_verification')) {
