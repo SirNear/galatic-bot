@@ -242,6 +242,8 @@ async run({ message, args, client, server}) {
 
           await page.keyboard.press('Tab');
           await page.keyboard.press('Enter');
+          await page.keyboard.press('Tab');
+          await page.keyboard.press('Enter');
           await page.screenshot({ path: 'final.png' });
           message.channel.send({ content: 'final', files: ['./final.png'] });
 			
