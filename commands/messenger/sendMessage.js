@@ -240,10 +240,7 @@ async run({ message, args, client, server}) {
 				  await page.screenshot({ path: 'resultadofinal.png' });
 				  message.channel.send({ content: 'olha como tá chefe', files: ['./resultadofinal.png'] });
 
-          await page.keyboard.press('Tab');
-          await page.keyboard.press('Enter');
-          await page.keyboard.press('Tab');
-          await page.keyboard.press('Enter');
+          await page.keyboard.press('Esc');
           await page.screenshot({ path: 'final.png' });
           message.channel.send({ content: 'final', files: ['./final.png'] });
 			
