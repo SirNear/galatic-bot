@@ -96,11 +96,11 @@ let fichaHabilidades = new mongoose.Schema({
 })
 
 let reactionRole = new mongoose.Schema({
-	_id: {type: String},
-	messageId: {type: String, required: true},
-	emoji: {type: String, required: true},
-	roleId: {type: String, required: true}, // Mudado de 'role' para 'roleId'
-	guildId: {type: String, required: true} // Adicionado guildId
+    _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    messageId: { type: String, required: true },
+    emoji: { type: String, required: true },
+    roleId: { type: String, required: true },
+    guildId: { type: String, required: true }
 })
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)

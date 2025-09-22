@@ -99,42 +99,71 @@ module.exports = class reactionRole extends Command {
 
   /* #region  SLASH COMMAND */
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    
     const subcommand = interaction.options.getSubcommand();
-    const messageId = interaction.options.getString("message_id");
-    const emoji = interaction.options.getString("emoji");
+    const messageId = interaction.options.getString('message_id');
+    const emoji = interaction.options.getString('emoji');
 
-    if (subcommand === "adicionar") {
-      const role = interaction.options.getRole("role");
-      await this.funcaoAdicionar(interaction, messageId, role, emoji);
-    } else if (subcommand === "remover") {
-      await this.funcaoRemover(interaction, messageId, emoji);
+    if (subcommand === 'adicionar') {
+        const role = interaction.options.getRole('role');
+        await this.funcaoAdicionar(interaction, messageId, role, emoji);
+    } else if (subcommand === 'remover') {
+        await this.funcaoRemover(interaction, messageId, emoji);
     }
-  }
+}
   /* #endregion */
 
   /* #region  FUNÇÕES BACK-END */
   async funcaoAdicionar(context, messageId, role, emoji) {
     if (!messageId || !role || !emoji) {
-        return error.msg(context, "Todos os argumentos são necessários.");
+        const errorEmbed = new EmbedBuilder()
+            .setColor(color.red)
+            .setDescription("❌ Todos os argumentos são necessários.");
+        
+        if (context.reply) {
+            await context.reply({ embeds: [errorEmbed], ephemeral: true });
+        } else {
+            await context.channel.send({ embeds: [errorEmbed] });
+        }
+        return;
     }
 
     try {
         const targetMessage = await findMessage(context.guild, messageId);
         if (!targetMessage) {
-            return error.msg(context, "Mensagem não encontrada.");
+            const errorEmbed = new EmbedBuilder()
+                .setColor(color.red)
+                .setDescription("❌ Mensagem não encontrada.");
+            
+            if (context.reply) {
+                await context.reply({ embeds: [errorEmbed], ephemeral: true });
+            } else {
+                await context.channel.send({ embeds: [errorEmbed] });
+            }
+            return;
         }
 
-        // Verifica se já existe uma regra com esse emoji nessa mensagem
+        // Verifica se já existe
         const existingRule = await this.client.database.reactionRoles.findOne({
             messageId,
             emoji
         });
 
         if (existingRule) {
-            return error.msg(context, "Já existe uma regra com esse emoji nessa mensagem.");
+            const errorEmbed = new EmbedBuilder()
+                .setColor(color.red)
+                .setDescription("❌ Já existe uma regra com esse emoji nessa mensagem.");
+            
+            if (context.reply) {
+                await context.reply({ embeds: [errorEmbed], ephemeral: true });
+            } else {
+                await context.channel.send({ embeds: [errorEmbed] });
+            }
+            return;
         }
 
-        // Salva com guildId e roleId corretos
+        // Cria novo documento
         await this.client.database.reactionRoles.create({
             messageId,
             emoji,
@@ -142,6 +171,7 @@ module.exports = class reactionRole extends Command {
             guildId: context.guild.id
         });
 
+        // Adiciona a reação
         await targetMessage.react(emoji);
 
         const successEmbed = new EmbedBuilder()
@@ -149,10 +179,23 @@ module.exports = class reactionRole extends Command {
             .setTitle("✅ Cargo por reação adicionado!")
             .setDescription(`Reagir com ${emoji} dará o cargo **${role.name}**`);
 
-        await context.reply({ embeds: [successEmbed], ephemeral: true });
+        if (context.reply) {
+            await context.reply({ embeds: [successEmbed], ephemeral: true });
+        } else {
+            await context.channel.send({ embeds: [successEmbed] });
+        }
+
     } catch (err) {
         console.error("Erro ao adicionar Reaction Role:", err);
-        return error.msg(context, `Erro ao salvar a reação: \`${err}\``);
+        const errorEmbed = new EmbedBuilder()
+            .setColor(color.red)
+            .setDescription(`❌ Erro ao salvar a reação: ${err.message}`);
+        
+        if (context.reply) {
+            await context.reply({ embeds: [errorEmbed], ephemeral: true });
+        } else {
+            await context.channel.send({ embeds: [errorEmbed] });
+        }
     }
 }
 
