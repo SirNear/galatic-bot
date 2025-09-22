@@ -278,7 +278,7 @@ module.exports = class ficha extends Command {
 
                     try {
                         // Salva a ficha no banco
-                        await this.client.database.Ficha.save({
+                        await this.client.database.Ficha.create({
                             _id: `${message.author.id}_${message.guild.id}`,
                             userId: message.author.id,
                             guildId: message.guild.id,
