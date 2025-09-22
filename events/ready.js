@@ -42,73 +42,11 @@ module.exports = class {
                         const message = await findMessage(guild, rule.messageId);
                         if (!message) continue;
 
-                        // Remove collectors antigos se existirem
-                        const existingCollector = message.client.collectors?.get(message.id);
-                        if (existingCollector) {
-                            existingCollector.stop();
-                        }
-
-                        // Cria novo collector
-                        const filter = (reaction, user) => !user.bot;
-                        const collector = message.createReactionCollector({ filter });
-
-                        collector.on('collect', async (reaction, user) => {
-                            try {
-                                // Encontra a regra para este emoji
-                                const matchingRule = await this.client.database.reactionRoles.findOne({
-                                    messageId: message.id,
-                                    emoji: reaction.emoji.toString()
-                                });
-
-                                if (!matchingRule) return;
-
-                                const role = message.guild.roles.cache.get(matchingRule.roleId);
-                                if (!role) return;
-
-                                const member = await message.guild.members.fetch(user.id);
-                                if (!member) return;
-
-                                await member.roles.add(role);
-                                console.log(`✅ Cargo ${role.name} adicionado para ${user.tag}`);
-                            } catch (err) {
-                                console.error('Erro ao adicionar cargo:', err);
-                            }
-                        });
-
-                        collector.on('remove', async (reaction, user) => {
-                            try {
-                                const matchingRule = await this.client.database.reactionRoles.findOne({
-                                    messageId: message.id,
-                                    emoji: reaction.emoji.toString()
-                                });
-
-                                if (!matchingRule) return;
-
-                                const role = message.guild.roles.cache.get(matchingRule.roleId);
-                                if (!role) return;
-
-                                const member = await message.guild.members.fetch(user.id);
-                                if (!member) return;
-
-                                await member.roles.remove(role);
-                                console.log(`🔄 Cargo ${role.name} removido de ${user.tag}`);
-                            } catch (err) {
-                                console.error('Erro ao remover cargo:', err);
-                            }
-                        });
-
-                        // Armazena o collector para referência futura
-                        if (!message.client.collectors) {
-                            message.client.collectors = new Map();
-                        }
-                        message.client.collectors.set(message.id, collector);
-
                         // Adiciona reação inicial se necessário
                         if (!message.reactions.cache.has(rule.emoji)) {
                             await message.react(rule.emoji);
+                            console.log(`✅ Reação ${rule.emoji} adicionada à mensagem ${rule.messageId}`);
                         }
-
-                        console.log(`✅ Reaction role configurada: ${rule.emoji} -> ${rule.roleId}`);
                     } catch (err) {
                         console.error(`Erro ao configurar reaction role:`, err);
                     }
