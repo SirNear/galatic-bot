@@ -33,30 +33,28 @@ module.exports = class {
     // Novo método para configurar reaction roles
     async setupReactionRoles() {
         try {
-            // Aguarda a conexão com o banco de dados
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
             if (!this.client.database?.ReactionRoles) {
                 console.log('⚠️ Sistema de reaction roles não inicializado.');
                 return;
             }
 
             const rules = await this.client.database.ReactionRoles.find({}).exec();
-            console.log(`🎭 Carregando ${rules?.length || 0} reaction roles...`);
+            
+            // Remove log de carregamento de rules
+            if (rules?.length > 0) {
+                for (const guild of this.client.guilds.cache.values()) {
+                    for (const rule of rules) {
+                        try {
+                            const message = await findMessage(guild, rule.messageId);
+                            if (!message) continue;
 
-            for (const guild of this.client.guilds.cache.values()) {
-                for (const rule of rules) {
-                    try {
-                        const message = await findMessage(guild, rule.messageId);
-                        if (!message) continue;
-
-                        // Adiciona reação inicial se necessário
-                        if (!message.reactions.cache.has(rule.emoji)) {
-                            await message.react(rule.emoji);
-                            console.log(`✅ Reação ${rule.emoji} adicionada à mensagem ${rule.messageId}`);
+                            // Adiciona reação sem log
+                            if (!message.reactions.cache.has(rule.emoji)) {
+                                await message.react(rule.emoji);
+                            }
+                        } catch (err) {
+                            console.error(`Erro ao configurar reaction role:`, err);
                         }
-                    } catch (err) {
-                        console.error(`Erro ao configurar reaction role:`, err);
                     }
                 }
             }

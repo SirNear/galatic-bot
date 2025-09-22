@@ -92,6 +92,7 @@ const habilidadeSchema = new mongoose.Schema({
 });
 
 const fichaSchema = new mongoose.Schema({
+    _id: { type: String }, // Será userId_nome do personagem
     userId: { type: String, required: true },
     guildId: { type: String, required: true },
     nome: { type: String, required: true },
@@ -100,9 +101,6 @@ const fichaSchema = new mongoose.Schema({
     aparencia: { type: String, required: true },
     habilidades: [habilidadeSchema]
 });
-
-// Adiciona índice composto único
-fichaSchema.index({ userId: 1, guildId: 1 }, { unique: true });
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg

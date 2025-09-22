@@ -101,8 +101,22 @@ module.exports = class {
             const reino = interaction.fields.getTextInputValue('campoReino');
             const aparencia = interaction.fields.getTextInputValue('campoAparencia');
 
+            // Cria ID único com nome do personagem
+            const fichaId = `${interaction.user.id}_${nome.toLowerCase().replace(/\s+/g, '_')}`;
+
+            // Verifica se já existe personagem com mesmo nome
+            const existingFicha = await this.client.database.Ficha.findById(fichaId);
+
+            if (existingFicha) {
+                return interaction.reply({
+                    content: '❌ Você já possui um personagem com este nome!',
+                    flags: 64
+                });
+            }
+
             try {
                 await this.client.database.Ficha.create({
+                    _id: fichaId,
                     userId: interaction.user.id,
                     guildId: interaction.guild.id,
                     nome,
@@ -144,20 +158,21 @@ module.exports = class {
 
             } catch (err) {
                 if (err.code === 11000) {
-                    await interaction.reply({
-                        content: '❌ Você já possui uma ficha registrada!',
+                    return interaction.reply({
+                        content: '❌ Erro ao criar ficha: Nome de personagem já existe!',
                         flags: 64
                     });
-                } else {
-                    throw err;
                 }
+                throw err;
             }
         } catch (err) {
             console.error('Erro ao criar ficha:', err);
-            await interaction.reply({
-                content: 'Ocorreu um erro ao criar a ficha!',
-                flags: 64
-            });
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: 'Ocorreu um erro ao criar a ficha!',
+                    flags: 64
+                });
+            }
         }
     }
 

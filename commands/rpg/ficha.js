@@ -7,6 +7,7 @@ const {
   TextInputStyle,
   TextInputBuilder,
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
 } = require("discord.js");
 const Command = require("../../structures/Command");
 const color = require("../../api/colors.json");
@@ -63,22 +64,10 @@ module.exports = class ficha extends Command {
         const subcommand = interaction.options.getSubcommand();
 
         if (subcommand === 'criar') {
-            // Verifica se já existe ficha
-            const existingFicha = await this.client.database.Ficha.findOne({
-                userId: interaction.user.id,
-                guildId: interaction.guild.id
-            });
-
-            if (existingFicha) {
-                return interaction.reply({
-                    content: '❌ Você já possui uma ficha registrada!',
-                    flags: 64 // EPHEMERAL
-                });
-            }
-
+            // Remove verificação de ficha existente
             const modal = new ModalBuilder()
                 .setCustomId('fichaCreate')
-                .setTitle('Criar Ficha de Personagem');
+                .setTitle('Criar Nova Ficha de Personagem');
 
             let campoNome = new TextInputBuilder()
               .setCustomId("campoNome")
@@ -120,15 +109,48 @@ module.exports = class ficha extends Command {
             );
 
             return interaction.showModal(modal);
-        }
+        } else if (subcommand === 'habilidade') {
+            // Adiciona opção para selecionar personagem
+            const personagens = await this.client.database.Ficha.find({
+                userId: interaction.user.id,
+                guildId: interaction.guild.id
+            });
 
-        // ... outros subcommands ...
+            if (personagens.length === 0) {
+                return interaction.reply({
+                    content: '❌ Você não possui nenhuma ficha registrada!',
+                    flags: 64
+                });
+            }
+
+            // Cria select menu com personagens
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new StringSelectMenuBuilder()
+                        .setCustomId('selecionar_personagem')
+                        .setPlaceholder('Selecione um personagem')
+                        .addOptions(
+                            personagens.map(p => ({
+                                label: p.nome,
+                                value: p._id
+                            }))
+                        )
+                );
+
+            await interaction.reply({
+                content: 'Selecione o personagem para adicionar a habilidade:',
+                components: [row],
+                flags: 64
+            });
+        }
     } catch (err) {
         console.error('Erro no comando ficha:', err);
-        return interaction.reply({
-            content: 'Ocorreu um erro ao executar este comando!',
-            flags: 64
-        });
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: 'Ocorreu um erro ao executar este comando!',
+                flags: 64
+            });
+        }
     }
   }
 
