@@ -43,19 +43,9 @@ module.exports = class ficha extends Command {
             .setName("habilidade")
             .setDescription("Adiciona uma habilidade à ficha")
             .addStringOption((opt) =>
-              opt
-                .setName("categoria")
-                .setDescription("Categoria da habilidade")
-                .setRequired(true)
-                .addChoices(
-                  { name: "Mágica", value: "magica" },
-                  { name: "Física", value: "fisica" },
-                  { name: "Passiva", value: "passiva" },
-                  { name: "Sagrada", value: "sagrada" },
-                  { name: "Amaldiçoada", value: "amaldicoada" },
-                  { name: "Haki", value: "haki" },
-                  { name: "Outra", value: "outra" }
-                )
+                opt.setName("categoria")
+                    .setDescription("Mágica, Física, Passiva, Sagrada, Amaldiçoada, Haki, Outra (digite)")
+                    .setRequired(true)
             )
         );
     }
@@ -113,7 +103,8 @@ module.exports = class ficha extends Command {
       const aparenciaInput = new TextInputBuilder()
         .setCustomId("campoAparencia")
         .setLabel("Aparência")
-        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder("Nome da Aparência 1, Universo de Origem 1\nNome da Aparência 2, Universo de Origem 2")
+        .setStyle(TextInputStyle.Paragraph) 
         .setRequired(true);
 
       modal.addComponents(
@@ -134,56 +125,75 @@ module.exports = class ficha extends Command {
   }
 
   async handleHabilidadeAdd(interaction) {
-    const categoria = interaction.options.getString("categoria");
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('select_sub_habilidades')
+      .setPlaceholder('Quantas sub-habilidades você quer adicionar?')
+      .addOptions([
+        { label: 'Nenhuma', value: '0' },
+        { label: '1 Sub-habilidade', value: '1' },
+        { label: '2 Sub-habilidades', value: '2' },
+        { label: '3 Sub-habilidades', value: '3' },
+        { label: '4 Sub-habilidades', value: '4' },
+        { label: '5 Sub-habilidades', value: '5' },
+      ]);
 
-    const modal = new ModalBuilder()
-      .setCustomId(`habilidade_${categoria}`)
-      .setTitle(
-        `Nova Habilidade ${
-          categoria.charAt(0).toUpperCase() + categoria.slice(1)
-        }`
-      );
+    const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    const nomeInput = new TextInputBuilder()
-      .setCustomId("nomeHabilidade") // Mudar de 'nome' para 'nomeHabilidade'
-      .setLabel("Nome da Habilidade")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+    const msg = await interaction.reply({
+      content: 'Selecione o número de sub-habilidades para a nova habilidade.',
+      components: [row],
+      ephemeral: true,
+      fetchReply: true,
+    });
 
-    const descricaoInput = new TextInputBuilder()
-      .setCustomId("descricaoHabilidade") // Mudar de 'descricao' para 'descricaoHabilidade'
-      .setLabel("Descrição (max 1000 caracteres)")
-      .setStyle(TextInputStyle.Paragraph)
-      .setMaxLength(1000)
-      .setRequired(true);
+    const collector = msg.createMessageComponentCollector({
+      filter: i => i.user.id === interaction.user.id && i.customId === 'select_sub_habilidades',
+      time: 60000,
+    });
 
-    const subHabilidade1 = new TextInputBuilder()
-      .setCustomId("subHabilidade1")
-      .setLabel("Sub-habilidade 1 (opcional)")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+    collector.on('collect', async i => {
+      const numSubHabilidades = parseInt(i.values[0], 10);
+      const categoria = interaction.options.getString("categoria");
 
-    const subHabilidade2 = new TextInputBuilder()
-      .setCustomId("subHabilidade2")
-      .setLabel("Sub-habilidade 2 (opcional)")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+      const modal = new ModalBuilder()
+        .setCustomId(`habilidade_${categoria}`)
+        .setTitle(`Nova Habilidade: ${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
 
-    const prerequisito = new TextInputBuilder()
-      .setCustomId("prerequisito")
-      .setLabel("Pré-requisitos (opcional)")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false);
+      const nomeInput = new TextInputBuilder()
+        .setCustomId("nomeHabilidade")
+        .setLabel("Nome da Habilidade")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(nomeInput),
-      new ActionRowBuilder().addComponents(descricaoInput),
-      new ActionRowBuilder().addComponents(subHabilidade1),
-      new ActionRowBuilder().addComponents(subHabilidade2),
-      new ActionRowBuilder().addComponents(prerequisito)
-    );
+      const descricaoInput = new TextInputBuilder()
+        .setCustomId("descricaoHabilidade")
+        .setLabel("Descrição (max 1000 caracteres)")
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
 
-    await interaction.showModal(modal);
+      modal.addComponents(new ActionRowBuilder().addComponents(nomeInput), new ActionRowBuilder().addComponents(descricaoInput));
+
+      for (let j = 1; j <= numSubHabilidades; j++) {
+        const subHabilidadeInput = new TextInputBuilder()
+          .setCustomId(`subHabilidade${j}`)
+          .setLabel(`Sub-habilidade ${j}`)
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(false);
+        modal.addComponents(new ActionRowBuilder().addComponents(subHabilidadeInput));
+      }
+
+      await i.showModal(modal);
+      collector.stop();
+    });
+
+    collector.on('end', (collected, reason) => {
+      if (collected.size === 0) {
+        interaction.editReply({ content: 'Tempo esgotado.', components: [] }).catch(() => {});
+      } else {
+        interaction.editReply({ content: 'Modal aberto!', components: [] }).catch(() => {});
+      }
+    });
   }
 
   //seletor de fichas
@@ -375,13 +385,7 @@ module.exports = class ficha extends Command {
         .setColor("Purple")
         .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
         .setDescription(habilidade.descricao)
-        .addFields(
-          { name: "Categoria", value: habilidade.categoria, inline: true },
-          {
-            name: "Pré-requisitos",
-            value: habilidade.prerequisito || "Nenhum",
-            inline: true,
-          },
+        .addFields({ name: "Categoria", value: habilidade.categoria, inline: true },
           ...habilidade.subHabilidades.map((sub, index) => ({
             name: `Sub-habilidade ${index + 1}`,
             value: sub.descricao,

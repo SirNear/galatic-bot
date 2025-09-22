@@ -88,8 +88,7 @@ const habilidadeSchema = new mongoose.Schema({
     subHabilidades: [{
         nome: { type: String },
         descricao: { type: String }
-    }],
-    prerequisito: { type: String } // Adicionado
+    }]
 });
 
 const fichaSchema = new mongoose.Schema({
@@ -103,6 +102,9 @@ const fichaSchema = new mongoose.Schema({
     habilidades: [habilidadeSchema],
     createdAt: { type: Date, default: Date.now } // Adiciona timestamp
 });
+
+// Evita a criação automática de um índice único em userId e guildId
+fichaSchema.index({ userId: 1, guildId: 1 }, { unique: false });
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg

@@ -186,10 +186,15 @@ module.exports = class {
 
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
-            const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
-            const sub1 = interaction.fields.getTextInputValue('subHabilidade1');
-            const sub2 = interaction.fields.getTextInputValue('subHabilidade2');
-            const prerequisito = interaction.fields.getTextInputValue('prerequisito');
+            const descricao = interaction.fields.getTextInputValue('descricaoHabilidade'); 
+            
+            const subHabilidades = [];
+            for (let i = 1; i <= 5; i++) {
+                const sub = interaction.fields.getTextInputValue(`subHabilidade${i}`).catch(() => null);
+                if (sub) {
+                    subHabilidades.push({ nome: `Sub ${i}`, descricao: sub });
+                }
+            }
 
             // Busca todas as fichas do usuário para ele escolher a qual adicionar
             const fichasDoUsuario = await this.client.database.Ficha.find({ 
@@ -226,11 +231,7 @@ module.exports = class {
                 nome,
                 descricao,
                 categoria: categoria, // Já está em minúsculo
-                subHabilidades: [
-                    ...(sub1 ? [{ nome: 'Sub 1', descricao: sub1 }] : []),
-                    ...(sub2 ? [{ nome: 'Sub 2', descricao: sub2 }] : [])
-                ],
-                prerequisito: prerequisito || null
+                subHabilidades: subHabilidades
             });
 
             await ficha.save();
@@ -241,17 +242,13 @@ module.exports = class {
                 .setDescription(`Habilidade **${nome}** adicionada à ficha de **${ficha.nome}**.`)
                 .addFields(
                     { name: 'Categoria', value: categoria, inline: true },
-                    { name: 'Descrição', value: descricao },
-                    { name: 'Pré-requisitos', value: prerequisito || 'Nenhum' }
+                    { name: 'Descrição', value: descricao }
                 );
 
-            if (sub1 || sub2) {
+            if (subHabilidades.length > 0) {
                 embed.addFields({
                     name: 'Sub-habilidades',
-                    value: [
-                        sub1 ? `1. ${sub1}` : '',
-                        sub2 ? `2. ${sub2}` : ''
-                    ].filter(Boolean).join('\n')
+                    value: subHabilidades.map((sub, index) => `${index + 1}. ${sub.descricao}`).join('\n')
                 });
             }
 
