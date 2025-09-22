@@ -71,34 +71,28 @@ module.exports = class GalaticClient extends Client {
 
     // Adiciona método para registrar slash commands no Discord
     async registerSlashCommands() {
-        const { REST, Routes } = require('discord.js');
-        const rest = new REST({ version: '10' }).setToken(config.token);
-
         try {
             console.log('Iniciando registro de slash commands...');
-
+            
             const commands = [];
             this.slashCommands.forEach(command => {
-                commands.push(command.data.toJSON());
+                if (command.data) {
+                    commands.push(command.data.toJSON());
+                    console.log(`📝 Preparando comando: ${command.config.name}`);
+                }
             });
 
-            // Registra globalmente em vez de em um servidor específico
-            const data = await rest.put(
+            const { REST, Routes } = require('discord.js');
+            const rest = new REST({ version: '10' }).setToken(this.token);
+
+            await rest.put(
                 Routes.applicationCommands(this.user.id),
-                { body: commands },
+                { body: commands }
             );
 
-            console.log(`✅ ${data.length} slash commands registrados com sucesso!`);
+            console.log(`✅ ${commands.length} slash commands registrados com sucesso!`);
         } catch (error) {
             console.error('Erro ao registrar slash commands:', error);
-            // Log mais detalhado do erro
-            if (error.code === 50001) {
-                console.log('\n⚠️ O bot precisa das seguintes permissões:');
-                console.log('1. applications.commands - Scope OAuth2');
-                console.log('2. Administrator ou Manage Server - Permissões do bot\n');
-                console.log('Reconvide o bot usando este link:');
-                console.log(`https://discord.com/api/oauth2/authorize?client_id=${this.user.id}&permissions=8&scope=bot%20applications.commands`);
-            }
         }
     }
 

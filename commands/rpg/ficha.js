@@ -315,63 +315,68 @@ module.exports = class ficha extends Command {
 
                     coletorHabilidades.on('collect', async (msg) => {
                         if (msg.content.toLowerCase() === 'sim') {
-                            // Cria modal de habilidades
-                            const modal = new ModalBuilder()
-                                .setCustomId('habilidade_inicial')
-                                .setTitle('Nova Habilidade');
-
-                            // Campos do modal
-                            const categoriaInput = new TextInputBuilder()
-                                .setCustomId('categoria')
-                                .setLabel('Categoria (mágica/física/passiva/etc)')
-                                .setStyle(TextInputStyle.Short)
-                                .setRequired(true);
-
-                            const nomeInput = new TextInputBuilder()
-                                .setCustomId('nome')
-                                .setLabel('Nome da Habilidade')
-                                .setStyle(TextInputStyle.Short)
-                                .setRequired(true);
-
-                            const descricaoInput = new TextInputBuilder()
-                                .setCustomId('descricao')
-                                .setLabel('Descrição (max 1000 caracteres)')
-                                .setStyle(TextInputStyle.Paragraph)
-                                .setMaxLength(1000)
-                                .setRequired(true);
-
-                            const subHabilidade1 = new TextInputBuilder()
-                                .setCustomId('sub1')
-                                .setLabel('Sub-habilidade 1 (opcional)')
-                                .setStyle(TextInputStyle.Paragraph)
-                                .setRequired(false);
-
-                            const subHabilidade2 = new TextInputBuilder()
-                                .setCustomId('sub2')
-                                .setLabel('Sub-habilidade 2 (opcional)')
-                                .setStyle(TextInputStyle.Paragraph)
-                                .setRequired(false);
-
-                            modal.addComponents(
-                                new ActionRowBuilder().addComponents(categoriaInput),
-                                new ActionRowBuilder().addComponents(nomeInput),
-                                new ActionRowBuilder().addComponents(descricaoInput),
-                                new ActionRowBuilder().addComponents(subHabilidade1),
-                                new ActionRowBuilder().addComponents(subHabilidade2)
-                            );
-
                             try {
-                                // Responde à mensagem original
-                                await msg.reply('Por favor, preencha os detalhes da habilidade:');
-                                
-                                // Mostra o modal
-                                if (msg.member) {
-                                    const interaction = await msg.member.createMessageComponentCollector();
-                                    await interaction.showModal(modal);
-                                }
+                                // Cria modal de habilidades
+                                const modal = new ModalBuilder()
+                                    .setCustomId('habilidade_inicial')
+                                    .setTitle('Nova Habilidade');
+
+                                // Campos do modal
+                                const categoriaInput = new TextInputBuilder()
+                                    .setCustomId('categoria')
+                                    .setLabel('Categoria da Habilidade')
+                                    .setStyle(TextInputStyle.Short)
+                                    .setRequired(true);
+
+                                const nomeInput = new TextInputBuilder()
+                                    .setCustomId('nome')
+                                    .setLabel('Nome da Habilidade')
+                                    .setStyle(TextInputStyle.Short)
+                                    .setRequired(true);
+
+                                const descricaoInput = new TextInputBuilder()
+                                    .setCustomId('descricao')
+                                    .setLabel('Descrição')
+                                    .setStyle(TextInputStyle.Paragraph)
+                                    .setRequired(true);
+
+                                const subHabilidade1 = new TextInputBuilder()
+                                    .setCustomId('sub1')
+                                    .setLabel('Sub-habilidade 1 (opcional)')
+                                    .setStyle(TextInputStyle.Paragraph)
+                                    .setRequired(false);
+
+                                const subHabilidade2 = new TextInputBuilder()
+                                    .setCustomId('sub2')
+                                    .setLabel('Sub-habilidade 2 (opcional)')
+                                    .setStyle(TextInputStyle.Paragraph)
+                                    .setRequired(false);
+
+                                modal.addComponents(
+                                    new ActionRowBuilder().addComponents(categoriaInput),
+                                    new ActionRowBuilder().addComponents(nomeInput),
+                                    new ActionRowBuilder().addComponents(descricaoInput),
+                                    new ActionRowBuilder().addComponents(subHabilidade1),
+                                    new ActionRowBuilder().addComponents(subHabilidade2)
+                                );
+
+                                // Em vez de tentar criar um collector, vamos usar buttons
+                                const row = new ActionRowBuilder()
+                                    .addComponents(
+                                        new ButtonBuilder()
+                                            .setCustomId('abrirModal')
+                                            .setLabel('Adicionar Habilidade')
+                                            .setStyle(ButtonStyle.Primary)
+                                    );
+
+                                await msg.reply({
+                                    content: 'Clique no botão abaixo para adicionar uma habilidade:',
+                                    components: [row]
+                                });
+
                             } catch (err) {
-                                console.error('Erro ao mostrar modal:', err);
-                                await msg.reply('Houve um erro ao abrir o formulário. Use `/ficha habilidade` para adicionar mais tarde.');
+                                console.error('Erro ao configurar modal:', err);
+                                await msg.reply('Houve um erro. Use `/ficha habilidade` para adicionar mais tarde.');
                             }
                         } else {
                             await msg.reply('Ok! Você pode adicionar habilidades depois usando `/ficha habilidade`');
@@ -394,7 +399,11 @@ module.exports = class ficha extends Command {
                 });
         } else {
             console.log("Botão CANCELAR clicado, cancelando a ação...");
-            return error.cancelMsg(mensagemConfirmacao);
+            await mensagemConfirmacao.edit({
+                content: 'Operação cancelada!',
+                components: [],
+                ephemeral: true
+            });
         }
     });
   }

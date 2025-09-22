@@ -4,13 +4,57 @@ module.exports = class {
     }
 
     async run(interaction) {
-        if (!interaction.isModalSubmit()) return;
-
-        if (interaction.customId === 'fichaCreate') {
-            await this.handleFichaCreate(interaction);
+        // Handle Modal Submits
+        if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'fichaCreate') {
+                await this.handleFichaCreate(interaction);
+            }
+            else if (interaction.customId.startsWith('habilidade_')) {
+                await this.handleHabilidadeSubmit(interaction);
+            }
+            return;
         }
-        else if (interaction.customId.startsWith('habilidade_')) {
-            await this.handleHabilidadeSubmit(interaction);
+
+        // Handle Button Interactions
+        if (interaction.isButton()) {
+            if (interaction.customId === 'abrirModal') {
+                const modal = new ModalBuilder()
+                    .setCustomId('habilidade_inicial')
+                    .setTitle('Nova Habilidade');
+
+                // Adiciona os campos
+                const categoriaInput = new TextInputBuilder()
+                    .setCustomId('categoria')
+                    .setLabel('Categoria da Habilidade')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                // ... outros campos ...
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(categoriaInput)
+                    // ... outros campos ...
+                );
+
+                await interaction.showModal(modal);
+            }
+            return;
+        }
+
+        // Handle Command Interactions
+        if (interaction.isChatInputCommand()) {
+            const command = this.client.slashCommands.get(interaction.commandName);
+            if (!command) return;
+
+            try {
+                await command.execute(interaction);
+            } catch (error) {
+                console.error(error);
+                await interaction.reply({
+                    content: 'Ocorreu um erro ao executar este comando!',
+                    ephemeral: true
+                });
+            }
         }
     }
 
