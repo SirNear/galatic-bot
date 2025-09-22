@@ -125,73 +125,103 @@ module.exports = class ficha extends Command {
   }
 
   async handleHabilidadeAdd(interaction) {
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('select_sub_habilidades')
-      .setPlaceholder('Quantas sub-habilidades você quer adicionar?')
-      .addOptions([
-        { label: 'Nenhuma', value: '0' },
-        { label: '1 Sub-habilidade', value: '1' },
-        { label: '2 Sub-habilidades', value: '2' },
-        { label: '3 Sub-habilidades', value: '3' },
-      ]);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-
-    const msg = await interaction.reply({
-      content: 'Selecione o número de sub-habilidades para a nova habilidade.',
-      components: [row],
-      ephemeral: true,
-      fetchReply: true,
+    const fichasDoUsuario = await this.client.database.Ficha.find({
+      userId: interaction.user.id,
+      guildId: interaction.guild.id,
     });
 
-    const collector = msg.createMessageComponentCollector({
-      filter: i => i.user.id === interaction.user.id && i.customId === 'select_sub_habilidades',
-      time: 60000,
-    });
+    if (!fichasDoUsuario.length) {
+      return interaction.reply({
+        content: '❌ Você precisa criar uma ficha primeiro com `/ficha criar`.',
+        ephemeral: true,
+      });
+    }
 
-    collector.on('collect', async i => {
-      const numSubHabilidades = parseInt(i.values[0], 10);
-      const categoria = interaction.options.getString("categoria");
+    if (fichasDoUsuario.length > 1) {
+      // Se o usuário tem mais de uma ficha, mostra um menu de seleção
+      const options = fichasDoUsuario.map((ficha) => ({
+        label: ficha.nome,
+        description: `Raça: ${ficha.raca} | Reino: ${ficha.reino}`,
+        value: ficha._id.toString(),
+      }));
 
-      const modal = new ModalBuilder()
-        .setCustomId(`habilidade_${categoria}`)
-        .setTitle(`Nova Habilidade: ${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('select_ficha_para_habilidade')
+        .setPlaceholder('Selecione o personagem para adicionar a habilidade')
+        .addOptions(options);
 
-      const nomeInput = new TextInputBuilder()
-        .setCustomId("nomeHabilidade")
-        .setLabel("Nome da Habilidade")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+      const row = new ActionRowBuilder().addComponents(selectMenu);
 
-      const descricaoInput = new TextInputBuilder()
-        .setCustomId("descricaoHabilidade")
-        .setLabel("Descrição (max 1000 caracteres)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(1000)
-        .setRequired(true);
+      const msg = await interaction.reply({
+        content: 'Para qual personagem você quer adicionar esta habilidade?',
+        components: [row],
+        ephemeral: true,
+        fetchReply: true,
+      });
 
-      modal.addComponents(new ActionRowBuilder().addComponents(nomeInput), new ActionRowBuilder().addComponents(descricaoInput));
+      const collector = msg.createMessageComponentCollector({
+        filter: (i) => i.user.id === interaction.user.id && i.customId === 'select_ficha_para_habilidade',
+        time: 60000,
+      });
 
-      for (let j = 1; j <= numSubHabilidades; j++) {
-        const subHabilidadeInput = new TextInputBuilder()
-          .setCustomId(`subHabilidade${j}`)
-          .setLabel(`Sub-habilidade ${j}`)
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false);
-        modal.addComponents(new ActionRowBuilder().addComponents(subHabilidadeInput));
-      }
+      collector.on('collect', async (i) => {
+        const fichaId = i.values[0];
+        await this.showHabilidadeModal(i, fichaId);
+      });
 
-      await i.showModal(modal);
-      collector.stop();
-    });
+      collector.on('end', (collected) => {
+        if (collected.size === 0) {
+          interaction.editReply({ content: 'Tempo esgotado.', components: [] }).catch(() => {});
+        }
+      });
+    } else {
+      // Se tem apenas uma ficha, usa ela diretamente
+      const fichaId = fichasDoUsuario[0]._id.toString();
+      await this.showHabilidadeModal(interaction, fichaId);
+    }
+  }
 
-    collector.on('end', (collected, reason) => {
-      if (collected.size === 0) {
-        interaction.editReply({ content: 'Tempo esgotado.', components: [] }).catch(() => {});
-      } else {
-        interaction.editReply({ content: 'Modal aberto!', components: [] }).catch(() => {});
-      }
-    });
+  async showHabilidadeModal(interaction, fichaId) {
+    const categoria = interaction.isChatInputCommand() 
+      ? interaction.options.getString("categoria")
+      : interaction.message.interaction.options.getString("categoria");
+
+    const modal = new ModalBuilder()
+      .setCustomId(`habilidade_${categoria}_${fichaId}`)
+      .setTitle(`Nova Habilidade`);
+
+    const nomeInput = new TextInputBuilder()
+      .setCustomId("nomeHabilidade")
+      .setLabel("Nome da Habilidade")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+
+    const descricaoInput = new TextInputBuilder()
+      .setCustomId("descricaoHabilidade")
+      .setLabel("Descrição da Habilidade")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+
+    const subNomeInput = new TextInputBuilder()
+      .setCustomId('subHabilidadeNome1')
+      .setLabel('Nome da Sub-habilidade (Opcional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+
+    const subDescInput = new TextInputBuilder()
+      .setCustomId('subHabilidadeDesc1')
+      .setLabel('Descrição da Sub-habilidade (Opcional)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(nomeInput),
+      new ActionRowBuilder().addComponents(descricaoInput),
+      new ActionRowBuilder().addComponents(subNomeInput),
+      new ActionRowBuilder().addComponents(subDescInput)
+    );
+
+    await interaction.showModal(modal);
   }
 
   //seletor de fichas
@@ -253,9 +283,12 @@ module.exports = class ficha extends Command {
 
   //visualizador de fichas
   async showFicha(interaction, fichaId) {
-    await interaction.deferUpdate();
-
     try {
+      // Adia a primeira interação (do menu de seleção)
+      if (interaction.isStringSelectMenu()) {
+        await interaction.deferUpdate();
+      }
+
       // Busca todas as fichas do usuário
       const fichas = await this.client.database.Ficha.find({
         userId: interaction.user.id,
@@ -276,8 +309,11 @@ module.exports = class ficha extends Command {
       });
 
       // Configuração da paginação
-      let currentPage = fichas.findIndex((f) => f._id.toString() === fichaId.toString());
+      let currentFichaIndex = fichas.findIndex((f) => f._id.toString() === fichaId.toString());
       const pages = fichas.length;
+
+      let viewMode = 'ficha'; // 'ficha' ou 'habilidades'
+      let currentHabilidadeIndex = 0;
 
       // Função para gerar embed da ficha
       const getFichaEmbed = (ficha) => {
@@ -295,12 +331,29 @@ module.exports = class ficha extends Command {
                 : "Nenhuma habilidade registrada",
             }
           )
-          .setFooter({ text: `Página ${currentPage + 1} de ${pages}` });
+          .setFooter({ text: `Página ${currentFichaIndex + 1} de ${pages}` });
 
         return embed;
       };
 
-      // Botões de navegação
+      const getHabilidadeEmbed = (habilidade, ficha) => {
+        const totalHabilidades = ficha.habilidades.length;
+        return new EmbedBuilder()
+          .setColor("Purple")
+          .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
+          .setDescription(habilidade.descricao)
+          .addFields({ name: "Categoria", value: habilidade.categoria, inline: true },
+            ...habilidade.subHabilidades.map((sub, index) => ({
+              name: `Sub-habilidade ${index + 1}`,
+              value: sub.descricao,
+              inline: false,
+            }))
+          )
+          .setFooter({ text: `Habilidade ${currentHabilidadeIndex + 1} de ${totalHabilidades}` });
+      };
+
+
+      // Botões de navegação da Ficha
       const getButtons = (disablePrev, disableNext) => {
         return new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -317,40 +370,78 @@ module.exports = class ficha extends Command {
             .setCustomId("viewHabilidades")
             .setLabel("Ver Habilidades")
             .setStyle(ButtonStyle.Secondary)
-            .setDisabled(!fichas[currentPage].habilidades.length)
+            .setDisabled(!fichas[currentFichaIndex].habilidades.length)
+        );
+      };
+
+      // Botões de navegação das Habilidades
+      const getNavButtons = (disablePrev, disableNext) => {
+        return new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("prevHab")
+            .setLabel("◀️")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(disablePrev),
+          new ButtonBuilder()
+            .setCustomId("voltarFicha")
+            .setLabel("Voltar para Ficha")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId("nextHab")
+            .setLabel("▶️")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(disableNext)
         );
       };
 
       // Envia mensagem inicial
       const message = await interaction.editReply({
-        // Usa editReply na interação original do select
-        embeds: [getFichaEmbed(fichas[currentPage])],
-        components: [getButtons(currentPage === 0, currentPage === pages - 1)],
+        embeds: [getFichaEmbed(fichas[currentFichaIndex])],
+        components: [getButtons(currentFichaIndex === 0, currentFichaIndex === pages - 1)],
         flags: 64,
       });
 
       // Cria coletor de botões
       const collector = message.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
-        time: 300000, // 5 minutos
+        time: 300000,
+        idle: 60000,
       });
 
       collector.on("collect", async (i) => {
-        if (i.customId === "prevPage") {
-          currentPage--;
-        } else if (i.customId === "nextPage") {
-          currentPage++;
-        } else if (i.customId === "viewHabilidades") {
-          // Mostra habilidades em um modal ou embed separado
-          return this.showHabilidades(i, fichas[currentPage]);
+        if (viewMode === 'ficha') {
+            if (i.customId === "prevPage") {
+                currentFichaIndex--;
+            } else if (i.customId === "nextPage") {
+                currentFichaIndex++;
+            } else if (i.customId === "viewHabilidades") {
+                viewMode = 'habilidades';
+                currentHabilidadeIndex = 0;
+            }
+        } else if (viewMode === 'habilidades') {
+            if (i.customId === "prevHab") {
+                currentHabilidadeIndex--;
+            } else if (i.customId === "nextHab") {
+                currentHabilidadeIndex++;
+            } else if (i.customId === "voltarFicha") {
+                viewMode = 'ficha';
+            }
         }
 
-        await i.update({
-          embeds: [getFichaEmbed(fichas[currentPage])],
-          components: [
-            getButtons(currentPage === 0, currentPage === pages - 1),
-          ],
-        });
+        // Atualiza a mensagem com base no modo de visualização
+        if (viewMode === 'ficha') {
+            await i.update({
+                embeds: [getFichaEmbed(fichas[currentFichaIndex])],
+                components: [getButtons(currentFichaIndex === 0, currentFichaIndex === pages - 1)],
+            });
+        } else { // viewMode === 'habilidades'
+            const fichaAtual = fichas[currentFichaIndex];
+            const totalHabilidades = fichaAtual.habilidades.length;
+            await i.update({
+                embeds: [getHabilidadeEmbed(fichaAtual.habilidades[currentHabilidadeIndex], fichaAtual)],
+                components: [getNavButtons(currentHabilidadeIndex === 0, currentHabilidadeIndex === totalHabilidades - 1)],
+            });
+        }
       });
 
       collector.on("end", () => {
@@ -367,77 +458,6 @@ module.exports = class ficha extends Command {
         flags: 64,
       });
     }
-  }
-
-  // Método para mostrar habilidades
-  async showHabilidades(interaction, ficha) {
-    const habilidades = ficha.habilidades;
-    if (!habilidades.length) return;
-    let currentPage = 0;
-    const pages = Math.ceil(habilidades.length / 1);
-
-    const getHabilidadeEmbed = (habilidade) => {
-      return new EmbedBuilder()
-        .setColor("Purple")
-        .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
-        .setDescription(habilidade.descricao)
-        .addFields({ name: "Categoria", value: habilidade.categoria, inline: true },
-          ...habilidade.subHabilidades.map((sub, index) => ({
-            name: `Sub-habilidade ${index + 1}`,
-            value: sub.descricao,
-            inline: false,
-          }))
-        )
-        .setFooter({ text: `Habilidade ${currentPage + 1} de ${pages}` });
-    };
-
-    const getNavButtons = (disablePrev, disableNext) => {
-      return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("prevHab")
-          .setLabel("◀️")
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(disablePrev),
-        new ButtonBuilder()
-          .setCustomId("voltarFicha")
-          .setLabel("Voltar para Ficha")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("nextHab")
-          .setLabel("▶️")
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(disableNext)
-      );
-    };
-
-    await interaction.update({
-      embeds: [getHabilidadeEmbed(habilidades[currentPage])],
-      components: [getNavButtons(currentPage === 0, currentPage === pages - 1)],
-    });
-
-    const collector = interaction.message.createMessageComponentCollector({
-      filter: (i) => i.user.id === interaction.user.id,
-      time: 300000,
-      idle: 60000, // 1 minuto de inatividade
-    });
-
-    collector.on("collect", async (i) => {
-      if (i.customId === "prevHab") {
-        currentPage--;
-      } else if (i.customId === "nextHab") {
-        currentPage++;
-      } else if (i.customId === "voltarFicha") {
-        collector.stop("back");
-        return this.showFicha(i, ficha._id);
-      }
-
-      await i.update({
-        embeds: [getHabilidadeEmbed(habilidades[currentPage])],
-        components: [
-          getNavButtons(currentPage === 0, currentPage === pages - 1),
-        ],
-      });
-    });
   }
   /* #endregion */
 };

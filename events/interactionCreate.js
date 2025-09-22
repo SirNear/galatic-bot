@@ -182,49 +182,40 @@ module.exports = class {
             await interaction.deferReply({ flags: 64 }); // ephemeral: true
 
             // Extrai a categoria do customId do modal
-            const categoria = interaction.customId.split('_')[1];
+            const [, categoria, fichaId] = interaction.customId.split('_');
 
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
             const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
             
             const subHabilidades = [];
-            for (let i = 1; i <= 3; i++) {
-                let sub;
-                try {
-                    sub = interaction.fields.getTextInputValue(`subHabilidade${i}`);
-                } catch (e) {
-                    sub = null; // Campo não existe no modal
-                }
-                if (sub && sub.trim() !== '') {
-                    subHabilidades.push({ nome: `Sub ${i}`, descricao: sub });
-                }
-            }
+            let subNome1, subDesc1;
 
-            // Busca todas as fichas do usuário para ele escolher a qual adicionar
-            const fichasDoUsuario = await this.client.database.Ficha.find({ 
-                userId: interaction.user.id,
-                guildId: interaction.guild.id
-            });
+            try { subNome1 = interaction.fields.getTextInputValue('subHabilidadeNome1'); } catch { subNome1 = null; }
+            try { subDesc1 = interaction.fields.getTextInputValue('subHabilidadeDesc1'); } catch { subDesc1 = null; }
 
-            if (!fichasDoUsuario.length) {
+            if (subNome1 && subDesc1) {
+                subHabilidades.push({ nome: subNome1, descricao: subDesc1 });
+            } else if (subNome1 || subDesc1) {
+                // Se apenas um dos campos da sub-habilidade foi preenchido, avisa o usuário.
                 return interaction.editReply({
-                    content: 'Erro: Nenhuma ficha encontrada! Use `/ficha criar` primeiro.',
+                    content: '❌ Para adicionar uma sub-habilidade, você precisa preencher tanto o nome quanto a descrição dela.',
                     flags: 64
                 });
             }
 
-            // Se houver apenas uma ficha, usa ela. Se não, pede para o usuário escolher.
-            let ficha;
-            if (fichasDoUsuario.length === 1) {
-                ficha = fichasDoUsuario[0];
-            } else {
-                ficha = fichasDoUsuario.sort((a, b) => b.createdAt - a.createdAt)[0];
-            }
+            // Busca a ficha específica pelo ID passado no customId do modal
+            const ficha = await this.client.database.Ficha.findById(fichaId);
 
             if (!ficha) {
                 return interaction.editReply({
-                    content: 'Erro: Ficha não encontrada! Use `/ficha criar` primeiro.',
+                    content: 'Erro: A ficha selecionada não foi encontrada.',
+                    flags: 64
+                });
+            }
+            if (ficha.userId !== interaction.user.id) {
+                return interaction.editReply({
+                    content: 'Erro: Você não tem permissão para editar esta ficha.',
                     flags: 64
                 });
             }
