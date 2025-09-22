@@ -214,7 +214,7 @@ module.exports = class ficha extends Command {
     const options = fichasDoUsuario.map((ficha) => ({
       label: ficha.nome,
       description: `Raça: ${ficha.raca} | Reino: ${ficha.reino}`,
-      value: ficha._id, // O ID único da ficha
+      value: ficha._id.toString(), // O ID único da ficha
     }));
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -276,7 +276,7 @@ module.exports = class ficha extends Command {
       });
 
       // Configuração da paginação
-      let currentPage = fichas.findIndex((f) => f._id.toString() === fichaId);
+      let currentPage = fichas.findIndex((f) => f._id.toString() === fichaId.toString());
       const pages = fichas.length;
 
       // Função para gerar embed da ficha
