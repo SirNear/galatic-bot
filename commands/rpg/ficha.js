@@ -42,11 +42,7 @@ module.exports = class ficha extends Command {
           sub
             .setName("habilidade")
             .setDescription("Adiciona uma habilidade à ficha")
-            .addStringOption((opt) =>
-                opt.setName("categoria")
-                    .setDescription("Mágica, Física, Passiva, Sagrada, Amaldiçoada, Haki, Outra (digite)")
-                    .setRequired(true)
-            )
+            // A categoria será solicitada no formulário
         );
     }
   }
@@ -146,7 +142,7 @@ module.exports = class ficha extends Command {
       }));
 
       const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('select_ficha_para_habilidade')
+        .setCustomId('select_ficha_habilidade_add')
         .setPlaceholder('Selecione o personagem para adicionar a habilidade')
         .addOptions(options);
 
@@ -160,13 +156,13 @@ module.exports = class ficha extends Command {
       });
 
       const collector = msg.createMessageComponentCollector({
-        filter: (i) => i.user.id === interaction.user.id && i.customId === 'select_ficha_para_habilidade',
+        filter: (i) => i.user.id === interaction.user.id && i.customId === 'select_ficha_habilidade_add',
         time: 60000,
       });
 
       collector.on('collect', async (i) => {
         const fichaId = i.values[0];
-        await this.showHabilidadeModal(i, fichaId);
+        await this.showHabilidadeModal(i, fichaId); // A interação 'i' (do menu) pode abrir um modal
       });
 
       collector.on('end', (collected) => {
@@ -177,17 +173,13 @@ module.exports = class ficha extends Command {
     } else {
       // Se tem apenas uma ficha, usa ela diretamente
       const fichaId = fichasDoUsuario[0]._id.toString();
-      await this.showHabilidadeModal(interaction, fichaId);
+      await this.showHabilidadeModal(interaction, fichaId); // A interação original do comando pode abrir um modal
     }
   }
 
   async showHabilidadeModal(interaction, fichaId) {
-    const categoria = interaction.isChatInputCommand() 
-      ? interaction.options.getString("categoria")
-      : interaction.message.interaction.options.getString("categoria");
-
     const modal = new ModalBuilder()
-      .setCustomId(`habilidade_${categoria}_${fichaId}`)
+      .setCustomId(`habilidade_add_${fichaId}`)
       .setTitle(`Nova Habilidade`);
 
     const nomeInput = new TextInputBuilder()
@@ -200,6 +192,13 @@ module.exports = class ficha extends Command {
       .setCustomId("descricaoHabilidade")
       .setLabel("Descrição da Habilidade")
       .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+      
+    const categoriaInput = new TextInputBuilder()
+      .setCustomId('categoria')
+      .setLabel('Categoria da Habilidade')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('Física, Mágica, Passiva, etc...')
       .setRequired(true);
 
     const subNomeInput = new TextInputBuilder()
@@ -217,6 +216,7 @@ module.exports = class ficha extends Command {
     modal.addComponents(
       new ActionRowBuilder().addComponents(nomeInput),
       new ActionRowBuilder().addComponents(descricaoInput),
+      new ActionRowBuilder().addComponents(categoriaInput),
       new ActionRowBuilder().addComponents(subNomeInput),
       new ActionRowBuilder().addComponents(subDescInput)
     );
@@ -342,9 +342,10 @@ module.exports = class ficha extends Command {
           .setColor("Purple")
           .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
           .setDescription(habilidade.descricao)
-          .addFields({ name: "Categoria", value: habilidade.categoria, inline: true },
+          .addFields(
+            { name: "Categoria", value: habilidade.categoria, inline: true },
             ...habilidade.subHabilidades.map((sub, index) => ({
-              name: `Sub-habilidade ${index + 1}`,
+              name: sub.nome,
               value: sub.descricao,
               inline: false,
             }))
@@ -370,7 +371,11 @@ module.exports = class ficha extends Command {
             .setCustomId("viewHabilidades")
             .setLabel("Ver Habilidades")
             .setStyle(ButtonStyle.Secondary)
-            .setDisabled(!fichas[currentFichaIndex].habilidades.length)
+            .setDisabled(!fichas[currentFichaIndex].habilidades.length),
+          new ButtonBuilder()
+            .setCustomId("addHabilidadeFicha")
+            .setLabel("Adicionar Habilidade")
+            .setStyle(ButtonStyle.Success)
         );
       };
 
@@ -417,6 +422,10 @@ module.exports = class ficha extends Command {
             } else if (i.customId === "viewHabilidades") {
                 viewMode = 'habilidades';
                 currentHabilidadeIndex = 0;
+            } else if (i.customId === "addHabilidadeFicha") {
+                const fichaAtual = fichas[currentFichaIndex];
+                await this.showHabilidadeModal(i, fichaAtual._id.toString());
+                return; // Impede a atualização da mensagem, pois um modal foi aberto
             }
         } else if (viewMode === 'habilidades') {
             if (i.customId === "prevHab") {
@@ -429,18 +438,25 @@ module.exports = class ficha extends Command {
         }
 
         // Atualiza a mensagem com base no modo de visualização
-        if (viewMode === 'ficha') {
-            await i.update({
-                embeds: [getFichaEmbed(fichas[currentFichaIndex])],
-                components: [getButtons(currentFichaIndex === 0, currentFichaIndex === pages - 1)],
-            });
-        } else { // viewMode === 'habilidades'
-            const fichaAtual = fichas[currentFichaIndex];
-            const totalHabilidades = fichaAtual.habilidades.length;
-            await i.update({
-                embeds: [getHabilidadeEmbed(fichaAtual.habilidades[currentHabilidadeIndex], fichaAtual)],
-                components: [getNavButtons(currentHabilidadeIndex === 0, currentHabilidadeIndex === totalHabilidades - 1)],
-            });
+        try {
+            if (viewMode === 'ficha') {
+                await i.update({
+                    embeds: [getFichaEmbed(fichas[currentFichaIndex])],
+                    components: [getButtons(currentFichaIndex === 0, currentFichaIndex === pages - 1)],
+                });
+            } else { // viewMode === 'habilidades'
+                const fichaAtual = fichas[currentFichaIndex];
+                const totalHabilidades = fichaAtual.habilidades.length;
+                await i.update({
+                    embeds: [getHabilidadeEmbed(fichaAtual.habilidades[currentHabilidadeIndex], fichaAtual)],
+                    components: [getNavButtons(currentHabilidadeIndex === 0, currentHabilidadeIndex === totalHabilidades - 1)],
+                });
+            }
+        } catch (error) {
+            // Ignora erros de interação já respondida que podem ocorrer se um modal foi aberto
+            if (error.code !== 'InteractionAlreadyReplied') {
+                console.error("Erro ao atualizar interação no coletor:", error);
+            }
         }
       });
 

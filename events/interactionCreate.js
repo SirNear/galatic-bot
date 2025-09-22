@@ -25,7 +25,7 @@ module.exports = class {
                     await this.handleFichaCreate(interaction);
                     return;
                 }
-                else if (interaction.customId.startsWith('habilidade_')) {
+                else if (interaction.customId.startsWith('habilidade_add_')) {
                     await this.handleHabilidadeSubmit(interaction);
                     return;
                 }
@@ -151,20 +151,7 @@ module.exports = class {
                 flags: 64
             });
 
-            // Pergunta sobre habilidades
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('addHabilidade')
-                        .setLabel('Adicionar Habilidades')
-                        .setStyle(ButtonStyle.Primary)
-                );
-
-            await interaction.followUp({
-                content: 'Deseja adicionar habilidades agora?',
-                components: [row],
-                flags: 64
-            });
+            await interaction.followUp({ content: 'Use `/ficha ver` para visualizar sua ficha ou `/ficha habilidade` para adicionar habilidades.', flags: 64 });
 
         } catch (err) {
             console.error('Erro ao criar ficha:', err);
@@ -181,12 +168,13 @@ module.exports = class {
         try {
             await interaction.deferReply({ flags: 64 }); // ephemeral: true
 
-            // Extrai a categoria do customId do modal
-            const [, categoria, fichaId] = interaction.customId.split('_');
+            // Extrai a fichaId do customId do modal
+            const fichaId = interaction.customId.split('_')[2];
 
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
             const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
+            const categoria = interaction.fields.getTextInputValue('categoria');
             
             const subHabilidades = [];
             let subNome1, subDesc1;
@@ -241,8 +229,8 @@ module.exports = class {
 
             if (subHabilidades.length > 0) {
                 embed.addFields({
-                    name: 'Sub-habilidades',
-                    value: subHabilidades.map((sub, index) => `${index + 1}. ${sub.descricao}`).join('\n')
+                    name: `Sub-habilidade: ${subHabilidades[0].nome}`,
+                    value: subHabilidades[0].descricao
                 });
             }
 
