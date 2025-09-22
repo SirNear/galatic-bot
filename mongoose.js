@@ -92,7 +92,6 @@ const habilidadeSchema = new mongoose.Schema({
 });
 
 const fichaSchema = new mongoose.Schema({
-    _id: { type: String }, // Será userId_nome_timestamp para permitir duplicatas
     userId: { type: String, required: true },
     guildId: { type: String, required: true },
     nome: { type: String, required: true }, // Remove unique: true
@@ -103,8 +102,8 @@ const fichaSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now } // Adiciona timestamp
 });
 
-// Evita a criação automática de um índice único em userId e guildId
-fichaSchema.index({ userId: 1, guildId: 1 }, { unique: false });
+// Garante que um usuário não pode ter duas fichas com o mesmo nome no mesmo servidor.
+fichaSchema.index({ userId: 1, guildId: 1, nome: 1 }, { unique: true });
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg
@@ -125,7 +124,6 @@ let Ficha = mongoose.model("Ficha", fichaSchema);
 module.exports.Ficha = Ficha;
 
 let reactionRole = new mongoose.Schema({
-    _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
     messageId: { type: String, required: true },
     emoji: { type: String, required: true },
     roleId: { type: String, required: true },

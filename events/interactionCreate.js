@@ -111,9 +111,6 @@ module.exports = class {
             const reino = interaction.fields.getTextInputValue('campoReino');
             const aparencia = interaction.fields.getTextInputValue('campoAparencia');
 
-            // ID único usando nome do personagem
-            const fichaId = `${interaction.user.id}_${nome.toLowerCase().replace(/\s+/g, '_')}`;
-
             // Verifica se já existe ficha com este nome
             const existingFicha = await this.client.database.Ficha.findOne({
                 userId: interaction.user.id,
@@ -130,7 +127,6 @@ module.exports = class {
 
             // Cria a ficha
             const ficha = await this.client.database.Ficha.create({
-                _id: fichaId,
                 userId: interaction.user.id,
                 guildId: interaction.guild.id,
                 nome,
@@ -194,8 +190,13 @@ module.exports = class {
             
             const subHabilidades = [];
             for (let i = 1; i <= 3; i++) {
-                const sub = interaction.fields.getTextInputValue(`subHabilidade${i}`).catch(() => null);
-                if (sub) {
+                let sub;
+                try {
+                    sub = interaction.fields.getTextInputValue(`subHabilidade${i}`);
+                } catch (e) {
+                    sub = null; // Campo não existe no modal
+                }
+                if (sub && sub.trim() !== '') {
                     subHabilidades.push({ nome: `Sub ${i}`, descricao: sub });
                 }
             }

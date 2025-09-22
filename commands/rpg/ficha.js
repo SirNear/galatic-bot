@@ -276,7 +276,7 @@ module.exports = class ficha extends Command {
       });
 
       // Configuração da paginação
-      let currentPage = fichas.findIndex((f) => f._id === fichaId);
+      let currentPage = fichas.findIndex((f) => f._id.toString() === fichaId);
       const pages = fichas.length;
 
       // Função para gerar embed da ficha
