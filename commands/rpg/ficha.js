@@ -198,7 +198,7 @@ module.exports = class ficha extends Command {
       return interaction.reply({
         content:
           "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.",
-        ephemeral: true,
+        flags: 64,
       });
     }
 
@@ -219,8 +219,8 @@ module.exports = class ficha extends Command {
     const msg = await interaction.reply({
       content: "Qual ficha você gostaria de ver?",
       components: [row],
-      ephemeral: true,
-      fetchReply: true,
+      flags: 64,
+      withResponse: true,
     });
 
     const collector = msg.createMessageComponentCollector({
@@ -258,7 +258,7 @@ module.exports = class ficha extends Command {
         // Esta verificação já é feita em handleFichaView, mas é bom ter como segurança.
         return interaction.followUp({
           content: "Nenhuma ficha encontrada.",
-          ephemeral: true,
+          flags: 64,
         });
       }
 

@@ -19,12 +19,6 @@ module.exports = class {
                 return;
             }
 
-            // Garante que a interação ainda é válida
-            if (!interaction.isValid()) {
-                console.log('Interação expirada');
-                return;
-            }
-
             // Handle Modal Submits
             if (interaction.isModalSubmit()) {
                 if (interaction.customId === 'fichaCreate') {
@@ -185,7 +179,7 @@ module.exports = class {
 
     async handleHabilidadeSubmit(interaction) {
         try {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 }); // ephemeral: true
 
             // Extrai a categoria do customId do modal
             const categoria = interaction.customId.split('_')[1];
@@ -206,7 +200,7 @@ module.exports = class {
             if (!fichasDoUsuario.length) {
                 return interaction.editReply({
                     content: 'Erro: Nenhuma ficha encontrada! Use `/ficha criar` primeiro.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
 
@@ -223,7 +217,7 @@ module.exports = class {
             if (!ficha) {
                 return interaction.editReply({
                     content: 'Erro: Ficha não encontrada! Use `/ficha criar` primeiro.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
 
@@ -261,7 +255,7 @@ module.exports = class {
                 });
             }
 
-            await interaction.editReply({ embeds: [embed], ephemeral: true });
+            await interaction.editReply({ embeds: [embed] });
 
         } catch (err) {
             console.error('Erro ao salvar habilidade:', err);

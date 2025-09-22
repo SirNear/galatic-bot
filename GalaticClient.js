@@ -100,30 +100,7 @@ module.exports = class GalaticClient extends Client {
 
     // Modifica o login para registrar os slash commands após conectar
     async login(token) {
-        await super.login(token);
-        
-        // Registra handler de interações
-        this.on('interactionCreate', async interaction => {
-            try {
-                if (interaction.isChatInputCommand()) {
-                    const command = this.slashCommands.get(interaction.commandName);
-                    if (!command) return;
-
-                    await command.execute(interaction);
-                }
-            } catch (error) {
-                console.error('Erro ao processar interação:', error);
-                const errorMessage = 'Ocorreu um erro ao executar este comando!';
-                
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: errorMessage, ephemeral: true });
-                } else {
-                    await interaction.reply({ content: errorMessage, ephemeral: true });
-                }
-            }
-        });
-
-        return this;
+        return super.login(token);
     }
 	
 	
