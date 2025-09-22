@@ -36,75 +36,81 @@ module.exports = class {
             const rules = await this.client.database.reactionRoles.find({});
             console.log(`🎭 Carregando ${rules.length} reaction roles...`);
 
-            // Agrupa regras por mensagem para evitar múltiplos coletores
-            const messageRules = new Map();
-            for (const rule of rules) {
-                if (!messageRules.has(rule.messageId)) {
-                    messageRules.set(rule.messageId, []);
-                }
-                messageRules.get(rule.messageId).push(rule);
-            }
-
-            for (const [messageId, rulesForMessage] of messageRules) {
-                for (const guild of this.client.guilds.cache.values()) {
+            for (const guild of this.client.guilds.cache.values()) {
+                for (const rule of rules) {
                     try {
-                        const message = await findMessage(guild, messageId);
+                        const message = await findMessage(guild, rule.messageId);
                         if (!message) continue;
 
-                        // Um único coletor por mensagem
-                        const collector = message.createReactionCollector();
+                        // Remove collectors antigos se existirem
+                        const existingCollector = message.client.collectors?.get(message.id);
+                        if (existingCollector) {
+                            existingCollector.stop();
+                        }
+
+                        // Cria novo collector
+                        const filter = (reaction, user) => !user.bot;
+                        const collector = message.createReactionCollector({ filter });
 
                         collector.on('collect', async (reaction, user) => {
-                            if (user.bot) return;
-
-                            // Encontra a regra para este emoji
-                            const rule = rulesForMessage.find(r => r.emoji === reaction.emoji.toString());
-                            if (!rule) return;
-
-                            const role = message.guild.roles.cache.get(rule.roleId);
-                            if (!role) return;
-
-                            const member = await message.guild.members.fetch(user.id);
-                            if (!member || member.roles.cache.has(role.id)) return;
-
                             try {
+                                // Encontra a regra para este emoji
+                                const matchingRule = await this.client.database.reactionRoles.findOne({
+                                    messageId: message.id,
+                                    emoji: reaction.emoji.toString()
+                                });
+
+                                if (!matchingRule) return;
+
+                                const role = message.guild.roles.cache.get(matchingRule.roleId);
+                                if (!role) return;
+
+                                const member = await message.guild.members.fetch(user.id);
+                                if (!member) return;
+
                                 await member.roles.add(role);
-                                console.log(`✅ Cargo ${role.name} adicionado para ${member.user.tag}`);
+                                console.log(`✅ Cargo ${role.name} adicionado para ${user.tag}`);
                             } catch (err) {
-                                console.error(`Erro ao adicionar cargo ${role.name}:`, err);
+                                console.error('Erro ao adicionar cargo:', err);
                             }
                         });
 
                         collector.on('remove', async (reaction, user) => {
-                            if (user.bot) return;
-
-                            const rule = rulesForMessage.find(r => r.emoji === reaction.emoji.toString());
-                            if (!rule) return;
-
-                            const role = message.guild.roles.cache.get(rule.roleId);
-                            if (!role) return;
-
-                            const member = await message.guild.members.fetch(user.id);
-                            if (!member || !member.roles.cache.has(role.id)) return;
-
                             try {
+                                const matchingRule = await this.client.database.reactionRoles.findOne({
+                                    messageId: message.id,
+                                    emoji: reaction.emoji.toString()
+                                });
+
+                                if (!matchingRule) return;
+
+                                const role = message.guild.roles.cache.get(matchingRule.roleId);
+                                if (!role) return;
+
+                                const member = await message.guild.members.fetch(user.id);
+                                if (!member) return;
+
                                 await member.roles.remove(role);
-                                console.log(`🔄 Cargo ${role.name} removido de ${member.user.tag}`);
+                                console.log(`🔄 Cargo ${role.name} removido de ${user.tag}`);
                             } catch (err) {
-                                console.error(`Erro ao remover cargo ${role.name}:`, err);
+                                console.error('Erro ao remover cargo:', err);
                             }
                         });
 
-                        // Adiciona todas as reações necessárias
-                        for (const rule of rulesForMessage) {
-                            if (!message.reactions.cache.has(rule.emoji)) {
-                                await message.react(rule.emoji).catch(console.error);
-                            }
+                        // Armazena o collector para referência futura
+                        if (!message.client.collectors) {
+                            message.client.collectors = new Map();
+                        }
+                        message.client.collectors.set(message.id, collector);
+
+                        // Adiciona reação inicial se necessário
+                        if (!message.reactions.cache.has(rule.emoji)) {
+                            await message.react(rule.emoji);
                         }
 
-                        console.log(`✅ Reaction roles configuradas para mensagem ${messageId}`);
+                        console.log(`✅ Reaction role configurada: ${rule.emoji} -> ${rule.roleId}`);
                     } catch (err) {
-                        console.error(`Erro ao configurar reaction roles para mensagem ${messageId}:`, err);
+                        console.error(`Erro ao configurar reaction role:`, err);
                     }
                 }
             }

@@ -99,8 +99,9 @@ module.exports = class reactionRole extends Command {
 
   /* #region  SLASH COMMAND */
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    
+    // Usa flags em vez de ephemeral
+    await interaction.deferReply({ flags: 64 }); // 64 = EPHEMERAL
+
     const subcommand = interaction.options.getSubcommand();
     const messageId = interaction.options.getString('message_id');
     const emoji = interaction.options.getString('emoji');
@@ -120,7 +121,7 @@ module.exports = class reactionRole extends Command {
 
     const sendResponse = async (embed) => {
         if (isInteraction) {
-            await context.editReply({ embeds: [embed] });
+            await context.editReply({ embeds: [embed], flags: 64 }); // 64 = EPHEMERAL
         } else {
             await context.channel.send({ embeds: [embed] });
         }
@@ -194,7 +195,7 @@ module.exports = class reactionRole extends Command {
 
     const sendResponse = async (embed) => {
         if (isInteraction) {
-            await context.editReply({ embeds: [embed] });
+            await context.editReply({ embeds: [embed], flags: 64 }); // 64 = EPHEMERAL
         } else {
             await context.channel.send({ embeds: [embed] });
         }
