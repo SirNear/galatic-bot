@@ -115,34 +115,46 @@ module.exports = class reactionRole extends Command {
   /* #region  FUNÇÕES BACK-END */
   async funcaoAdicionar(context, messageId, role, emoji) {
     if (!messageId || !role || !emoji) {
-      return error.msg(context, "Todos os argumentos são necessários.");
+        return error.msg(context, "Todos os argumentos são necessários.");
     }
 
     try {
-      const targetMessage = await findMessage(context.guild, messageId);
-      if (!targetMessage) {
-        return error.msg(context, "Mensagem não encontrada.");
-      }
+        const targetMessage = await findMessage(context.guild, messageId);
+        if (!targetMessage) {
+            return error.msg(context, "Mensagem não encontrada.");
+        }
 
-      await this.client.database.reactionRoles.findOneAndUpdate(
-        { messageId, emoji },
-        { guildId: context.guild.id, roleId: role.id },
-        { upsert: true }
-      );
+        // Verifica se já existe uma regra com esse emoji nessa mensagem
+        const existingRule = await this.client.database.reactionRoles.findOne({
+            messageId,
+            emoji
+        });
 
-      await targetMessage.react(emoji);
+        if (existingRule) {
+            return error.msg(context, "Já existe uma regra com esse emoji nessa mensagem.");
+        }
 
-      const successEmbed = new EmbedBuilder()
-        .setColor(color.green)
-        .setTitle("✅ Cargo por reação adicionado!")
-        .setDescription(`Reagir com ${emoji} dará o cargo **${role.name}**`);
+        // Salva com guildId e roleId corretos
+        await this.client.database.reactionRoles.create({
+            messageId,
+            emoji,
+            roleId: role.id,
+            guildId: context.guild.id
+        });
 
-      await context.reply({ embeds: [successEmbed], ephemeral: true });
+        await targetMessage.react(emoji);
+
+        const successEmbed = new EmbedBuilder()
+            .setColor(color.green)
+            .setTitle("✅ Cargo por reação adicionado!")
+            .setDescription(`Reagir com ${emoji} dará o cargo **${role.name}**`);
+
+        await context.reply({ embeds: [successEmbed], ephemeral: true });
     } catch (err) {
-      console.error("Erro ao adicionar Reaction Role:", err);
-      return error.msg(context, `Erro ao salvar a reação: \`${err}\` `);
+        console.error("Erro ao adicionar Reaction Role:", err);
+        return error.msg(context, `Erro ao salvar a reação: \`${err}\``);
     }
-  }
+}
 
   async funcaoRemover(context, messageId, emoji) {
     try {
