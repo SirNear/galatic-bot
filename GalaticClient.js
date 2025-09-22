@@ -26,6 +26,9 @@ module.exports = class GalaticClient extends Client {
      this.events = new EventManager(this);
 	  
      this.activeCollector = false;
+
+     // Adiciona collection para slash commands
+     this.slashCommands = new Collection();
 	  
         
     }
@@ -64,9 +67,61 @@ module.exports = class GalaticClient extends Client {
 		}
 	}
 
-	login(token) {
-		return super.login(token)
-	}
+    // Adiciona método para registrar slash commands no Discord
+    async registerSlashCommands() {
+        const { REST, Routes } = require('discord.js');
+        const rest = new REST({ version: '10' }).setToken(config.token);
+
+        try {
+            console.log('Iniciando registro de slash commands...');
+
+            const commands = [];
+            this.slashCommands.forEach(command => {
+                commands.push(command.data.toJSON());
+            });
+
+            await rest.put(
+                Routes.applicationCommands(this.user.id),
+                { body: commands },
+            );
+
+            console.log('Slash commands registrados com sucesso!');
+        } catch (error) {
+            console.error('Erro ao registrar slash commands:', error);
+        }
+    }
+
+    // Modifica o login para registrar os slash commands após conectar
+    async login(token) {
+        await super.login(token);
+        
+        // Registra handler de interações
+        this.on('interactionCreate', async interaction => {
+            if (!interaction.isCommand()) return;
+
+            const command = this.slashCommands.get(interaction.commandName);
+            if (!command) return;
+
+            try {
+                await command.execute(interaction);
+            } catch (error) {
+                console.error(error);
+                const errorMessage = 'Ocorreu um erro ao executar este comando!';
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: errorMessage, ephemeral: true });
+                } else {
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
+                }
+            }
+        });
+
+        // Registra os slash commands quando o bot estiver pronto
+        this.once('ready', () => {
+            this.registerSlashCommands();
+        });
+
+        return this;
+    }
 	
 	
 	loadCommands(path) {
@@ -81,9 +136,15 @@ module.exports = class GalaticClient extends Client {
 					commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
 						const command = new (require(`./commands/${category}/${cmdFile}`))(this)
 						command.dir = `./commands/${category}/${cmdFile}`
+						
+						// Registra comando normal
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
 
+						// Registra slash command se existir
+						if (command.config.slash && command.data) {
+							this.slashCommands.set(command.data.name, command);
+						}
 					})
 				})
 			})
