@@ -219,8 +219,8 @@ module.exports = class ficha extends Command {
     const msg = await interaction.reply({
       content: "Qual ficha você gostaria de ver?",
       components: [row],
-      flags: 64,
-      withResponse: true,
+      ephemeral: true,
+      fetchReply: true,
     });
 
     const collector = msg.createMessageComponentCollector({
