@@ -336,8 +336,6 @@ module.exports = class ficha extends Command {
       });
 
       collector.on("collect", async (i) => {
-        await i.deferUpdate();
-
         if (i.customId === "prevPage") {
           currentPage--;
         } else if (i.customId === "nextPage") {
@@ -347,7 +345,7 @@ module.exports = class ficha extends Command {
           return this.showHabilidades(i, fichas[currentPage]);
         }
 
-        await message.edit({
+        await i.update({
           embeds: [getFichaEmbed(fichas[currentPage])],
           components: [
             getButtons(currentPage === 0, currentPage === pages - 1),
@@ -412,7 +410,7 @@ module.exports = class ficha extends Command {
       );
     };
 
-    await interaction.editReply({
+    await interaction.update({
       embeds: [getHabilidadeEmbed(habilidades[currentPage])],
       components: [getNavButtons(currentPage === 0, currentPage === pages - 1)],
     });
