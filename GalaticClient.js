@@ -149,7 +149,7 @@ module.exports = class GalaticClient extends Client {
 
                         // Registra slash command
                         if (command.config.slash && command.data) {
-                            this.slashCommands.set(command.data.name, command); // Mudança aqui
+                            this.slashCommands.set(command.data.name, command);
                             slashCount++;
                             console.log(`[SLASH] ✅ Carregado: ${command.config.name}`);
                         }
@@ -159,10 +159,6 @@ module.exports = class GalaticClient extends Client {
                 })
             })
         })
-        
-        setTimeout(() => {
-            console.log(`📁 Total de slash commands: ${slashCount}`);
-        }, 1000);
     })
     return this
 }

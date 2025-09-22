@@ -20,14 +20,17 @@ client.loadEvents('./events')
 client.on('ready', async () => {
     console.log(`🤖 Bot online como ${client.user.tag}`);
     
-    // Aguarda um pouco para garantir que tudo carregou
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Aguarda mais tempo para garantir que tudo carregou
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
-    // Registra os slash commands
-    try {
-        await client.registerSlashCommands();
-    } catch (err) {
-        console.error('Erro ao registrar slash commands:', err);
+    // Registra os slash commands apenas uma vez
+    if (!client.slashCommandsRegistered) {
+        try {
+            await client.registerSlashCommands();
+            client.slashCommandsRegistered = true;
+        } catch (err) {
+            console.error('Erro ao registrar slash commands:', err);
+        }
     }
 });
 

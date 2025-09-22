@@ -95,12 +95,17 @@ module.exports = class {
     }
 
     async handleFichaCreate(interaction) {
-        const nome = interaction.fields.getTextInputValue('campoNome');
-        const reino = interaction.fields.getTextInputValue('campoReino');
-        const raca = interaction.fields.getTextInputValue('campoRaca');
-        const aparencia = interaction.fields.getTextInputValue('campoAparencia');
-
         try {
+            await interaction.reply({ 
+                content: 'Processando...',
+                flags: 64 // 64 = EPHEMERAL
+            });
+
+            const nome = interaction.fields.getTextInputValue('campoNome');
+            const reino = interaction.fields.getTextInputValue('campoReino');
+            const raca = interaction.fields.getTextInputValue('campoRaca');
+            const aparencia = interaction.fields.getTextInputValue('campoAparencia');
+
             await this.client.database.Ficha.create({
                 _id: `${interaction.user.id}_${interaction.guildId}`,
                 userId: interaction.user.id,
@@ -140,16 +145,16 @@ module.exports = class {
             });
         } catch (err) {
             console.error(err);
-            await interaction.reply({
+            await interaction.editReply({
                 content: 'Erro ao criar ficha!',
-                ephemeral: true
+                flags: 64
             });
         }
     }
 
     async handleHabilidadeSubmit(interaction) {
         try {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
 
             // Obtém os valores usando os IDs corretos
             const categoria = interaction.fields.getTextInputValue('categoria');
@@ -207,9 +212,9 @@ module.exports = class {
             console.error('Erro ao salvar habilidade:', err);
             const response = {
                 content: 'Erro ao salvar a habilidade. Tente novamente.',
-                ephemeral: true
+                flags: 64
             };
-
+            
             if (interaction.deferred) {
                 await interaction.editReply(response);
             } else {

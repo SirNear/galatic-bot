@@ -276,130 +276,147 @@ module.exports = class ficha extends Command {
                     let pAparencia = await modalInteraction.fields.getTextInputValue("campoAparencia");
                     /* #endregion */
 
-                    let embedSucess = new EmbedBuilder()
-                        .setColor(color.green)
-                        .setTitle("<:YaroCheck:1408857786221330443> | **Ficha Registrada!**")
-                        .setDescription("Confira os valores:")
-                        .addFields(
-                            {
-                              name: "<:membroCDS:1408857982363500556> | **Nome**",
-                              value: pName,
-                              inline: true,
-                            },
-                            {
-                              name: "<:7992_AmongUs_Investigate:1408858074734919861> | **Aparência**",
-                              value: pAparencia,
-                              inline: true,
-                            },
-                            {
-                              name: "<a:NeekoGroove:1408860306029150349> | **Raça**",
-                              value: pRaca,
-                              inline: true,
-                            },
-                            {
-                              name: "<:iglu:1408859733632483388>| **Reino**",
-                              value: pReino,
-                              inline: true,
-                            }
+                    try {
+                        // Salva a ficha no banco
+                        await this.client.database.Ficha.save({
+                            _id: `${message.author.id}_${message.guild.id}`,
+                            userId: message.author.id,
+                            guildId: message.guild.id,
+                            nome: pName,
+                            reino: pReino,
+                            raca: pRaca,
+                            aparencia: pAparencia,
+                            habilidades: []
+                        });
+
+                        let embedSucess = new EmbedBuilder()
+                            .setColor(color.green)
+                            .setTitle("<:YaroCheck:1408857786221330443> | **Ficha Registrada!**")
+                            .setDescription("Confira os valores:")
+                            .addFields(
+                                {
+                                  name: "<:membroCDS:1408857982363500556> | **Nome**",
+                                  value: pName,
+                                  inline: true,
+                                },
+                                {
+                                  name: "<:7992_AmongUs_Investigate:1408858074734919861> | **Aparência**",
+                                  value: pAparencia,
+                                  inline: true,
+                                },
+                                {
+                                  name: "<a:NeekoGroove:1408860306029150349> | **Raça**",
+                                  value: pRaca,
+                                  inline: true,
+                                },
+                                {
+                                  name: "<:iglu:1408859733632483388>| **Reino**",
+                                  value: pReino,
+                                  inline: true,
+                                }
+                            );
+
+                        await mensagemConfirmacao.edit({
+                            embeds: [embedSucess],
+                            components: [],
+                        });
+
+                        const msgHabilidades = await message.channel.send(
+                            "**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora? (Responda com 'sim' ou 'não')"
                         );
 
-                    await mensagemConfirmacao.edit({
-                        embeds: [embedSucess],
-                        components: [],
-                    });
+                        // Declarando o coletor aqui
+                        const coletorHabilidades = message.channel.createMessageCollector({
+                            filter: (m) => 
+                                m.author.id === message.author.id && 
+                                ['sim', 'não', 'nao'].includes(m.content.toLowerCase()),
+                            time: 60000,
+                            max: 1,
+                        });
 
-                    const msgHabilidades = await message.channel.send(
-                        "**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora? (Responda com 'sim' ou 'não')"
-                    );
+                        coletorHabilidades.on('collect', async (msg) => {
+                            if (msg.content.toLowerCase() === 'sim') {
+                                try {
+                                    // Cria modal de habilidades
+                                    const modal = new ModalBuilder()
+                                        .setCustomId('habilidade_inicial')
+                                        .setTitle('Nova Habilidade');
 
-                    // Declarando o coletor aqui
-                    const coletorHabilidades = message.channel.createMessageCollector({
-                        filter: (m) => 
-                            m.author.id === message.author.id && 
-                            ['sim', 'não', 'nao'].includes(m.content.toLowerCase()),
-                        time: 60000,
-                        max: 1,
-                    });
+                                    // Campos do modal
+                                    const categoriaInput = new TextInputBuilder()
+                                        .setCustomId('categoria')
+                                        .setLabel('Categoria da Habilidade')
+                                        .setStyle(TextInputStyle.Short)
+                                        .setRequired(true);
 
-                    coletorHabilidades.on('collect', async (msg) => {
-                        if (msg.content.toLowerCase() === 'sim') {
-                            try {
-                                // Cria modal de habilidades
-                                const modal = new ModalBuilder()
-                                    .setCustomId('habilidade_inicial')
-                                    .setTitle('Nova Habilidade');
+                                    const nomeInput = new TextInputBuilder()
+                                        .setCustomId('nome')
+                                        .setLabel('Nome da Habilidade')
+                                        .setStyle(TextInputStyle.Short)
+                                        .setRequired(true);
 
-                                // Campos do modal
-                                const categoriaInput = new TextInputBuilder()
-                                    .setCustomId('categoria')
-                                    .setLabel('Categoria da Habilidade')
-                                    .setStyle(TextInputStyle.Short)
-                                    .setRequired(true);
+                                    const descricaoInput = new TextInputBuilder()
+                                        .setCustomId('descricao')
+                                        .setLabel('Descrição')
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setRequired(true);
 
-                                const nomeInput = new TextInputBuilder()
-                                    .setCustomId('nome')
-                                    .setLabel('Nome da Habilidade')
-                                    .setStyle(TextInputStyle.Short)
-                                    .setRequired(true);
+                                    const subHabilidade1 = new TextInputBuilder()
+                                        .setCustomId('sub1')
+                                        .setLabel('Sub-habilidade 1 (opcional)')
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setRequired(false);
 
-                                const descricaoInput = new TextInputBuilder()
-                                    .setCustomId('descricao')
-                                    .setLabel('Descrição')
-                                    .setStyle(TextInputStyle.Paragraph)
-                                    .setRequired(true);
+                                    const subHabilidade2 = new TextInputBuilder()
+                                        .setCustomId('sub2')
+                                        .setLabel('Sub-habilidade 2 (opcional)')
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setRequired(false);
 
-                                const subHabilidade1 = new TextInputBuilder()
-                                    .setCustomId('sub1')
-                                    .setLabel('Sub-habilidade 1 (opcional)')
-                                    .setStyle(TextInputStyle.Paragraph)
-                                    .setRequired(false);
-
-                                const subHabilidade2 = new TextInputBuilder()
-                                    .setCustomId('sub2')
-                                    .setLabel('Sub-habilidade 2 (opcional)')
-                                    .setStyle(TextInputStyle.Paragraph)
-                                    .setRequired(false);
-
-                                modal.addComponents(
-                                    new ActionRowBuilder().addComponents(categoriaInput),
-                                    new ActionRowBuilder().addComponents(nomeInput),
-                                    new ActionRowBuilder().addComponents(descricaoInput),
-                                    new ActionRowBuilder().addComponents(subHabilidade1),
-                                    new ActionRowBuilder().addComponents(subHabilidade2)
-                                );
-
-                                // Em vez de tentar criar um collector, vamos usar buttons
-                                const row = new ActionRowBuilder()
-                                    .addComponents(
-                                        new ButtonBuilder()
-                                            .setCustomId('abrirModal')
-                                            .setLabel('Adicionar Habilidade')
-                                            .setStyle(ButtonStyle.Primary)
+                                    modal.addComponents(
+                                        new ActionRowBuilder().addComponents(categoriaInput),
+                                        new ActionRowBuilder().addComponents(nomeInput),
+                                        new ActionRowBuilder().addComponents(descricaoInput),
+                                        new ActionRowBuilder().addComponents(subHabilidade1),
+                                        new ActionRowBuilder().addComponents(subHabilidade2)
                                     );
 
-                                await msg.reply({
-                                    content: 'Clique no botão abaixo para adicionar uma habilidade:',
-                                    components: [row]
-                                });
+                                    // Em vez de tentar criar um collector, vamos usar buttons
+                                    const row = new ActionRowBuilder()
+                                        .addComponents(
+                                            new ButtonBuilder()
+                                                .setCustomId('abrirModal')
+                                                .setLabel('Adicionar Habilidade')
+                                                .setStyle(ButtonStyle.Primary)
+                                        );
 
-                            } catch (err) {
-                                console.error('Erro ao configurar modal:', err);
-                                await msg.reply('Houve um erro. Use `/ficha habilidade` para adicionar mais tarde.');
+                                    await msg.reply({
+                                        content: 'Clique no botão abaixo para adicionar uma habilidade:',
+                                        components: [row]
+                                    });
+
+                                } catch (err) {
+                                    console.error('Erro ao configurar modal:', err);
+                                    await msg.reply('Houve um erro. Use `/ficha habilidade` para adicionar mais tarde.');
+                                }
+                            } else {
+                                await msg.reply('Ok! Você pode adicionar habilidades depois usando `/ficha habilidade`');
                             }
-                        } else {
-                            await msg.reply('Ok! Você pode adicionar habilidades depois usando `/ficha habilidade`');
-                        }
-                    });
+                        });
 
-                    coletorHabilidades.on('end', (collected, reason) => {
-                        if (reason === 'time') {
-                            message.channel.send('Tempo esgotado! Você pode adicionar habilidades depois usando `/ficha habilidade`');
-                        }
-                    });
+                        coletorHabilidades.on('end', (collected, reason) => {
+                            if (reason === 'time') {
+                                message.channel.send('Tempo esgotado! Você pode adicionar habilidades depois usando `/ficha habilidade`');
+                            }
+                        });
 
-                    console.log(
-                        `Ficha registrada: Nome: ${pName}, Raça: ${pRaca}, Reino: ${pReino}, Aparência: ${pAparencia} por ${message.author.tag}(${userDb.jogador})`
-                    );
+                        console.log(
+                            `Ficha registrada: Nome: ${pName}, Raça: ${pRaca}, Reino: ${pReino}, Aparência: ${pAparencia} por ${message.author.tag}(${userDb.jogador})`
+                        );
+                    } catch (err) {
+                        console.error("Erro ao salvar ficha:", err);
+                        return modalInteraction.reply("Erro ao salvar a ficha!");
+                    }
                 })
                 .catch((err) => {
                     console.error("Erro ao capturar o modal:", err);
