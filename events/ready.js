@@ -1,4 +1,4 @@
-const { ActivityType } = require('discord.js');
+const { ActivityType, ChannelType } = require('discord.js'); // Adicionado ChannelType
 
 module.exports = class {
     constructor(client) {
@@ -33,55 +33,48 @@ module.exports = class {
     // Novo método para configurar reaction roles
     async setupReactionRoles() {
         try {
-            // Busca todas as regras de reaction roles no banco
             const rules = await this.client.database.reactionRoles.find({});
             console.log(`🎭 Carregando ${rules.length} reaction roles...`);
-    
+
             for (const rule of rules) {
                 const { messageId, emoji, roleId } = rule;
-    
-                // Para cada guild que o bot está
+
                 for (const guild of this.client.guilds.cache.values()) {
                     try {
-                        // Tenta encontrar a mensagem
                         const message = await findMessage(guild, messageId);
                         if (!message) continue;
-    
+
                         // Configura os coletores de reação
-                        const collector = message.createReactionCollector();
-    
-                        collector.on('collect', async (reaction, user) => {
+                        message.createReactionCollector().on('collect', async (reaction, user) => {
                             if (user.bot) return;
                             if (reaction.emoji.toString() !== emoji) return;
-    
+
                             const member = await message.guild.members.fetch(user.id);
                             const role = message.guild.roles.cache.get(roleId);
-    
+
                             if (!role) return;
                             if (member.roles.cache.has(role.id)) return;
-    
+
                             await member.roles.add(role).catch(console.error);
-                        });
-    
-                        collector.on('remove', async (reaction, user) => {
+                        }).on('remove', async (reaction, user) => {
                             if (user.bot) return;
                             if (reaction.emoji.toString() !== emoji) return;
-    
+
                             const member = await message.guild.members.fetch(user.id);
                             const role = message.guild.roles.cache.get(roleId);
-    
+
                             if (!role) return;
                             if (!member.roles.cache.has(role.id)) return;
-    
+
                             await member.roles.remove(role).catch(console.error);
                         });
-    
+
                         // Adiciona a reação se não existir
                         const existing = message.reactions.cache.get(emoji);
                         if (!existing) {
-                            await message.react(emoji).catch(console.error);
+                            await message.react(emoji);
                         }
-    
+
                         console.log(`✅ Reaction role reativada: ${emoji} -> ${role?.name || roleId}`);
                     } catch (err) {
                         console.error(`Erro ao configurar reaction role ${emoji}:`, err);
@@ -94,7 +87,7 @@ module.exports = class {
     }
 };
 
-// Função auxiliar para encontrar mensagem (igual à do reactionRole.js)
+// Função auxiliar para encontrar mensagem
 async function findMessage(guild, messageId) {
     const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText);
     for (const channel of textChannels.values()) {
