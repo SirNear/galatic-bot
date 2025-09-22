@@ -119,3 +119,14 @@ module.exports.userData = userData
 
 let Ficha = mongoose.model("Ficha", fichaPersonagem);
 module.exports.Ficha = Ficha;
+
+let reactionRole = new mongoose.Schema({
+    _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    messageId: { type: String, required: true },
+    emoji: { type: String, required: true },
+    roleId: { type: String, required: true },
+    guildId: { type: String, required: true }
+});
+
+let ReactionRoles = mongoose.model("ReactionRoles", reactionRole)
+module.exports.ReactionRoles = ReactionRoles

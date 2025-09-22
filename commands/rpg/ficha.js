@@ -1,17 +1,14 @@
 const {
-  Discord,
-  ModalBuilder,
   EmbedBuilder,
+  ModalBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  Events,
   TextInputStyle,
   TextInputBuilder,
   SlashCommandBuilder,
 } = require("discord.js");
 const Command = require("../../structures/Command");
-const error = require("../../api/error.js");
 const color = require("../../api/colors.json");
 
 module.exports = class ficha extends Command {
@@ -22,11 +19,12 @@ module.exports = class ficha extends Command {
       aliases: ["f"],
       UserPermission: [""],
       clientPermission: null,
-      OnlyDevs: true,
+      OnlyDevs: false, // Mudei para false para permitir uso geral
       slash: true,
       description: "Gerencia fichas de personagem",
     });
 
+    // Configuração do slash command
     if (this.config.slash) {
       this.data = new SlashCommandBuilder()
         .setName(this.config.name)
@@ -59,15 +57,22 @@ module.exports = class ficha extends Command {
     }
   }
 
+  // Método para slash commands
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    try {
+      const subcommand = interaction.options.getSubcommand();
 
-    const subcommand = interaction.options.getSubcommand();
-
-    if (subcommand === "criar") {
-      await this.handleFichaCreate(interaction);
-    } else if (subcommand === "habilidade") {
-      await this.handleHabilidadeAdd(interaction);
+      if (subcommand === "criar") {
+        await this.handleFichaCreate(interaction);
+      } else if (subcommand === "habilidade") {
+        await this.handleHabilidadeAdd(interaction);
+      }
+    } catch (err) {
+      console.error("Erro no comando ficha:", err);
+      await interaction.reply({
+        content: "Ocorreu um erro ao executar o comando!",
+        ephemeral: true,
+      });
     }
   }
 

@@ -7,41 +7,34 @@ const EventManager = require('./structures/EventManager.js')
 module.exports = class GalaticClient extends Client {
   constructor(options = {}) {
     super({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessageReactions // Adicione esta intent
-      ],
-      partials: [
-        Partials.Message,
-        Partials.Channel,
-        Partials.Reaction
-      ]
+        intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GuildMembers,
+            GatewayIntentBits.GuildMessageReactions,
+            GatewayIntentBits.MessageContent // Importante para comandos
+        ],
+        partials: [
+            Partials.Message,
+            Partials.Channel,
+            Partials.Reaction
+        ]
     });
-	    
-     this.database = require('./mongoose.js')
-  
-     this.utils = new Util(this);
-	    
-     this.commands = new Collection();
-	   
-     this.aliases = new Collection();
-	    
-     this.utils = new Util(this);
-	    
-     this.owners = options.owners;
-      
-     this.events = new EventManager(this);
-	  
-     this.activeCollector = false;
+    
+    // Inicializa as collections primeiro
+    this.commands = new Collection();
+    this.aliases = new Collection();
+    this.slashCommands = new Collection();
+    
+    // Depois carrega o database
+    this.database = require('./mongoose.js');
+    
+    this.utils = new Util(this);
+    this.owners = options.owners;
+    this.events = new EventManager(this);
+    this.activeCollector = false;
+}
 
-     // Adiciona collection para slash commands
-     this.slashCommands = new Collection();
-	  
-        
-    }
-	
 	reloadCommand(commandName) {
 		const command = this.commands.get(commandName) || this.commands.get(this.aliases.get(commandName))
 		if (!command) return false
@@ -145,8 +138,7 @@ module.exports = class GalaticClient extends Client {
 	loadCommands(path) {
     readdir(`./commands/`, (err, files) => {
         if (err) console.error(err)
-        let normalCommands = 0;
-        let slashCommands = 0;
+        let slashCount = 0;
         
         files.forEach(category => {
             readdir(`./commands/${category}`, (err, commandFiles) => {
@@ -154,6 +146,7 @@ module.exports = class GalaticClient extends Client {
                     console.error(`Erro ao ler a categoria '${category}':`, err);
                     return;
                 }
+                
                 commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
                     try {
                         const command = new (require(`./commands/${category}/${cmdFile}`))(this)
@@ -161,13 +154,13 @@ module.exports = class GalaticClient extends Client {
                         
                         // Registra comando normal
                         this.commands.set(command.config.name, command)
-                        command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
-                        normalCommands++;
+                        command.config.aliases?.forEach(a => this.aliases.set(a, command.config.name))
 
-                        // Registra slash command se existir
+                        // Registra slash command
                         if (command.config.slash && command.data) {
                             this.slashCommands.set(command.config.name.toLowerCase(), command);
-                            slashCommands++;
+                            slashCount++;
+                            console.log(`[SLASH] ✅ Carregado: ${command.config.name}`);
                         }
                     } catch (error) {
                         console.error(`Erro ao carregar ${cmdFile}:`, error);
@@ -175,10 +168,9 @@ module.exports = class GalaticClient extends Client {
                 })
             })
         })
-
-        // Log resumido ao final
+        
         setTimeout(() => {
-            console.log(`✅ Carregados ${normalCommands} comandos normais e ${slashCommands} slash commands`);
+            console.log(`📁 Total de slash commands: ${slashCount}`);
         }, 1000);
     })
     return this

@@ -1,25 +1,37 @@
 const Client = require('./GalaticClient')
-const { GatewayIntentBits } = require('discord.js') // Corrigido: desestruturação
+const { GatewayIntentBits } = require('discord.js')
 const config = require('./config')
 
 const client = new Client({
-   intents: [
-      GatewayIntentBits.Guilds,               // Necessário para slash commands
-      GatewayIntentBits.GuildMessages,        // Para comandos por mensagem
-      GatewayIntentBits.MessageContent,       // Para ler conteúdo das mensagens
-      GatewayIntentBits.DirectMessages        // Se precisar de DMs
-   ],
-   disableMentions: "everyone",
-})
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.DirectMessages
+    ]
+});
 
+// Carrega comandos e eventos
 client.loadCommands('./commands')
 client.loadEvents('./events')
 
-client.on('ready', () => {
+// Evento ready mais robusto
+client.on('ready', async () => {
     console.log(`🤖 Bot online como ${client.user.tag}`);
-    client.registerSlashCommands();
+    
+    // Aguarda um pouco para garantir que tudo carregou
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Registra os slash commands
+    try {
+        await client.registerSlashCommands();
+    } catch (err) {
+        console.error('Erro ao registrar slash commands:', err);
+    }
 });
 
+// Login
 client.login(config.token)
-    .then(() => console.log("Bot online e slash commands registrados!"))
-    .catch((err) => console.log(`Erro ao iniciar: ${err.message}`))
+    .then(() => console.log("✅ Login realizado!"))
+    .catch((err) => console.error(`❌ Erro ao iniciar:`, err));

@@ -33,8 +33,16 @@ module.exports = class {
     // Novo método para configurar reaction roles
     async setupReactionRoles() {
         try {
-            const rules = await this.client.database.reactionRoles.find({});
-            console.log(`🎭 Carregando ${rules.length} reaction roles...`);
+            // Aguarda a conexão com o banco de dados
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            if (!this.client.database?.ReactionRoles) {
+                console.log('⚠️ Sistema de reaction roles não inicializado.');
+                return;
+            }
+
+            const rules = await this.client.database.ReactionRoles.find({}).exec();
+            console.log(`🎭 Carregando ${rules?.length || 0} reaction roles...`);
 
             for (const guild of this.client.guilds.cache.values()) {
                 for (const rule of rules) {
