@@ -41,8 +41,9 @@ module.exports = class {
                     // Campos do modal com IDs consistentes
                     const categoriaInput = new TextInputBuilder()
                         .setCustomId('categoria')
-                        .setLabel('Categoria da Habilidade')
+                        .setLabel('Tipo da Habilidade')
                         .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Física, Mágica, Passiva, Haki, Sagrada, Demoniaca, Amaldiçoada, Aura de Combate, outras (digite)')
                         .setRequired(true);
 
                     const nomeInput = new TextInputBuilder()
@@ -61,12 +62,14 @@ module.exports = class {
                         .setCustomId('subHabilidade1') // ID único
                         .setLabel('Sub-habilidade 1 (opcional)')
                         .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Você poderá adicionar mais depois! \n Deixe em branco se não quiser adicionar.')
                         .setRequired(false);
 
                     const subHabilidade2 = new TextInputBuilder()
                         .setCustomId('subHabilidade2') // ID único
                         .setLabel('Sub-habilidade 2 (opcional)')
                         .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Você poderá adicionar mais depois! \n Deixe em branco se não quiser adicionar.')
                         .setRequired(false);
 
                     // Adiciona todos os campos
@@ -188,14 +191,14 @@ module.exports = class {
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
             const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
-            const subHabilidadesInput = interaction.fields.getTextInputValue('subHabilidades');
-
-            const subHabilidades = subHabilidadesInput
-                ? subHabilidadesInput.split('\n').filter(sub => sub.trim() !== '').map((sub, index) => ({
-                    nome: `Sub ${index + 1}`,
-                    descricao: sub.trim()
-                  }))
-                : [];
+            
+            const subHabilidades = [];
+            for (let i = 1; i <= 3; i++) {
+                const sub = interaction.fields.getTextInputValue(`subHabilidade${i}`).catch(() => null);
+                if (sub) {
+                    subHabilidades.push({ nome: `Sub ${i}`, descricao: sub });
+                }
+            }
 
             // Busca todas as fichas do usuário para ele escolher a qual adicionar
             const fichasDoUsuario = await this.client.database.Ficha.find({ 
@@ -215,8 +218,6 @@ module.exports = class {
             if (fichasDoUsuario.length === 1) {
                 ficha = fichasDoUsuario[0];
             } else {
-                // Lógica para o usuário escolher a ficha (será implementada no futuro ou via outro comando)
-                // Por agora, vamos pegar a mais recente como padrão
                 ficha = fichasDoUsuario.sort((a, b) => b.createdAt - a.createdAt)[0];
             }
 
@@ -231,7 +232,7 @@ module.exports = class {
             ficha.habilidades.push({
                 nome,
                 descricao,
-                categoria: categoria, // Já está em minúsculo
+                categoria: categoria, 
                 subHabilidades: subHabilidades
             });
 
