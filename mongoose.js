@@ -95,6 +95,13 @@ let fichaHabilidades = new mongoose.Schema({
 	tipo: {type: String}
 })
 
+let reactionRole = new mongoose.Schema({
+	_id: {type: String},
+	messageId: {type: String, required: true},
+	emoji: {type: String, required: true},
+	role: {type: String, required: true},
+})
+
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg
 
@@ -109,3 +116,6 @@ module.exports.Punish = Punish
 
 let userData = mongoose.model("userData", uD)
 module.exports.userData = userData
+
+let reactionRoles = mongoose.model("reactionRoles", reactionRole)
+module.exports.reactionRoles = reactionRoles

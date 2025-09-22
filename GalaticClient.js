@@ -73,10 +73,14 @@ module.exports = class GalaticClient extends Client {
 		readdir(`./commands/`, (err, files) => {
 			if (err) console.error(err)
 			files.forEach(category => {
-				readdir(`./commands/${category}`, (err, cmd) => {
-					cmd.forEach(async cmd => {
-						const command = new (require(`./commands/${category}/${cmd}`))(this)
-						command.dir = `./commands/${category}/${cmd}`
+				readdir(`./commands/${category}`, (err, commandFiles) => {
+					if (err) {
+						console.error(`Erro ao ler a categoria de comandos '${category}':`, err);
+						return;
+					}
+					commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
+						const command = new (require(`./commands/${category}/${cmdFile}`))(this)
+						command.dir = `./commands/${category}/${cmdFile}`
 						this.commands.set(command.config.name, command)
 						command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
 
