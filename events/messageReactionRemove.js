@@ -1,3 +1,5 @@
+const { EmbedBuilder } = require('discord.js');
+
 module.exports = class {
     constructor(client) {
         this.client = client;
@@ -18,18 +20,27 @@ module.exports = class {
                 }
             }
 
+            // Aguarda conexão com o banco
+            if (!this.client.database?.ReactionRoles) {
+                console.error('Database ReactionRoles não está disponível');
+                return;
+            }
+
             // Busca regra no banco de dados
-            const rule = await this.client.database.reactionRoles.findOne({
+            const rule = await this.client.database.ReactionRoles.findOne({
                 messageId: reaction.message.id,
                 emoji: reaction.emoji.toString()
-            });
+            }).exec(); // Importante: use .exec()
 
             if (!rule) return;
 
             // Remove o cargo
             const guild = reaction.message.guild;
             const role = guild.roles.cache.get(rule.roleId);
-            if (!role) return;
+            if (!role) {
+                console.error(`Cargo ${rule.roleId} não encontrado`);
+                return;
+            }
 
             const member = await guild.members.fetch(user.id);
             if (!member) return;

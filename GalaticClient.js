@@ -12,7 +12,7 @@ module.exports = class GalaticClient extends Client {
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.GuildMembers,
             GatewayIntentBits.GuildMessageReactions,
-            GatewayIntentBits.MessageContent // Importante para comandos
+            GatewayIntentBits.MessageContent
         ],
         partials: [
             Partials.Message,
@@ -21,13 +21,13 @@ module.exports = class GalaticClient extends Client {
         ]
     });
     
-    // Inicializa as collections primeiro
+    // Inicializa database primeiro
+    this.database = require('./mongoose.js');
+    
+    // Depois as collections
     this.commands = new Collection();
     this.aliases = new Collection();
     this.slashCommands = new Collection();
-    
-    // Depois carrega o database
-    this.database = require('./mongoose.js');
     
     this.utils = new Util(this);
     this.owners = options.owners;

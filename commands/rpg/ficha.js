@@ -177,7 +177,7 @@ module.exports = class ficha extends Command {
   // Mantenha o método run() para compatibilidade com comandos prefixados
   async run({ message, args, client, server }) {
     let userDb = await this.client.database.userData.findById(
-      `${message.author.globalName} ${message.guild.name}`
+        `${message.author.globalName} ${message.guild.name}`
     );
 
     /* #region  FORMULÁRIO */
@@ -227,110 +227,119 @@ module.exports = class ficha extends Command {
 
     /* #region  BOTÕES */
     const botoesConfirmacao = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("confirma")
-        .setLabel("SIM")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("cancela")
-        .setLabel("CANCELAR")
-        .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder()
+            .setCustomId("confirma")
+            .setLabel("SIM")
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId("cancela")
+            .setLabel("CANCELAR")
+            .setStyle(ButtonStyle.Danger)
     );
 
     let mensagemConfirmacao = await message.reply({
-      content: "Deseja iniciar a inscrição da ficha de um novo personagem?",
-      ephemeral: true,
-      components: [botoesConfirmacao],
+        content: "Deseja iniciar a inscrição da ficha de um novo personagem?",
+        ephemeral: true,
+        components: [botoesConfirmacao],
     });
 
     const coletorBotao = mensagemConfirmacao.createMessageComponentCollector({
-      filter: (i) => i.user.id === message.author.id,
-      time: 60000,
+        filter: (i) => i.user.id === message.author.id,
+        time: 60000,
     });
     /* #endregion */
 
     coletorBotao.on("collect", async (interaction) => {
-      if (interaction.customId === "confirma") {
-        await interaction.showModal(formularioRegisto);
+        if (interaction.customId === "confirma") {
+            await interaction.showModal(formularioRegisto);
 
-        // Agora, esperando pela interação no modal
-        const filter = (interaction) =>
-          interaction.customId === "esqueletoFormularioRegistro";
-        interaction
-          .awaitModalSubmit({ filter, time: 150000 })
-          .then(async (modalInteraction) => {
-            await modalInteraction.deferUpdate();
+            // Agora, esperando pela interação no modal
+            const filter = (interaction) =>
+                interaction.customId === "esqueletoFormularioRegistro";
+            interaction
+                .awaitModalSubmit({ filter, time: 150000 })
+                .then(async (modalInteraction) => {
+                    await modalInteraction.deferUpdate();
 
-            /* #region VALORES COLETADOS DO FORMULÁRIO */
-            let pName = await modalInteraction.fields.getTextInputValue(
-              "campoNome"
-            );
-            let pRaca = await modalInteraction.fields.getTextInputValue(
-              "campoRaca"
-            );
-            let pReino = await modalInteraction.fields.getTextInputValue(
-              "campoReino"
-            );
-            let pAparencia = await modalInteraction.fields.getTextInputValue(
-              "campoAparencia"
-            );
-            /* #endregion */
+                    /* #region VALORES COLETADOS DO FORMULÁRIO */
+                    let pName = await modalInteraction.fields.getTextInputValue("campoNome");
+                    let pRaca = await modalInteraction.fields.getTextInputValue("campoRaca");
+                    let pReino = await modalInteraction.fields.getTextInputValue("campoReino");
+                    let pAparencia = await modalInteraction.fields.getTextInputValue("campoAparencia");
+                    /* #endregion */
 
-            let embedSucess = new EmbedBuilder()
-              .setColor(color.green)
-              .setTitle(
-                "<:YaroCheck:1408857786221330443> | **Ficha Registrada!**"
-              )
-              .setDescription("Confira os valores:")
-              .addFields(
-                {
-                  name: "<:membroCDS:1408857982363500556> | **Nome**",
-                  value: pName,
-                  inline: true,
-                },
-                {
-                  name: "<:7992_AmongUs_Investigate:1408858074734919861> | **Aparência**",
-                  value: pAparencia,
-                  inline: true,
-                },
-                {
-                  name: "<a:NeekoGroove:1408860306029150349> | **Raça**",
-                  value: pRaca,
-                  inline: true,
-                },
-                {
-                  name: "<:iglu:1408859733632483388>| **Reino**",
-                  value: pReino,
-                  inline: true,
-                }
-              );
+                    let embedSucess = new EmbedBuilder()
+                        .setColor(color.green)
+                        .setTitle("<:YaroCheck:1408857786221330443> | **Ficha Registrada!**")
+                        .setDescription("Confira os valores:")
+                        .addFields(
+                            {
+                              name: "<:membroCDS:1408857982363500556> | **Nome**",
+                              value: pName,
+                              inline: true,
+                            },
+                            {
+                              name: "<:7992_AmongUs_Investigate:1408858074734919861> | **Aparência**",
+                              value: pAparencia,
+                              inline: true,
+                            },
+                            {
+                              name: "<a:NeekoGroove:1408860306029150349> | **Raça**",
+                              value: pRaca,
+                              inline: true,
+                            },
+                            {
+                              name: "<:iglu:1408859733632483388>| **Reino**",
+                              value: pReino,
+                              inline: true,
+                            }
+                        );
 
-            await mensagemConfirmacao.edit({
-              embeds: [embedSucess],
-              components: [],
-            });
+                    await mensagemConfirmacao.edit({
+                        embeds: [embedSucess],
+                        components: [],
+                    });
 
-            message.channel.send(
-              "**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora?"
-            );
-            console.log(
-              `Ficha registrada: Nome: ${pName}, Raça: ${pRaca}, Reino: ${pReino}, Aparência: ${pAparencia} por ${message.author.tag}(${userDb.jogador})`
-            );
+                    const msgHabilidades = await message.channel.send(
+                        "**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora? (Responda com 'sim' ou 'não')"
+                    );
 
-            coletorHabilidades = message.channel.createMessageCollector({
-              filter: (m) => m.author.id === message.author.id,
-              time: 60000,
-              max: 1,
-            });
-          })
-          .catch((err) => {
-            console.error("Erro ao capturar o modal:", err);
-            message.channel.send("Houve um erro ao processar o formulário.");
-          });
-      } else {
-        console.log("Botão CANCELAR clicado, cancelando a ação...");
-        return error.cancelMsg(mensagemConfirmacao);
-      }
+                    // Declarando o coletor aqui
+                    const coletorHabilidades = message.channel.createMessageCollector({
+                        filter: (m) => 
+                            m.author.id === message.author.id && 
+                            ['sim', 'não', 'nao'].includes(m.content.toLowerCase()),
+                        time: 60000,
+                        max: 1,
+                    });
+
+                    coletorHabilidades.on('collect', async (msg) => {
+                        if (msg.content.toLowerCase() === 'sim') {
+                            // Mostrar modal de habilidades ou próximo passo
+                            await msg.reply('Em breve você poderá adicionar habilidades!');
+                        } else {
+                            await msg.reply('Ok! Você pode adicionar habilidades depois usando `/ficha habilidade`');
+                        }
+                    });
+
+                    coletorHabilidades.on('end', (collected, reason) => {
+                        if (reason === 'time') {
+                            message.channel.send('Tempo esgotado! Você pode adicionar habilidades depois usando `/ficha habilidade`');
+                        }
+                    });
+
+                    console.log(
+                        `Ficha registrada: Nome: ${pName}, Raça: ${pRaca}, Reino: ${pReino}, Aparência: ${pAparencia} por ${message.author.tag}(${userDb.jogador})`
+                    );
+                })
+                .catch((err) => {
+                    console.error("Erro ao capturar o modal:", err);
+                    message.channel.send("Houve um erro ao processar o formulário.");
+                });
+        } else {
+            console.log("Botão CANCELAR clicado, cancelando a ação...");
+            return error.cancelMsg(mensagemConfirmacao);
+        }
     });
   }
 };
