@@ -81,27 +81,26 @@ let fichaCabecalho = new mongoose.Schema({
 	aparencia: {type: String}
 })
 
-const habilidadeSubSchema = new mongoose.Schema({
-  _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, // id interno da habilidade (útil pra editar)
-  nome: { type: String, required: true }, //nome da skill
-  descricao: { type: String, required: true }, //descricao da skill
-  tipo: { type: String, enum: ['magica','fisica','passiva'], required: true }
-}, { _id: true });
+const habilidadeSchema = new mongoose.Schema({
+    nome: { type: String, required: true },
+    descricao: { type: String, required: true },
+    categoria: { type: String, required: true }, // mágica, física, passiva, etc
+    subHabilidades: [{
+        nome: { type: String },
+        descricao: { type: String }
+    }]
+});
 
-let fichaHabilidades = new mongoose.Schema({ 
-	_id: {type: String},
-	nome: {type: String},
-	descricao: {type: String},
-	tipo: {type: String}
-})
-
-let reactionRole = new mongoose.Schema({
-    _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-    messageId: { type: String, required: true },
-    emoji: { type: String, required: true },
-    roleId: { type: String, required: true },
-    guildId: { type: String, required: true }
-})
+let fichaPersonagem = new mongoose.Schema({
+    _id: { type: String },
+    userId: { type: String, required: true },
+    guildId: { type: String, required: true },
+    nome: { type: String, required: true },
+    reino: { type: String, required: true },
+    raca: { type: String, required: true },
+    aparencia: { type: String, required: true },
+    habilidades: [habilidadeSchema]
+});
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
 module.exports.pokeReg = pokeReg
@@ -118,5 +117,5 @@ module.exports.Punish = Punish
 let userData = mongoose.model("userData", uD)
 module.exports.userData = userData
 
-let reactionRoles = mongoose.model("reactionRoles", reactionRole)
-module.exports.reactionRoles = reactionRoles
+let Ficha = mongoose.model("Ficha", fichaPersonagem);
+module.exports.Ficha = Ficha;
