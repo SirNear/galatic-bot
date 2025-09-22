@@ -77,19 +77,26 @@ module.exports = class GalaticClient extends Client {
 
             const commands = [];
             this.slashCommands.forEach(command => {
-                console.log(`Preparando comando: ${command.config.name}`);
                 commands.push(command.data.toJSON());
             });
 
-            // Para teste rápido em um servidor específico
-            await rest.put(
-                Routes.applicationGuildCommands(this.user.id, '540725346241216534'),
+            // Registra globalmente em vez de em um servidor específico
+            const data = await rest.put(
+                Routes.applicationCommands(this.user.id),
                 { body: commands },
             );
 
-            console.log('Slash commands registrados com sucesso!');
+            console.log(`✅ ${data.length} slash commands registrados com sucesso!`);
         } catch (error) {
             console.error('Erro ao registrar slash commands:', error);
+            // Log mais detalhado do erro
+            if (error.code === 50001) {
+                console.log('\n⚠️ O bot precisa das seguintes permissões:');
+                console.log('1. applications.commands - Scope OAuth2');
+                console.log('2. Administrator ou Manage Server - Permissões do bot\n');
+                console.log('Reconvide o bot usando este link:');
+                console.log(`https://discord.com/api/oauth2/authorize?client_id=${this.user.id}&permissions=8&scope=bot%20applications.commands`);
+            }
         }
     }
 
@@ -129,10 +136,13 @@ module.exports = class GalaticClient extends Client {
 	loadCommands(path) {
     readdir(`./commands/`, (err, files) => {
         if (err) console.error(err)
+        let normalCommands = 0;
+        let slashCommands = 0;
+        
         files.forEach(category => {
             readdir(`./commands/${category}`, (err, commandFiles) => {
                 if (err) {
-                    console.error(`Erro ao ler a categoria de comandos '${category}':`, err);
+                    console.error(`Erro ao ler a categoria '${category}':`, err);
                     return;
                 }
                 commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
@@ -140,24 +150,27 @@ module.exports = class GalaticClient extends Client {
                         const command = new (require(`./commands/${category}/${cmdFile}`))(this)
                         command.dir = `./commands/${category}/${cmdFile}`
                         
-                        // Debug para verificar o comando carregado
-                        console.log(`Carregando comando: ${command.config.name}`);
-                        
                         // Registra comando normal
                         this.commands.set(command.config.name, command)
                         command.config.aliases.forEach(a => this.aliases.set(a, command.config.name))
+                        normalCommands++;
 
                         // Registra slash command se existir
                         if (command.config.slash && command.data) {
-                            console.log(`Registrando slash command: ${command.config.name}`);
                             this.slashCommands.set(command.config.name.toLowerCase(), command);
+                            slashCommands++;
                         }
                     } catch (error) {
-                        console.error(`Erro ao carregar comando ${cmdFile}:`, error);
+                        console.error(`Erro ao carregar ${cmdFile}:`, error);
                     }
                 })
             })
         })
+
+        // Log resumido ao final
+        setTimeout(() => {
+            console.log(`✅ Carregados ${normalCommands} comandos normais e ${slashCommands} slash commands`);
+        }, 1000);
     })
     return this
 }

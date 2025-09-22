@@ -16,12 +16,10 @@ client.loadCommands('./commands')
 client.loadEvents('./events')
 
 client.on('ready', () => {
-    console.log(`Bot online como ${client.user.tag}`);
-    console.log('Comandos carregados:', [...client.commands.keys()]);
-    console.log('Slash commands carregados:', [...client.slashCommands.keys()]);
+    console.log(`🤖 Bot online como ${client.user.tag}`);`);
     client.registerSlashCommands();
 });
 
-client.login(config.token)
-    .then(() => console.log("Bot online e slash commands registrados!"))
-    .catch((err) => console.log(`Erro ao iniciar: ${err.message}`))
+client.login(config.token)ent.login(config.token)
+    .then(() => console.log("Bot online e slash commands registrados!"))    .then(() => console.log("Bot online e slash commands registrados!"))
+    .catch((err) => console.log(`Erro ao iniciar: ${err.message}`))e.log(`Erro ao iniciar: ${err.message}`))
