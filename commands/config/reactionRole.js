@@ -1,8 +1,9 @@
 const { EmbedBuilder, ChannelType } = require('discord.js');
 const Command = require('../../structures/Command');
-const ReactionRole = require('../../models/ReactionRole'); // Adapte o caminho para o seu modelo
+// Remova esta linha:
+// const ReactionRole = require('../../models/ReactionRole');
 const color = require('../../api/colors.json');
-const error = require('../../api/error.js'); // Usando seu handler de erro
+const error = require('../../api/error.js');
 
 module.exports = class reactionRole extends Command {
     constructor(client) {
@@ -10,7 +11,7 @@ module.exports = class reactionRole extends Command {
             name: "reactionRole",
             category: "config",
             aliases: ['rr', 'rrole', 'reactionrole', 'addreactionrole', 'addrr'],
-            UserPermission: ["Administrator"], // Corrigido para "Administrator"
+            UserPermission: ["Administrator"],
             clientPermission: null,
             OnlyDevs: false,
             options: [
@@ -97,7 +98,7 @@ module.exports = class reactionRole extends Command {
             }
 
             // Salva ou atualiza no banco de dados
-            await ReactionRole.findOneAndUpdate(
+            await this.client.database.reactionRoles.findOneAndUpdate(
                 { messageId, emoji },
                 { guildId: guild.id, roleId: role.id },
                 { upsert: true } // Cria se não existir, atualiza se existir
@@ -114,7 +115,7 @@ module.exports = class reactionRole extends Command {
 
         } catch (err) {
             console.error("Erro ao adicionar Reaction Role:", err);
-            return error.msg(context, 'Ocorreu um erro. Verifique se o emoji é válido e se tenho permissão para reagir.');
+            return error.msg(context, 'Ocorreu um erro ao salvar a regra.');
         }
     }
 
