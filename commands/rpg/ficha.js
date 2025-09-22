@@ -424,7 +424,6 @@ module.exports = class ficha extends Command {
     });
 
     collector.on("collect", async (i) => {
-      await i.deferUpdate();
       if (i.customId === "prevHab") {
         currentPage--;
       } else if (i.customId === "nextHab") {
