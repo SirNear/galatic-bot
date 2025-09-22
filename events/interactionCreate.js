@@ -15,6 +15,16 @@ module.exports = class {
 
     async run(interaction) {
         try {
+            if (!interaction.isCommand() && !interaction.isModalSubmit() && !interaction.isButton()) {
+                return;
+            }
+
+            // Garante que a interação ainda é válida
+            if (!interaction.isValid()) {
+                console.log('Interação expirada');
+                return;
+            }
+
             // Handle Modal Submits
             if (interaction.isModalSubmit()) {
                 if (interaction.customId === 'fichaCreate') {
@@ -104,11 +114,14 @@ module.exports = class {
             const reino = interaction.fields.getTextInputValue('campoReino');
             const aparencia = interaction.fields.getTextInputValue('campoAparencia');
 
-            // Cria ID único com nome do personagem
+            // ID único usando nome do personagem
             const fichaId = `${interaction.user.id}_${nome.toLowerCase().replace(/\s+/g, '_')}`;
 
-            // Verifica se já existe personagem com mesmo nome
-            const existingFicha = await this.client.database.Ficha.findById(fichaId);
+            // Verifica se já existe ficha com este nome
+            const existingFicha = await this.client.database.Ficha.findOne({
+                userId: interaction.user.id,
+                nome: nome
+            });
 
             if (existingFicha) {
                 return interaction.reply({
@@ -117,60 +130,51 @@ module.exports = class {
                 });
             }
 
-            try {
-                await this.client.database.Ficha.create({
-                    _id: fichaId,
-                    userId: interaction.user.id,
-                    guildId: interaction.guild.id,
-                    nome,
-                    raca,
-                    reino,
-                    aparencia,
-                    habilidades: []
-                });
+            // Cria a ficha
+            const ficha = await this.client.database.Ficha.create({
+                _id: fichaId,
+                userId: interaction.user.id,
+                guildId: interaction.guild.id,
+                nome,
+                raca,
+                reino,
+                aparencia,
+                habilidades: []
+            });
 
-                const embed = new EmbedBuilder()
-                    .setColor('Green')
-                    .setTitle('✅ Ficha Criada!')
-                    .addFields(
-                        { name: 'Nome', value: nome, inline: true },
-                        { name: 'Raça', value: raca, inline: true },
-                        { name: 'Reino', value: reino },
-                        { name: 'Aparência', value: aparencia }
-                    );
+            const embed = new EmbedBuilder()
+                .setColor('Green')
+                .setTitle('✅ Ficha Criada!')
+                .addFields(
+                    { name: 'Nome', value: nome, inline: true },
+                    { name: 'Raça', value: raca, inline: true },
+                    { name: 'Reino', value: reino },
+                    { name: 'Aparência', value: aparencia }
+                );
 
-                await interaction.reply({
-                    embeds: [embed],
-                    flags: 64
-                });
+            await interaction.reply({
+                embeds: [embed],
+                flags: 64
+            });
 
-                // Pergunta sobre habilidades
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId('addHabilidade')
-                            .setLabel('Adicionar Habilidades')
-                            .setStyle(ButtonStyle.Primary)
-                    );
+            // Pergunta sobre habilidades
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('addHabilidade')
+                        .setLabel('Adicionar Habilidades')
+                        .setStyle(ButtonStyle.Primary)
+                );
 
-                await interaction.followUp({
-                    content: 'Deseja adicionar habilidades agora?',
-                    components: [row],
-                    flags: 64
-                });
+            await interaction.followUp({
+                content: 'Deseja adicionar habilidades agora?',
+                components: [row],
+                flags: 64
+            });
 
-            } catch (err) {
-                if (err.code === 11000) {
-                    return interaction.reply({
-                        content: '❌ Erro ao criar ficha: Nome de personagem já existe!',
-                        flags: 64
-                    });
-                }
-                throw err;
-            }
         } catch (err) {
             console.error('Erro ao criar ficha:', err);
-            if (!interaction.replied && !interaction.deferred) {
+            if (!interaction.replied) {
                 await interaction.reply({
                     content: 'Ocorreu um erro ao criar a ficha!',
                     flags: 64
@@ -181,18 +185,40 @@ module.exports = class {
 
     async handleHabilidadeSubmit(interaction) {
         try {
-            await interaction.deferReply({ flags: 64 });
+            await interaction.deferReply({ ephemeral: true });
+
+            // Extrai a categoria do customId do modal
+            const categoria = interaction.customId.split('_')[1];
 
             // Obtém os valores usando os IDs corretos
-            const categoria = interaction.fields.getTextInputValue('categoria');
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
             const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
             const sub1 = interaction.fields.getTextInputValue('subHabilidade1');
             const sub2 = interaction.fields.getTextInputValue('subHabilidade2');
+            const prerequisito = interaction.fields.getTextInputValue('prerequisito');
 
-            const ficha = await this.client.database.Ficha.findById(
-                `${interaction.user.id}_${interaction.guildId}`
-            );
+            // Busca todas as fichas do usuário para ele escolher a qual adicionar
+            const fichasDoUsuario = await this.client.database.Ficha.find({ 
+                userId: interaction.user.id,
+                guildId: interaction.guild.id
+            });
+
+            if (!fichasDoUsuario.length) {
+                return interaction.editReply({
+                    content: 'Erro: Nenhuma ficha encontrada! Use `/ficha criar` primeiro.',
+                    ephemeral: true
+                });
+            }
+
+            // Se houver apenas uma ficha, usa ela. Se não, pede para o usuário escolher.
+            let ficha;
+            if (fichasDoUsuario.length === 1) {
+                ficha = fichasDoUsuario[0];
+            } else {
+                // Lógica para o usuário escolher a ficha (será implementada no futuro ou via outro comando)
+                // Por agora, vamos pegar a mais recente como padrão
+                ficha = fichasDoUsuario.sort((a, b) => b.createdAt - a.createdAt)[0];
+            }
 
             if (!ficha) {
                 return interaction.editReply({
@@ -205,11 +231,12 @@ module.exports = class {
             ficha.habilidades.push({
                 nome,
                 descricao,
-                categoria: categoria.toLowerCase(),
+                categoria: categoria, // Já está em minúsculo
                 subHabilidades: [
                     ...(sub1 ? [{ nome: 'Sub 1', descricao: sub1 }] : []),
                     ...(sub2 ? [{ nome: 'Sub 2', descricao: sub2 }] : [])
-                ]
+                ],
+                prerequisito: prerequisito || null
             });
 
             await ficha.save();
@@ -217,10 +244,11 @@ module.exports = class {
             const embed = new EmbedBuilder()
                 .setColor('Green')
                 .setTitle('✅ Habilidade Adicionada!')
+                .setDescription(`Habilidade **${nome}** adicionada à ficha de **${ficha.nome}**.`)
                 .addFields(
-                    { name: 'Nome', value: nome, inline: true },
                     { name: 'Categoria', value: categoria, inline: true },
-                    { name: 'Descrição', value: descricao }
+                    { name: 'Descrição', value: descricao },
+                    { name: 'Pré-requisitos', value: prerequisito || 'Nenhum' }
                 );
 
             if (sub1 || sub2) {
@@ -233,12 +261,12 @@ module.exports = class {
                 });
             }
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.editReply({ embeds: [embed], ephemeral: true });
 
         } catch (err) {
             console.error('Erro ao salvar habilidade:', err);
             const response = {
-                content: 'Erro ao salvar a habilidade. Tente novamente.',
+                content: 'Ocorreu um erro ao salvar a habilidade. Tente novamente.',
                 flags: 64
             };
             

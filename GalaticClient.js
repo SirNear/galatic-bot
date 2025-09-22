@@ -33,6 +33,7 @@ module.exports = class GalaticClient extends Client {
     this.owners = options.owners;
     this.events = new EventManager(this);
     this.activeCollector = false;
+    this.fichaStates = new Map();
 }
 
 	reloadCommand(commandName) {

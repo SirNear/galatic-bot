@@ -36,6 +36,9 @@ module.exports = class ficha extends Command {
             .setDescription("Cria uma nova ficha de personagem")
         )
         .addSubcommand((sub) =>
+          sub.setName("ver").setDescription("Visualiza fichas de personagem")
+        )
+        .addSubcommand((sub) =>
           sub
             .setName("habilidade")
             .setDescription("Adiciona uma habilidade à ficha")
@@ -58,143 +61,75 @@ module.exports = class ficha extends Command {
     }
   }
 
-  // Método para slash commands
+  /* #region  SLASH COMMAND */
   async execute(interaction) {
     try {
-        const subcommand = interaction.options.getSubcommand();
+      const subcommand = interaction.options.getSubcommand();
 
-        if (subcommand === 'criar') {
-            // Remove verificação de ficha existente
-            const modal = new ModalBuilder()
-                .setCustomId('fichaCreate')
-                .setTitle('Criar Nova Ficha de Personagem');
-
-            let campoNome = new TextInputBuilder()
-              .setCustomId("campoNome")
-              .setLabel("Nome do Personagem")
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true);
-
-            let campoReino = new TextInputBuilder()
-              .setCustomId("campoReino")
-              .setLabel("Reino")
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true);
-
-            let campoRaca = new TextInputBuilder()
-              .setCustomId("campoRaca")
-              .setLabel("Raça")
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true);
-
-            let campoAparencia = new TextInputBuilder()
-              .setCustomId("campoAparencia")
-              .setLabel("Aparência")
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-              .setValue("Insira o nome do personagem e o universo pertencente");
-
-            const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
-            const actionRowReino = new ActionRowBuilder().addComponents(campoReino);
-            const actionRowRaca = new ActionRowBuilder().addComponents(campoRaca);
-            const actionRowAparencia = new ActionRowBuilder().addComponents(
-              campoAparencia
-            );
-
-            modal.addComponents(
-              actionRowNome,
-              actionRowReino,
-              actionRowRaca,
-              actionRowAparencia
-            );
-
-            return interaction.showModal(modal);
-        } else if (subcommand === 'habilidade') {
-            // Adiciona opção para selecionar personagem
-            const personagens = await this.client.database.Ficha.find({
-                userId: interaction.user.id,
-                guildId: interaction.guild.id
-            });
-
-            if (personagens.length === 0) {
-                return interaction.reply({
-                    content: '❌ Você não possui nenhuma ficha registrada!',
-                    flags: 64
-                });
-            }
-
-            // Cria select menu com personagens
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new StringSelectMenuBuilder()
-                        .setCustomId('selecionar_personagem')
-                        .setPlaceholder('Selecione um personagem')
-                        .addOptions(
-                            personagens.map(p => ({
-                                label: p.nome,
-                                value: p._id
-                            }))
-                        )
-                );
-
-            await interaction.reply({
-                content: 'Selecione o personagem para adicionar a habilidade:',
-                components: [row],
-                flags: 64
-            });
-        }
+      switch (subcommand) {
+        case "criar":
+          return this.handleFichaCreate(interaction);
+        case "ver":
+          return this.handleFichaView(interaction);
+        case "habilidade":
+          return this.handleHabilidadeAdd(interaction);
+      }
     } catch (err) {
-        console.error('Erro no comando ficha:', err);
-        if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({
-                content: 'Ocorreu um erro ao executar este comando!',
-                flags: 64
-            });
-        }
+      console.error("Erro no comando ficha:", err);
+      return interaction.reply({
+        content: "Ocorreu um erro ao executar este comando!",
+        flags: 64,
+      });
     }
   }
+  /* #endregion */
 
+  /* #region  BACK-END */
   async handleFichaCreate(interaction) {
     try {
-        const nome = interaction.fields.getTextInputValue('campoNome');
-        const raca = interaction.fields.getTextInputValue('campoRaca');
-        const reino = interaction.fields.getTextInputValue('campoReino');
-        const aparencia = interaction.fields.getTextInputValue('campoAparencia');
+      // Primeiro, criar e mostrar o modal
+      const modal = new ModalBuilder()
+        .setCustomId("fichaCreate")
+        .setTitle("Criar Ficha de Personagem");
 
-        // ID único usando timestamp
-        const fichaId = `${interaction.user.id}_${Date.now()}`;
+      const nomeInput = new TextInputBuilder()
+        .setCustomId("campoNome")
+        .setLabel("Nome do Personagem")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-        await this.client.database.Ficha.create({
-            _id: fichaId,
-            userId: interaction.user.id,
-            guildId: interaction.guild.id,
-            nome,
-            raca,
-            reino,
-            aparencia,
-            habilidades: []
-        });
+      const racaInput = new TextInputBuilder()
+        .setCustomId("campoRaca")
+        .setLabel("Raça")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-        const embed = new EmbedBuilder()
-            .setColor('Green')
-            .setTitle('✅ Ficha Criada!')
-            .addFields(
-                { name: 'Nome', value: nome, inline: true },
-                { name: 'Raça', value: raca, inline: true },
-                { name: 'Reino', value: reino },
-                { name: 'Aparência', value: aparencia }
-            );
+      const reinoInput = new TextInputBuilder()
+        .setCustomId("campoReino")
+        .setLabel("Reino")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-        await interaction.reply({
-            embeds: [embed],
-            flags: 64 // Substitui ephemeral: true
-        });
+      const aparenciaInput = new TextInputBuilder()
+        .setCustomId("campoAparencia")
+        .setLabel("Aparência")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(nomeInput),
+        new ActionRowBuilder().addComponents(racaInput),
+        new ActionRowBuilder().addComponents(reinoInput),
+        new ActionRowBuilder().addComponents(aparenciaInput)
+      );
+
+      await interaction.showModal(modal);
     } catch (err) {
-        console.error('Erro ao criar ficha:', err);
-        await interaction.reply({
-            content: 'Ocorreu um erro ao criar a ficha!',
-            flags: 64
-        });
+      console.error("Erro ao criar modal:", err);
+      await interaction.reply({
+        content: "Ocorreu um erro ao abrir o formulário!",
+        flags: 64,
+      });
     }
   }
 
@@ -204,7 +139,9 @@ module.exports = class ficha extends Command {
     const modal = new ModalBuilder()
       .setCustomId(`habilidade_${categoria}`)
       .setTitle(
-        `Nova Habilidade ${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`
+        `Nova Habilidade ${
+          categoria.charAt(0).toUpperCase() + categoria.slice(1)
+        }`
       );
 
     const nomeInput = new TextInputBuilder()
@@ -221,19 +158,19 @@ module.exports = class ficha extends Command {
       .setRequired(true);
 
     const subHabilidade1 = new TextInputBuilder()
-      .setCustomId("sub1")
+      .setCustomId("subHabilidade1")
       .setLabel("Sub-habilidade 1 (opcional)")
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(false);
 
     const subHabilidade2 = new TextInputBuilder()
-      .setCustomId("sub2")
+      .setCustomId("subHabilidade2")
       .setLabel("Sub-habilidade 2 (opcional)")
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(false);
 
     const prerequisito = new TextInputBuilder()
-      .setCustomId("prereq")
+      .setCustomId("prerequisito")
       .setLabel("Pré-requisitos (opcional)")
       .setStyle(TextInputStyle.Short)
       .setRequired(false);
@@ -249,254 +186,259 @@ module.exports = class ficha extends Command {
     await interaction.showModal(modal);
   }
 
-  // Mantenha o método run() para compatibilidade com comandos prefixados
-  async run({ message, args, client, server }) {
-    let userDb = await this.client.database.userData.findById(
-        `${message.author.globalName} ${message.guild.name}`
-    );
+  //seletor de fichas
+  async handleFichaView(interaction) {
+    // Busca as fichas do usuário para o menu de seleção
+    const fichasDoUsuario = await this.client.database.Ficha.find({
+      userId: interaction.user.id,
+      guildId: interaction.guild.id,
+    });
 
-    /* #region  FORMULÁRIO */
-    let formularioRegisto = new ModalBuilder()
-      .setCustomId("esqueletoFormularioRegistro")
-      .setTitle("Registro de Ficha");
-
-    let campoNome = new TextInputBuilder()
-      .setCustomId("campoNome")
-      .setLabel("Nome do Personagem")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
-
-    let campoReino = new TextInputBuilder()
-      .setCustomId("campoReino")
-      .setLabel("Reino")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
-
-    let campoRaca = new TextInputBuilder()
-      .setCustomId("campoRaca")
-      .setLabel("Raça")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
-
-    let campoAparencia = new TextInputBuilder()
-      .setCustomId("campoAparencia")
-      .setLabel("Aparência")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setValue("Insira o nome do personagem e o universo pertencente");
-
-    const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
-    const actionRowReino = new ActionRowBuilder().addComponents(campoReino);
-    const actionRowRaca = new ActionRowBuilder().addComponents(campoRaca);
-    const actionRowAparencia = new ActionRowBuilder().addComponents(
-      campoAparencia
-    );
-
-    formularioRegisto.addComponents(
-      actionRowNome,
-      actionRowReino,
-      actionRowRaca,
-      actionRowAparencia
-    );
-    /* #endregion */
-
-    /* #region  BOTÕES */
-    const botoesConfirmacao = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId("confirma")
-            .setLabel("SIM")
-            .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-            .setCustomId("cancela")
-            .setLabel("CANCELAR")
-            .setStyle(ButtonStyle.Danger)
-    );
-
-    let mensagemConfirmacao = await message.reply({
-        content: "Deseja iniciar a inscrição da ficha de um novo personagem?",
+    if (!fichasDoUsuario.length) {
+      return interaction.reply({
+        content:
+          "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.",
         ephemeral: true,
-        components: [botoesConfirmacao],
+      });
+    }
+
+    // Cria as opções para o menu de seleção
+    const options = fichasDoUsuario.map((ficha) => ({
+      label: ficha.nome,
+      description: `Raça: ${ficha.raca} | Reino: ${ficha.reino}`,
+      value: ficha._id, // O ID único da ficha
+    }));
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId("select_ficha_view")
+      .setPlaceholder("Selecione uma ficha para visualizar")
+      .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    const msg = await interaction.reply({
+      content: "Qual ficha você gostaria de ver?",
+      components: [row],
+      ephemeral: true,
+      fetchReply: true,
     });
 
-    const coletorBotao = mensagemConfirmacao.createMessageComponentCollector({
-        filter: (i) => i.user.id === message.author.id,
-        time: 60000,
+    const collector = msg.createMessageComponentCollector({
+      filter: (i) =>
+        i.user.id === interaction.user.id && i.customId === "select_ficha_view",
+      time: 60000, // 1 minuto
     });
-    /* #endregion */
 
-    coletorBotao.on("collect", async (interaction) => {
-        if (interaction.customId === "confirma") {
-            await interaction.showModal(formularioRegisto);
+    collector.on("collect", async (i) => {
+      const fichaId = i.values[0];
+      await this.showFicha(i, fichaId); // Passa a nova interação e o ID da ficha
+    });
 
-            // Agora, esperando pela interação no modal
-            const filter = (interaction) =>
-                interaction.customId === "esqueletoFormularioRegistro";
-            interaction
-                .awaitModalSubmit({ filter, time: 150000 })
-                .then(async (modalInteraction) => {
-                    await modalInteraction.deferUpdate();
-
-                    /* #region VALORES COLETADOS DO FORMULÁRIO */
-                    let pName = await modalInteraction.fields.getTextInputValue("campoNome");
-                    let pRaca = await modalInteraction.fields.getTextInputValue("campoRaca");
-                    let pReino = await modalInteraction.fields.getTextInputValue("campoReino");
-                    let pAparencia = await modalInteraction.fields.getTextInputValue("campoAparencia");
-                    /* #endregion */
-
-                    try {
-                        // Salva a ficha no banco
-                        await this.client.database.Ficha.create({
-                            _id: `${message.author.id}_${pName}`,
-                            userId: message.author.id,
-                            guildId: message.guild.id,
-                            nome: pName,
-                            reino: pReino,
-                            raca: pRaca,
-                            aparencia: pAparencia,
-                            habilidades: []
-                        });
-
-                        let embedSucess = new EmbedBuilder()
-                            .setColor(color.green)
-                            .setTitle("<:YaroCheck:1408857786221330443> | **Ficha Registrada!**")
-                            .setDescription("Confira os valores:")
-                            .addFields(
-                                {
-                                  name: "<:membroCDS:1408857982363500556> | **Nome**",
-                                  value: pName,
-                                  inline: true,
-                                },
-                                {
-                                  name: "<:7992_AmongUs_Investigate:1408858074734919861> | **Aparência**",
-                                  value: pAparencia,
-                                  inline: true,
-                                },
-                                {
-                                  name: "<a:NeekoGroove:1408860306029150349> | **Raça**",
-                                  value: pRaca,
-                                  inline: true,
-                                },
-                                {
-                                  name: "<:iglu:1408859733632483388>| **Reino**",
-                                  value: pReino,
-                                  inline: true,
-                                }
-                            );
-
-                        await mensagemConfirmacao.edit({
-                            embeds: [embedSucess],
-                            components: [],
-                        });
-
-                        const msgHabilidades = await message.channel.send(
-                            "**Ficha registrada com sucesso!** Deseja registrar _habilidades_ agora? (Responda com 'sim' ou 'não')"
-                        );
-
-                        // Declarando o coletor aqui
-                        const coletorHabilidades = message.channel.createMessageCollector({
-                            filter: (m) => 
-                                m.author.id === message.author.id && 
-                                ['sim', 'não', 'nao'].includes(m.content.toLowerCase()),
-                            time: 60000,
-                            max: 1,
-                        });
-
-                        coletorHabilidades.on('collect', async (msg) => {
-                            if (msg.content.toLowerCase() === 'sim') {
-                                try {
-                                    // Cria modal de habilidades
-                                    const modal = new ModalBuilder()
-                                        .setCustomId('habilidade_inicial')
-                                        .setTitle('Nova Habilidade');
-
-                                    // Campos do modal
-                                    const categoriaInput = new TextInputBuilder()
-                                        .setCustomId('categoria')
-                                        .setLabel('Categoria da Habilidade')
-                                        .setStyle(TextInputStyle.Short)
-                                        .setRequired(true);
-
-                                    const nomeInput = new TextInputBuilder()
-                                        .setCustomId('nome')
-                                        .setLabel('Nome da Habilidade')
-                                        .setStyle(TextInputStyle.Short)
-                                        .setRequired(true);
-
-                                    const descricaoInput = new TextInputBuilder()
-                                        .setCustomId('descricao')
-                                        .setLabel('Descrição')
-                                        .setStyle(TextInputStyle.Paragraph)
-                                        .setRequired(true);
-
-                                    const subHabilidade1 = new TextInputBuilder()
-                                        .setCustomId('sub1')
-                                        .setLabel('Sub-habilidade 1 (opcional)')
-                                        .setStyle(TextInputStyle.Paragraph)
-                                        .setRequired(false);
-
-                                    const subHabilidade2 = new TextInputBuilder()
-                                        .setCustomId('sub2')
-                                        .setLabel('Sub-habilidade 2 (opcional)')
-                                        .setStyle(TextInputStyle.Paragraph)
-                                        .setRequired(false);
-
-                                    modal.addComponents(
-                                        new ActionRowBuilder().addComponents(categoriaInput),
-                                        new ActionRowBuilder().addComponents(nomeInput),
-                                        new ActionRowBuilder().addComponents(descricaoInput),
-                                        new ActionRowBuilder().addComponents(subHabilidade1),
-                                        new ActionRowBuilder().addComponents(subHabilidade2)
-                                    );
-
-                                    // Em vez de tentar criar um collector, vamos usar buttons
-                                    const row = new ActionRowBuilder()
-                                        .addComponents(
-                                            new ButtonBuilder()
-                                                .setCustomId('abrirModal')
-                                                .setLabel('Adicionar Habilidade')
-                                                .setStyle(ButtonStyle.Primary)
-                                        );
-
-                                    await msg.reply({
-                                        content: 'Clique no botão abaixo para adicionar uma habilidade:',
-                                        components: [row]
-                                    });
-
-                                } catch (err) {
-                                    console.error('Erro ao configurar modal:', err);
-                                    await msg.reply('Houve um erro. Use `/ficha habilidade` para adicionar mais tarde.');
-                                }
-                            } else {
-                                await msg.reply('Ok! Você pode adicionar habilidades depois usando `/ficha habilidade`');
-                            }
-                        });
-
-                        coletorHabilidades.on('end', (collected, reason) => {
-                            if (reason === 'time') {
-                                message.channel.send('Tempo esgotado! Você pode adicionar habilidades depois usando `/ficha habilidade`');
-                            }
-                        });
-
-                        console.log(
-                            `Ficha registrada: Nome: ${pName}, Raça: ${pRaca}, Reino: ${pReino}, Aparência: ${pAparencia} por ${message.author.tag}(${userDb.jogador})`
-                        );
-                    } catch (err) {
-                        console.error("Erro ao salvar ficha:", err);
-                        return modalInteraction.reply("Erro ao salvar a ficha!");
-                    }
-                })
-                .catch((err) => {
-                    console.error("Erro ao capturar o modal:", err);
-                    message.channel.send("Houve um erro ao processar o formulário.");
-                });
-        } else {
-            console.log("Botão CANCELAR clicado, cancelando a ação...");
-            await mensagemConfirmacao.edit({
-                content: 'Operação cancelada!',
-                components: [],
-                ephemeral: true
-            });
-        }
+    collector.on("end", (collected, reason) => {
+      if (collected.size === 0) {
+        interaction
+          .editReply({ content: "Tempo esgotado.", components: [] })
+          .catch(() => {});
+      }
     });
   }
+
+  //visualizador de fichas
+  async showFicha(interaction, fichaId) {
+    await interaction.deferUpdate();
+
+    try {
+      // Busca todas as fichas do usuário
+      const fichas = await this.client.database.Ficha.find({
+        userId: interaction.user.id,
+        guildId: interaction.guild.id,
+      }).sort({ createdAt: -1 }); // Ordena por data de criação
+
+      if (!fichas.length) {
+        // Esta verificação já é feita em handleFichaView, mas é bom ter como segurança.
+        return interaction.followUp({
+          content: "Nenhuma ficha encontrada.",
+          ephemeral: true,
+        });
+      }
+
+      this.client.fichaStates.set(interaction.user.id, {
+        currentPage: 0,
+        fichas,
+      });
+
+      // Configuração da paginação
+      let currentPage = fichas.findIndex((f) => f._id === fichaId);
+      const pages = fichas.length;
+
+      // Função para gerar embed da ficha
+      const getFichaEmbed = (ficha) => {
+        const embed = new EmbedBuilder()
+          .setColor("Blue")
+          .setTitle(`📝 Ficha: ${ficha.nome}`)
+          .addFields(
+            { name: "Reino", value: ficha.reino, inline: true },
+            { name: "Raça", value: ficha.raca, inline: true },
+            { name: "Aparência", value: ficha.aparencia },
+            {
+              name: "Habilidades",
+              value: ficha.habilidades.length
+                ? "Use os botões abaixo para ver as habilidades"
+                : "Nenhuma habilidade registrada",
+            }
+          )
+          .setFooter({ text: `Página ${currentPage + 1} de ${pages}` });
+
+        return embed;
+      };
+
+      // Botões de navegação
+      const getButtons = (disablePrev, disableNext) => {
+        return new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("prevPage")
+            .setLabel("◀️ Anterior")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(disablePrev),
+          new ButtonBuilder()
+            .setCustomId("nextPage")
+            .setLabel("Próximo ▶️")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(disableNext),
+          new ButtonBuilder()
+            .setCustomId("viewHabilidades")
+            .setLabel("Ver Habilidades")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(!fichas[currentPage].habilidades.length)
+        );
+      };
+
+      // Envia mensagem inicial
+      const message = await interaction.editReply({
+        // Usa editReply na interação original do select
+        embeds: [getFichaEmbed(fichas[currentPage])],
+        components: [getButtons(currentPage === 0, currentPage === pages - 1)],
+        flags: 64,
+      });
+
+      // Cria coletor de botões
+      const collector = message.createMessageComponentCollector({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 300000, // 5 minutos
+      });
+
+      collector.on("collect", async (i) => {
+        await i.deferUpdate();
+
+        if (i.customId === "prevPage") {
+          currentPage--;
+        } else if (i.customId === "nextPage") {
+          currentPage++;
+        } else if (i.customId === "viewHabilidades") {
+          // Mostra habilidades em um modal ou embed separado
+          return this.showHabilidades(i, fichas[currentPage]);
+        }
+
+        await message.edit({
+          embeds: [getFichaEmbed(fichas[currentPage])],
+          components: [
+            getButtons(currentPage === 0, currentPage === pages - 1),
+          ],
+        });
+      });
+
+      collector.on("end", () => {
+        message
+          .edit({
+            components: [],
+          })
+          .catch(() => {});
+      });
+    } catch (err) {
+      console.error("Erro ao visualizar fichas:", err);
+      return interaction.editReply({
+        content: "Ocorreu um erro ao exibir a ficha!",
+        flags: 64,
+      });
+    }
+  }
+
+  // Método para mostrar habilidades
+  async showHabilidades(interaction, ficha) {
+    const habilidades = ficha.habilidades;
+    if (!habilidades.length) return;
+    let currentPage = 0;
+    const pages = Math.ceil(habilidades.length / 1);
+
+    const getHabilidadeEmbed = (habilidade) => {
+      return new EmbedBuilder()
+        .setColor("Purple")
+        .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
+        .setDescription(habilidade.descricao)
+        .addFields(
+          { name: "Categoria", value: habilidade.categoria, inline: true },
+          {
+            name: "Pré-requisitos",
+            value: habilidade.prerequisito || "Nenhum",
+            inline: true,
+          },
+          ...habilidade.subHabilidades.map((sub, index) => ({
+            name: `Sub-habilidade ${index + 1}`,
+            value: sub.descricao,
+            inline: false,
+          }))
+        )
+        .setFooter({ text: `Habilidade ${currentPage + 1} de ${pages}` });
+    };
+
+    const getNavButtons = (disablePrev, disableNext) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("prevHab")
+          .setLabel("◀️")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(disablePrev),
+        new ButtonBuilder()
+          .setCustomId("voltarFicha")
+          .setLabel("Voltar para Ficha")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("nextHab")
+          .setLabel("▶️")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(disableNext)
+      );
+    };
+
+    await interaction.editReply({
+      embeds: [getHabilidadeEmbed(habilidades[currentPage])],
+      components: [getNavButtons(currentPage === 0, currentPage === pages - 1)],
+    });
+
+    const collector = interaction.message.createMessageComponentCollector({
+      filter: (i) => i.user.id === interaction.user.id,
+      time: 300000,
+      idle: 60000, // 1 minuto de inatividade
+    });
+
+    collector.on("collect", async (i) => {
+      await i.deferUpdate();
+      if (i.customId === "prevHab") {
+        currentPage--;
+      } else if (i.customId === "nextHab") {
+        currentPage++;
+      } else if (i.customId === "voltarFicha") {
+        collector.stop("back");
+        return this.showFicha(i, ficha._id);
+      }
+
+      await i.update({
+        embeds: [getHabilidadeEmbed(habilidades[currentPage])],
+        components: [
+          getNavButtons(currentPage === 0, currentPage === pages - 1),
+        ],
+      });
+    });
+  }
+  /* #endregion */
 };

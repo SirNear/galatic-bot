@@ -88,7 +88,8 @@ const habilidadeSchema = new mongoose.Schema({
     subHabilidades: [{
         nome: { type: String },
         descricao: { type: String }
-    }]
+    }],
+    prerequisito: { type: String } // Adicionado
 });
 
 const fichaSchema = new mongoose.Schema({
