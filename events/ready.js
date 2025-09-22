@@ -1,78 +1,107 @@
-const ActivityType = require('discord.js')
+const { ActivityType } = require('discord.js');
 
 module.exports = class {
+    constructor(client) {
+        this.client = client;
+    }
 
-	constructor(client) {
-		this.client = client
-	}
+    async run() {
+        // Carrega reaction roles do banco de dados
+        await this.setupReactionRoles();
 
-	async run() {
+        this.client.owner = await this.client.users.fetch("395788326835322882");
 
-	async function sendCommandArgument() {
-	  const browser = await puppeteer.launch({
-	    args: ['--no-sandbox'],
-	  });
-	  const page = await browser.newPage();
-	  await page.goto('https://www.facebook.com/messages/t/5124318804265221/', {waitUntil: 'load', timeout: 0});
-		// Fazer login	
-		await page.type('#email', 'offhenriquebj@gmail.com');
-		console.log('email digitado')
-		
-		await page.type('#pass', 'henriquebj25');
-		console.log('senha digitada')
-		
-		await page.waitForSelector('#loginbutton', { visible: true });
-		await page.click('#loginbutton');
-		console.log('logado no messenger')
-		// Aguardar o carregamento da página
-		await page.waitForNavigation();
-		console.log('pagina carregada')
+        console.log([
+            `Logado em ${this.client.user.tag}`,
+            `${this.client.commands.size} comandos carregados!`,
+        ].join('\n'));
 
-		const monitorarElementos = async () => {
-			try {
-			   const mensagens = await page.$$eval('[aria-label="Mensagens na conversa com título Adms atrevidos"]', elementos => {
-			      const mensagensEncontradas = [];
-			      elementos.forEach(elemento => {
-			          const texto = elemento.textContent;
-			         if (texto.includes('g!')) {
-			            console.log('encontrei uma mensagem com o comando')
-			         }
-			         
-			      })
-			   })
+        let status = [ 	
+            {name: `Pó de café na pia`, type: ActivityType.Playing},
+            {name: 'Me mencione para saber mais sobre mim!', type: ActivityType.Playing},
+            {name: `${this.client.guilds.size} universos diferentes!`, type: ActivityType.Watching},
+            {name: 'Observou bugs? Tem sugestões ou dúvidas? Envie uma DM ao meu criador: Near#7447', type: ActivityType.Playing},
+            {name: 'Servidor de suporte em andamento.', type: ActivityType.Playing}
+        ]
+        
+        setInterval(() => {
+            let randomStatus = status[Math.floor(Math.random() * status.length)]
+            this.client.user.setActivity(randomStatus, {type: randomStatus} )
+        }, 10000)
+    }
 
-				setTimeout(monitorarElementos, 5000);
-				
-			}catch (error) {
-    			  console.error('Erro ao monitorar elementos:', error);
-    			}
-			
-		} 
-		
-		monitorarElementos();
-	}
-
-		
-		this.client.owner = await this.client.users.fetch("395788326835322882")
-
-		console.log([
-			`Logado em ${this.client.user.tag}`,
-			`${this.client.commands.size} comandos carregados!`,
-		].join('\n'));
-		
-		let status = [ 	
-			{name: `Pó de café na pia`, type: ActivityType.Playing},
-			{name: 'Me mencione para saber mais sobre mim!', type: ActivityType.Playing},
-			{name: `${this.client.guilds.size} universos diferentes!`, type: ActivityType.Watching},
-			{name: 'Observou bugs? Tem sugestões ou dúvidas? Envie uma DM ao meu criador: Near#7447', type: ActivityType.Playing},
-			{name: 'Servidor de suporte em andamento.', type: ActivityType.Playing}
-		]
-		
-		setInterval(() => {
-			let randomStatus = status[Math.floor(Math.random() * status.length)]
-			this.client.user.setActivity(randomStatus, {type: randomStatus} )
-		}, 10000)
-		
-	}
-  
+    // Novo método para configurar reaction roles
+    async setupReactionRoles() {
+        try {
+            // Busca todas as regras de reaction roles no banco
+            const rules = await this.client.database.reactionRoles.find({});
+            console.log(`🎭 Carregando ${rules.length} reaction roles...`);
+    
+            for (const rule of rules) {
+                const { messageId, emoji, roleId } = rule;
+    
+                // Para cada guild que o bot está
+                for (const guild of this.client.guilds.cache.values()) {
+                    try {
+                        // Tenta encontrar a mensagem
+                        const message = await findMessage(guild, messageId);
+                        if (!message) continue;
+    
+                        // Configura os coletores de reação
+                        const collector = message.createReactionCollector();
+    
+                        collector.on('collect', async (reaction, user) => {
+                            if (user.bot) return;
+                            if (reaction.emoji.toString() !== emoji) return;
+    
+                            const member = await message.guild.members.fetch(user.id);
+                            const role = message.guild.roles.cache.get(roleId);
+    
+                            if (!role) return;
+                            if (member.roles.cache.has(role.id)) return;
+    
+                            await member.roles.add(role).catch(console.error);
+                        });
+    
+                        collector.on('remove', async (reaction, user) => {
+                            if (user.bot) return;
+                            if (reaction.emoji.toString() !== emoji) return;
+    
+                            const member = await message.guild.members.fetch(user.id);
+                            const role = message.guild.roles.cache.get(roleId);
+    
+                            if (!role) return;
+                            if (!member.roles.cache.has(role.id)) return;
+    
+                            await member.roles.remove(role).catch(console.error);
+                        });
+    
+                        // Adiciona a reação se não existir
+                        const existing = message.reactions.cache.get(emoji);
+                        if (!existing) {
+                            await message.react(emoji).catch(console.error);
+                        }
+    
+                        console.log(`✅ Reaction role reativada: ${emoji} -> ${role?.name || roleId}`);
+                    } catch (err) {
+                        console.error(`Erro ao configurar reaction role ${emoji}:`, err);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Erro ao carregar reaction roles:', err);
+        }
+    }
 };
+
+// Função auxiliar para encontrar mensagem (igual à do reactionRole.js)
+async function findMessage(guild, messageId) {
+    const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText);
+    for (const channel of textChannels.values()) {
+        try {
+            const msg = await channel.messages.fetch(messageId);
+            if (msg) return msg;
+        } catch (e) {}
+    }
+    return null;
+}
