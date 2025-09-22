@@ -1,3 +1,13 @@
+const { 
+    ModalBuilder, 
+    TextInputBuilder, 
+    TextInputStyle,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    EmbedBuilder 
+} = require('discord.js');
+
 module.exports = class {
     constructor(client) {
         this.client = client;

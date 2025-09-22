@@ -77,20 +77,21 @@ module.exports = class GalaticClient extends Client {
             const commands = [];
             this.slashCommands.forEach(command => {
                 if (command.data) {
-                    commands.push(command.data.toJSON());
-                    console.log(`📝 Preparando comando: ${command.config.name}`);
+                    const data = command.data.toJSON();
+                    commands.push(data);
+                    console.log(`📝 Preparando comando: ${data.name}`);
                 }
             });
 
             const { REST, Routes } = require('discord.js');
-            const rest = new REST({ version: '10' }).setToken(this.token);
+            const rest = new REST({ version: '10' }).setToken(config.token);
 
-            await rest.put(
+            const data = await rest.put(
                 Routes.applicationCommands(this.user.id),
                 { body: commands }
             );
 
-            console.log(`✅ ${commands.length} slash commands registrados com sucesso!`);
+            console.log(`✅ ${data.length} slash commands registrados com sucesso!`);
         } catch (error) {
             console.error('Erro ao registrar slash commands:', error);
         }
@@ -102,16 +103,17 @@ module.exports = class GalaticClient extends Client {
         
         // Registra handler de interações
         this.on('interactionCreate', async interaction => {
-            if (!interaction.isCommand()) return;
-
-            const command = this.slashCommands.get(interaction.commandName);
-            if (!command) return;
-
             try {
-                await command.execute(interaction);
+                if (interaction.isChatInputCommand()) {
+                    const command = this.slashCommands.get(interaction.commandName);
+                    if (!command) return;
+
+                    await command.execute(interaction);
+                }
             } catch (error) {
-                console.error(error);
+                console.error('Erro ao processar interação:', error);
                 const errorMessage = 'Ocorreu um erro ao executar este comando!';
+                
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp({ content: errorMessage, ephemeral: true });
                 } else {
@@ -152,7 +154,7 @@ module.exports = class GalaticClient extends Client {
 
                         // Registra slash command
                         if (command.config.slash && command.data) {
-                            this.slashCommands.set(command.config.name.toLowerCase(), command);
+                            this.slashCommands.set(command.data.name, command); // Mudança aqui
                             slashCount++;
                             console.log(`[SLASH] ✅ Carregado: ${command.config.name}`);
                         }

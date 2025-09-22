@@ -27,7 +27,7 @@ module.exports = class ficha extends Command {
     // Configuração do slash command
     if (this.config.slash) {
       this.data = new SlashCommandBuilder()
-        .setName(this.config.name)
+        .setName("ficha") // Garante que o nome está em minúsculo
         .setDescription(this.config.description)
         .addSubcommand((sub) =>
           sub
