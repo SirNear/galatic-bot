@@ -68,49 +68,130 @@ module.exports = class {
     }
 
     async handleHabilidadeSubmit(interaction) {
-        const categoria = interaction.customId.split('_')[1];
-        const nome = interaction.fields.getTextInputValue('nome');
-        const descricao = interaction.fields.getTextInputValue('descricao');
-        const sub1 = interaction.fields.getTextInputValue('sub1');
-        const sub2 = interaction.fields.getTextInputValue('sub2');
-        const prereq = interaction.fields.getTextInputValue('prereq');
+        if (interaction.customId === 'habilidade_inicial') {
+            const categoria = interaction.fields.getTextInputValue('categoria');
+            const nome = interaction.fields.getTextInputValue('nome');
+            const descricao = interaction.fields.getTextInputValue('descricao');
+            const sub1 = interaction.fields.getTextInputValue('sub1');
+            const sub2 = interaction.fields.getTextInputValue('sub2');
 
-        try {
-            const ficha = await this.client.database.Ficha.findById(
-                `${interaction.user.id}_${interaction.guildId}`
-            );
+            try {
+                const ficha = await this.client.database.Ficha.findById(
+                    `${interaction.user.id}_${interaction.guildId}`
+                );
 
-            if (!ficha) {
-                return interaction.reply({
-                    content: 'Você precisa criar uma ficha primeiro!',
+                if (!ficha) {
+                    return interaction.reply({
+                        content: 'Erro: Ficha não encontrada!',
+                        ephemeral: true
+                    });
+                }
+
+                // Adiciona a habilidade
+                ficha.habilidades.push({
+                    nome,
+                    descricao,
+                    categoria: categoria.toLowerCase(),
+                    subHabilidades: [
+                        ...(sub1 ? [{ nome: 'Sub 1', descricao: sub1 }] : []),
+                        ...(sub2 ? [{ nome: 'Sub 2', descricao: sub2 }] : [])
+                    ]
+                });
+
+                await ficha.save();
+
+                const embed = new EmbedBuilder()
+                    .setColor('Green')
+                    .setTitle('✅ Habilidade Adicionada!')
+                    .addFields(
+                        { name: 'Nome', value: nome, inline: true },
+                        { name: 'Categoria', value: categoria, inline: true },
+                        { name: 'Descrição', value: descricao }
+                    );
+
+                if (sub1 || sub2) {
+                    embed.addFields({
+                        name: 'Sub-habilidades',
+                        value: [
+                            sub1 ? `1. ${sub1}` : '',
+                            sub2 ? `2. ${sub2}` : ''
+                        ].filter(Boolean).join('\n')
+                    });
+                }
+
+                await interaction.reply({ embeds: [embed], ephemeral: true });
+
+                // Pergunta se quer adicionar mais
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('addMaisHabilidade')
+                            .setLabel('Adicionar Mais')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId('finalizarFicha')
+                            .setLabel('Finalizar')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                await interaction.followUp({
+                    content: 'Deseja adicionar mais habilidades?',
+                    components: [row],
+                    ephemeral: true
+                });
+
+            } catch (err) {
+                console.error('Erro ao salvar habilidade:', err);
+                await interaction.reply({
+                    content: 'Erro ao salvar a habilidade!',
                     ephemeral: true
                 });
             }
+        } else {
+            const categoria = interaction.customId.split('_')[1];
+            const nome = interaction.fields.getTextInputValue('nome');
+            const descricao = interaction.fields.getTextInputValue('descricao');
+            const sub1 = interaction.fields.getTextInputValue('sub1');
+            const sub2 = interaction.fields.getTextInputValue('sub2');
+            const prereq = interaction.fields.getTextInputValue('prereq');
 
-            const novaHabilidade = {
-                nome,
-                descricao,
-                categoria,
-                subHabilidades: []
-            };
+            try {
+                const ficha = await this.client.database.Ficha.findById(
+                    `${interaction.user.id}_${interaction.guildId}`
+                );
 
-            if (sub1) novaHabilidade.subHabilidades.push({ nome: 'Sub 1', descricao: sub1 });
-            if (sub2) novaHabilidade.subHabilidades.push({ nome: 'Sub 2', descricao: sub2 });
-            if (prereq) novaHabilidade.prerequisito = prereq;
+                if (!ficha) {
+                    return interaction.reply({
+                        content: 'Você precisa criar uma ficha primeiro!',
+                        ephemeral: true
+                    });
+                }
 
-            ficha.habilidades.push(novaHabilidade);
-            await ficha.save();
+                const novaHabilidade = {
+                    nome,
+                    descricao,
+                    categoria,
+                    subHabilidades: []
+                };
 
-            await interaction.reply({
-                content: `✅ Habilidade "${nome}" adicionada com sucesso!`,
-                ephemeral: true
-            });
-        } catch (err) {
-            console.error(err);
-            await interaction.reply({
-                content: 'Erro ao adicionar habilidade!',
-                ephemeral: true
-            });
+                if (sub1) novaHabilidade.subHabilidades.push({ nome: 'Sub 1', descricao: sub1 });
+                if (sub2) novaHabilidade.subHabilidades.push({ nome: 'Sub 2', descricao: sub2 });
+                if (prereq) novaHabilidade.prerequisito = prereq;
+
+                ficha.habilidades.push(novaHabilidade);
+                await ficha.save();
+
+                await interaction.reply({
+                    content: `✅ Habilidade "${nome}" adicionada com sucesso!`,
+                    ephemeral: true
+                });
+            } catch (err) {
+                console.error(err);
+                await interaction.reply({
+                    content: 'Erro ao adicionar habilidade!',
+                    ephemeral: true
+                });
+            }
         }
     }
 };
