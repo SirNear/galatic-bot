@@ -125,75 +125,39 @@ module.exports = class ficha extends Command {
   }
 
   async handleHabilidadeAdd(interaction) {
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('select_sub_habilidades')
-      .setPlaceholder('Quantas sub-habilidades você quer adicionar?')
-      .addOptions([
-        { label: 'Nenhuma', value: '0' },
-        { label: '1 Sub-habilidade', value: '1' },
-        { label: '2 Sub-habilidades', value: '2' },
-        { label: '3 Sub-habilidades', value: '3' },
-        { label: '4 Sub-habilidades', value: '4' },
-        { label: '5 Sub-habilidades', value: '5' },
-      ]);
+    const categoria = interaction.options.getString("categoria");
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const modal = new ModalBuilder()
+      .setCustomId(`habilidade_${categoria}`)
+      .setTitle(`Nova Habilidade: ${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
 
-    const msg = await interaction.reply({
-      content: 'Selecione o número de sub-habilidades para a nova habilidade.',
-      components: [row],
-      ephemeral: true,
-      fetchReply: true,
-    });
+    const nomeInput = new TextInputBuilder()
+      .setCustomId("nomeHabilidade")
+      .setLabel("Nome da Habilidade")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-    const collector = msg.createMessageComponentCollector({
-      filter: i => i.user.id === interaction.user.id && i.customId === 'select_sub_habilidades',
-      time: 60000,
-    });
+    const descricaoInput = new TextInputBuilder()
+      .setCustomId("descricaoHabilidade")
+      .setLabel("Descrição (max 1000 caracteres)")
+      .setStyle(TextInputStyle.Paragraph)
+      .setMaxLength(1000)
+      .setRequired(true);
 
-    collector.on('collect', async i => {
-      const numSubHabilidades = parseInt(i.values[0], 10);
-      const categoria = interaction.options.getString("categoria");
+    const subHabilidadesInput = new TextInputBuilder()
+      .setCustomId('subHabilidades')
+      .setLabel('Sub-habilidades (uma por linha)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder('Sub-habilidade 1\nSub-habilidade 2\nSub-habilidade 3...')
+      .setRequired(false);
 
-      const modal = new ModalBuilder()
-        .setCustomId(`habilidade_${categoria}`)
-        .setTitle(`Nova Habilidade: ${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(nomeInput),
+      new ActionRowBuilder().addComponents(descricaoInput),
+      new ActionRowBuilder().addComponents(subHabilidadesInput)
+    );
 
-      const nomeInput = new TextInputBuilder()
-        .setCustomId("nomeHabilidade")
-        .setLabel("Nome da Habilidade")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const descricaoInput = new TextInputBuilder()
-        .setCustomId("descricaoHabilidade")
-        .setLabel("Descrição (max 1000 caracteres)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(1000)
-        .setRequired(true);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(nomeInput), new ActionRowBuilder().addComponents(descricaoInput));
-
-      for (let j = 1; j <= numSubHabilidades; j++) {
-        const subHabilidadeInput = new TextInputBuilder()
-          .setCustomId(`subHabilidade${j}`)
-          .setLabel(`Sub-habilidade ${j}`)
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false);
-        modal.addComponents(new ActionRowBuilder().addComponents(subHabilidadeInput));
-      }
-
-      await i.showModal(modal);
-      collector.stop();
-    });
-
-    collector.on('end', (collected, reason) => {
-      if (collected.size === 0) {
-        interaction.editReply({ content: 'Tempo esgotado.', components: [] }).catch(() => {});
-      } else {
-        interaction.editReply({ content: 'Modal aberto!', components: [] }).catch(() => {});
-      }
-    });
+    await interaction.showModal(modal);
   }
 
   //seletor de fichas

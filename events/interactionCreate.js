@@ -114,6 +114,7 @@ module.exports = class {
             // Verifica se já existe ficha com este nome
             const existingFicha = await this.client.database.Ficha.findOne({
                 userId: interaction.user.id,
+                guildId: interaction.guild.id,
                 nome: nome
             });
 
@@ -186,15 +187,15 @@ module.exports = class {
 
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
-            const descricao = interaction.fields.getTextInputValue('descricaoHabilidade'); 
-            
-            const subHabilidades = [];
-            for (let i = 1; i <= 5; i++) {
-                const sub = interaction.fields.getTextInputValue(`subHabilidade${i}`).catch(() => null);
-                if (sub) {
-                    subHabilidades.push({ nome: `Sub ${i}`, descricao: sub });
-                }
-            }
+            const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
+            const subHabilidadesInput = interaction.fields.getTextInputValue('subHabilidades');
+
+            const subHabilidades = subHabilidadesInput
+                ? subHabilidadesInput.split('\n').filter(sub => sub.trim() !== '').map((sub, index) => ({
+                    nome: `Sub ${index + 1}`,
+                    descricao: sub.trim()
+                  }))
+                : [];
 
             // Busca todas as fichas do usuário para ele escolher a qual adicionar
             const fichasDoUsuario = await this.client.database.Ficha.find({ 
