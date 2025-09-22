@@ -84,14 +84,14 @@ let fichaCabecalho = new mongoose.Schema({
 const habilidadeSchema = new mongoose.Schema({
     nome: { type: String, required: true },
     descricao: { type: String, required: true },
-    categoria: { type: String, required: true }, // mágica, física, passiva, etc
+    categoria: { type: String, required: true },
     subHabilidades: [{
         nome: { type: String },
         descricao: { type: String }
     }]
 });
 
-let fichaPersonagem = new mongoose.Schema({
+const fichaSchema = new mongoose.Schema({
     _id: { type: String },
     userId: { type: String, required: true },
     guildId: { type: String, required: true },
@@ -117,7 +117,7 @@ module.exports.Punish = Punish
 let userData = mongoose.model("userData", uD)
 module.exports.userData = userData
 
-let Ficha = mongoose.model("Ficha", fichaPersonagem);
+let Ficha = mongoose.model("Ficha", fichaSchema);
 module.exports.Ficha = Ficha;
 
 let reactionRole = new mongoose.Schema({

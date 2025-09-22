@@ -60,6 +60,14 @@ module.exports = class ficha extends Command {
   // Método para slash commands
   async execute(interaction) {
     try {
+      // Verifica se o usuário pode usar o comando
+      if (!interaction.member.permissions.has('SendMessages')) {
+        return interaction.reply({
+          content: '❌ Você não tem permissão para usar este comando.',
+          ephemeral: true
+        });
+      }
+
       const subcommand = interaction.options.getSubcommand();
 
       if (subcommand === "criar") {
@@ -133,13 +141,13 @@ module.exports = class ficha extends Command {
       );
 
     const nomeInput = new TextInputBuilder()
-      .setCustomId("nome")
+      .setCustomId("nomeHabilidade") // Mudar de 'nome' para 'nomeHabilidade'
       .setLabel("Nome da Habilidade")
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
     const descricaoInput = new TextInputBuilder()
-      .setCustomId("descricao")
+      .setCustomId("descricaoHabilidade") // Mudar de 'descricao' para 'descricaoHabilidade'
       .setLabel("Descrição (max 1000 caracteres)")
       .setStyle(TextInputStyle.Paragraph)
       .setMaxLength(1000)

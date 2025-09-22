@@ -122,11 +122,6 @@ module.exports = class GalaticClient extends Client {
             }
         });
 
-        // Registra os slash commands quando o bot estiver pronto
-        this.once('ready', () => {
-            this.registerSlashCommands();
-        });
-
         return this;
     }
 	
