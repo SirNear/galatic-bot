@@ -1,7 +1,5 @@
 const { EmbedBuilder, ChannelType } = require('discord.js');
 const Command = require('../../structures/Command');
-// Remova esta linha:
-// const ReactionRole = require('../../models/ReactionRole');
 const color = require('../../api/colors.json');
 const error = require('../../api/error.js');
 
@@ -14,148 +12,147 @@ module.exports = class reactionRole extends Command {
             UserPermission: ["Administrator"],
             clientPermission: null,
             OnlyDevs: false,
-            options: [
-                {
-                    name: 'adicionar',
-                    description: 'Adiciona à uma mensagem uma reação que concederá um cargo ao reagir.',
-                    type: 1, // 1 = SUB_COMMAND
-                    options: [
-                        { name: 'message_id', description: 'O ID da mensagem do painel.', type: 3, required: true }, // 3 = STRING
-                        { name: 'role', description: 'O cargo a ser atribuído.', type: 8, required: true }, // 8 = ROLE
-                        { name: 'emoji', description: 'O emoji para a reação.', type: 3, required: true },
-                    ],
-                },
-                {
-                    name: 'remover',
-                    description: 'Remove uma reação.',
-                    type: 1, // 1 = SUB_COMMAND
-                    options: [
-                        { name: 'message_id', description: 'O ID da mensagem do painel.', type: 3, required: true },
-                        { name: 'emoji', description: 'O emoji da regra a ser removida.', type: 3, required: true },
-                    ],
-                }
-            ]
+            slash: true, // Habilita slash commands
+            description: 'Gerencia reações que concedem cargos'
         });
+
+        // Configurar slash command se habilitado
+        if (this.config.slash) {
+            this.data
+                .setName(this.config.name.toLowerCase())
+                .setDescription(this.config.description)
+                .addSubcommand(subcommand =>
+                    subcommand
+                        .setName('adicionar')
+                        .setDescription('Adiciona uma reação que concederá um cargo')
+                        .addStringOption(option =>
+                            option.setName('message_id')
+                                .setDescription('ID da mensagem do painel')
+                                .setRequired(true))
+                        .addRoleOption(option =>
+                            option.setName('role')
+                                .setDescription('Cargo a ser atribuído')
+                                .setRequired(true))
+                        .addStringOption(option =>
+                            option.setName('emoji')
+                                .setDescription('Emoji para a reação')
+                                .setRequired(true)))
+                .addSubcommand(subcommand =>
+                    subcommand
+                        .setName('remover')
+                        .setDescription('Remove uma reação')
+                        .addStringOption(option =>
+                            option.setName('message_id')
+                                .setDescription('ID da mensagem do painel')
+                                .setRequired(true))
+                        .addStringOption(option =>
+                            option.setName('emoji')
+                                .setDescription('Emoji da regra a ser removida')
+                                .setRequired(true)));
+        }
     }
 
-    // O método run será o ponto de entrada para ambos os tipos de comando
-    async run({ message, args, client, server, interaction }) {
-        // Se for uma interação (slash command), usamos 'interaction'. Senão, 'message'.
-        const context = interaction || message;
-        const guild = context.guild;
-
-        // Lógica para determinar o subcomando e os argumentos
-        let subcommand, messageId, role, emoji;
-
-        if (interaction) {
-            subcommand = interaction.options.getSubcommand();
-            messageId = interaction.options.getString('message_id');
-            emoji = interaction.options.getString('emoji');
-            if (subcommand === 'add') {
-                role = interaction.options.getRole('role');
-            }
-        } else { // Lógica para comandos de prefixo
-            subcommand = args[0]?.toLowerCase();
-            messageId = args[1];
-            if (subcommand === 'adicionar') {
-                role = message.mentions.roles.first() || guild.roles.cache.get(args[2]);
-                emoji = args[3];
-            } else { // remove
-                emoji = args[2];
-            }
-        }
-
-        // Validação de subcomando
-        if (!['adicionar', 'remover'].includes(subcommand)) {
+    // Método para comandos de prefixo
+    async run({ message, args, client, server }) {
+        if (!args[0]) {
             const usageEmbed = new EmbedBuilder()
                 .setColor(color.red)
                 .setTitle('Uso Incorreto do Comando')
                 .setDescription(`Por favor, especifique se deseja \`adicionar\` ou \`remover\` uma reação por cargo.\n\n**Exemplos:**\n\`${server.prefix}rr adicionar <ID da mensagem> <@cargo> <emoji>\`\n\`${server.prefix}rr remover <ID da mensagem> <emoji>\``);
-            return context.reply({ embeds: [usageEmbed], ephemeral: true });
+            return message.reply({ embeds: [usageEmbed] });
         }
 
-        // Executa a lógica do subcomando
-        switch (subcommand) {
-            case 'adicionar':
-                await this.adicionar(context, { guild, messageId, role, emoji });
-                break;
-            case 'remover':
-                await this.removr(context, { guild, messageId, emoji });
-                break;
+        const subcommand = args[0].toLowerCase();
+        const messageId = args[1];
+
+        if (subcommand === 'adicionar') {
+            const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[2]);
+            const emoji = args[3];
+            await this.handleAdd(message, messageId, role, emoji);
+        } else if (subcommand === 'remover') {
+            const emoji = args[2];
+            await this.handleRemove(message, messageId, emoji);
         }
     }
 
-    // Função para adicionar uma regra
-    async add(context, { guild, messageId, role, emoji }) {
+    // Método para slash commands
+    async execute(interaction) {
+        const subcommand = interaction.options.getSubcommand();
+        const messageId = interaction.options.getString('message_id');
+        const emoji = interaction.options.getString('emoji');
+
+        if (subcommand === 'adicionar') {
+            const role = interaction.options.getRole('role');
+            await this.handleAdd(interaction, messageId, role, emoji);
+        } else if (subcommand === 'remover') {
+            await this.handleRemove(interaction, messageId, emoji);
+        }
+    }
+
+    // Função auxiliar para adicionar regra
+    async handleAdd(context, messageId, role, emoji) {
         if (!messageId || !role || !emoji) {
-            return error.msg(context, 'Todos os argumentos são necessários para adicionar uma regra (`message_id`, `role`, `emoji`).');
+            return error.msg(context, 'Todos os argumentos são necessários.');
         }
 
         try {
-            const targetMessage = await findMessage(guild, messageId);
+            const targetMessage = await findMessage(context.guild, messageId);
             if (!targetMessage) {
-                return error.msg(context, 'Mensagem não encontrada. Verifique o ID e se estou no canal correto.');
+                return error.msg(context, 'Mensagem não encontrada.');
             }
 
-            // Salva ou atualiza no banco de dados
             await this.client.database.reactionRoles.findOneAndUpdate(
                 { messageId, emoji },
-                { guildId: guild.id, roleId: role.id },
-                { upsert: true } // Cria se não existir, atualiza se existir
+                { guildId: context.guild.id, roleId: role.id },
+                { upsert: true }
             );
 
             await targetMessage.react(emoji);
 
             const successEmbed = new EmbedBuilder()
                 .setColor(color.green)
-                .setTitle('✅ Regra Adicionada com Sucesso!')
-                .setDescription(`Reagir com ${emoji} na [mensagem](${targetMessage.url}) agora dará o cargo **${role.name}**.`);
+                .setTitle('✅ Regra Adicionada!')
+                .setDescription(`Reagir com ${emoji} dará o cargo **${role.name}**`);
 
             await context.reply({ embeds: [successEmbed], ephemeral: true });
-
         } catch (err) {
             console.error("Erro ao adicionar Reaction Role:", err);
-            return error.msg(context, 'Ocorreu um erro ao salvar a regra.');
+            return error.msg(context, 'Erro ao salvar a regra.');
         }
     }
 
-    // Função para remover uma regra
-    async remove(context, { guild, messageId, emoji }) {
-        if (!messageId || !emoji) {
-            return error.msg(context, 'Argumentos `message_id` e `emoji` são necessários para remover uma regra.');
-        }
-        
+    // Função auxiliar para remover regra
+    async handleRemove(context, messageId, emoji) {
         try {
-            const deletedRule = await ReactionRole.findOneAndDelete({ messageId, emoji });
+            const deleted = await this.client.database.reactionRoles.findOneAndDelete({ 
+                messageId, 
+                emoji 
+            });
 
-            if (!deletedRule) {
-                return error.msg(context, `Nenhuma regra encontrada para o emoji ${emoji} na mensagem especificada.`);
+            if (!deleted) {
+                return error.msg(context, `Nenhuma regra encontrada para ${emoji}`);
             }
 
-            // Opcional: remover a reação do bot na mensagem original
-            const targetMessage = await findMessage(guild, messageId);
+            const targetMessage = await findMessage(context.guild, messageId);
             if (targetMessage) {
-                const botReaction = targetMessage.reactions.cache.get(emoji);
-                if (botReaction && botReaction.me) {
-                    await botReaction.remove();
-                }
+                const reaction = targetMessage.reactions.cache.get(emoji);
+                if (reaction?.me) await reaction.remove();
             }
-            
+
             const successEmbed = new EmbedBuilder()
                 .setColor(color.orange)
-                .setTitle('🗑️ Regra Removida com Sucesso!')
-                .setDescription(`A regra para o emoji ${emoji} na mensagem \`${messageId}\` foi removida.`);
+                .setTitle('🗑️ Regra Removida!')
+                .setDescription(`Regra do emoji ${emoji} removida.`);
 
             await context.reply({ embeds: [successEmbed], ephemeral: true });
-
         } catch (err) {
             console.error("Erro ao remover Reaction Role:", err);
-            return error.msg(context, 'Ocorreu um erro ao tentar remover a regra do banco de dados.');
+            return error.msg(context, 'Erro ao remover a regra.');
         }
     }
 }
 
-// Função auxiliar para encontrar a mensagem em qualquer canal de texto
+// Função auxiliar para encontrar mensagem
 async function findMessage(guild, messageId) {
     const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText);
     for (const channel of textChannels.values()) {
