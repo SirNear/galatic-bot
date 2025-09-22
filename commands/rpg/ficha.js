@@ -60,27 +60,75 @@ module.exports = class ficha extends Command {
   // Método para slash commands
   async execute(interaction) {
     try {
-      // Verifica se o usuário pode usar o comando
-      if (!interaction.member.permissions.has('SendMessages')) {
-        return interaction.reply({
-          content: '❌ Você não tem permissão para usar este comando.',
-          ephemeral: true
-        });
-      }
+        const subcommand = interaction.options.getSubcommand();
 
-      const subcommand = interaction.options.getSubcommand();
+        if (subcommand === 'criar') {
+            // Verifica se já existe ficha
+            const existingFicha = await this.client.database.Ficha.findOne({
+                userId: interaction.user.id,
+                guildId: interaction.guild.id
+            });
 
-      if (subcommand === "criar") {
-        await this.handleFichaCreate(interaction);
-      } else if (subcommand === "habilidade") {
-        await this.handleHabilidadeAdd(interaction);
-      }
+            if (existingFicha) {
+                return interaction.reply({
+                    content: '❌ Você já possui uma ficha registrada!',
+                    flags: 64 // EPHEMERAL
+                });
+            }
+
+            const modal = new ModalBuilder()
+                .setCustomId('fichaCreate')
+                .setTitle('Criar Ficha de Personagem');
+
+            let campoNome = new TextInputBuilder()
+              .setCustomId("campoNome")
+              .setLabel("Nome do Personagem")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+
+            let campoReino = new TextInputBuilder()
+              .setCustomId("campoReino")
+              .setLabel("Reino")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+
+            let campoRaca = new TextInputBuilder()
+              .setCustomId("campoRaca")
+              .setLabel("Raça")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+
+            let campoAparencia = new TextInputBuilder()
+              .setCustomId("campoAparencia")
+              .setLabel("Aparência")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+              .setValue("Insira o nome do personagem e o universo pertencente");
+
+            const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
+            const actionRowReino = new ActionRowBuilder().addComponents(campoReino);
+            const actionRowRaca = new ActionRowBuilder().addComponents(campoRaca);
+            const actionRowAparencia = new ActionRowBuilder().addComponents(
+              campoAparencia
+            );
+
+            modal.addComponents(
+              actionRowNome,
+              actionRowReino,
+              actionRowRaca,
+              actionRowAparencia
+            );
+
+            return interaction.showModal(modal);
+        }
+
+        // ... outros subcommands ...
     } catch (err) {
-      console.error("Erro no comando ficha:", err);
-      await interaction.reply({
-        content: "Ocorreu um erro ao executar o comando!",
-        ephemeral: true,
-      });
+        console.error('Erro no comando ficha:', err);
+        return interaction.reply({
+            content: 'Ocorreu um erro ao executar este comando!',
+            flags: 64
+        });
     }
   }
 

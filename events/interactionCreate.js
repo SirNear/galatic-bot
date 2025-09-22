@@ -96,57 +96,66 @@ module.exports = class {
 
     async handleFichaCreate(interaction) {
         try {
-            await interaction.reply({ 
-                content: 'Processando...',
-                flags: 64 // 64 = EPHEMERAL
-            });
-
             const nome = interaction.fields.getTextInputValue('campoNome');
-            const reino = interaction.fields.getTextInputValue('campoReino');
             const raca = interaction.fields.getTextInputValue('campoRaca');
+            const reino = interaction.fields.getTextInputValue('campoReino');
             const aparencia = interaction.fields.getTextInputValue('campoAparencia');
 
-            await this.client.database.Ficha.create({
-                _id: `${interaction.user.id}_${interaction.guildId}`,
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                nome,
-                reino,
-                raca,
-                aparencia,
-                habilidades: []
-            });
+            try {
+                await this.client.database.Ficha.create({
+                    userId: interaction.user.id,
+                    guildId: interaction.guild.id,
+                    nome,
+                    raca,
+                    reino,
+                    aparencia,
+                    habilidades: []
+                });
 
-            const embed = new EmbedBuilder()
-                .setColor('Green')
-                .setTitle('✅ Ficha Criada!')
-                .addFields(
-                    { name: 'Nome', value: nome, inline: true },
-                    { name: 'Reino', value: reino, inline: true },
-                    { name: 'Raça', value: raca, inline: true },
-                    { name: 'Aparência', value: aparencia }
-                );
+                const embed = new EmbedBuilder()
+                    .setColor('Green')
+                    .setTitle('✅ Ficha Criada!')
+                    .addFields(
+                        { name: 'Nome', value: nome, inline: true },
+                        { name: 'Raça', value: raca, inline: true },
+                        { name: 'Reino', value: reino },
+                        { name: 'Aparência', value: aparencia }
+                    );
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({
+                    embeds: [embed],
+                    flags: 64
+                });
 
-            // Pergunta sobre adicionar habilidades
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('addHabilidade')
-                        .setLabel('Adicionar Habilidades')
-                        .setStyle(ButtonStyle.Primary)
-                );
+                // Pergunta sobre habilidades
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('addHabilidade')
+                            .setLabel('Adicionar Habilidades')
+                            .setStyle(ButtonStyle.Primary)
+                    );
 
-            await interaction.followUp({
-                content: 'Deseja adicionar habilidades agora?',
-                components: [row],
-                ephemeral: true
-            });
+                await interaction.followUp({
+                    content: 'Deseja adicionar habilidades agora?',
+                    components: [row],
+                    flags: 64
+                });
+
+            } catch (err) {
+                if (err.code === 11000) {
+                    await interaction.reply({
+                        content: '❌ Você já possui uma ficha registrada!',
+                        flags: 64
+                    });
+                } else {
+                    throw err;
+                }
+            }
         } catch (err) {
-            console.error(err);
-            await interaction.editReply({
-                content: 'Erro ao criar ficha!',
+            console.error('Erro ao criar ficha:', err);
+            await interaction.reply({
+                content: 'Ocorreu um erro ao criar a ficha!',
                 flags: 64
             });
         }
