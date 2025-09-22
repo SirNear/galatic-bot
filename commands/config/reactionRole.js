@@ -116,16 +116,22 @@ module.exports = class reactionRole extends Command {
 
   /* #region  FUNÇÕES BACK-END */
   async funcaoAdicionar(context, messageId, role, emoji) {
+    const isInteraction = context.deferReply !== undefined;
+
+    const sendResponse = async (embed) => {
+        if (isInteraction) {
+            await context.editReply({ embeds: [embed] });
+        } else {
+            await context.channel.send({ embeds: [embed] });
+        }
+    };
+
     if (!messageId || !role || !emoji) {
         const errorEmbed = new EmbedBuilder()
             .setColor(color.red)
             .setDescription("❌ Todos os argumentos são necessários.");
         
-        if (context.reply) {
-            await context.reply({ embeds: [errorEmbed], ephemeral: true });
-        } else {
-            await context.channel.send({ embeds: [errorEmbed] });
-        }
+        await sendResponse(errorEmbed);
         return;
     }
 
@@ -136,11 +142,7 @@ module.exports = class reactionRole extends Command {
                 .setColor(color.red)
                 .setDescription("❌ Mensagem não encontrada.");
             
-            if (context.reply) {
-                await context.reply({ embeds: [errorEmbed], ephemeral: true });
-            } else {
-                await context.channel.send({ embeds: [errorEmbed] });
-            }
+            await sendResponse(errorEmbed);
             return;
         }
 
@@ -155,11 +157,7 @@ module.exports = class reactionRole extends Command {
                 .setColor(color.red)
                 .setDescription("❌ Já existe uma regra com esse emoji nessa mensagem.");
             
-            if (context.reply) {
-                await context.reply({ embeds: [errorEmbed], ephemeral: true });
-            } else {
-                await context.channel.send({ embeds: [errorEmbed] });
-            }
+            await sendResponse(errorEmbed);
             return;
         }
 
@@ -179,11 +177,7 @@ module.exports = class reactionRole extends Command {
             .setTitle("✅ Cargo por reação adicionado!")
             .setDescription(`Reagir com ${emoji} dará o cargo **${role.name}**`);
 
-        if (context.reply) {
-            await context.reply({ embeds: [successEmbed], ephemeral: true });
-        } else {
-            await context.channel.send({ embeds: [successEmbed] });
-        }
+        await sendResponse(successEmbed);
 
     } catch (err) {
         console.error("Erro ao adicionar Reaction Role:", err);
@@ -191,44 +185,57 @@ module.exports = class reactionRole extends Command {
             .setColor(color.red)
             .setDescription(`❌ Erro ao salvar a reação: ${err.message}`);
         
-        if (context.reply) {
-            await context.reply({ embeds: [errorEmbed], ephemeral: true });
-        } else {
-            await context.channel.send({ embeds: [errorEmbed] });
-        }
+        await sendResponse(errorEmbed);
     }
 }
 
   async funcaoRemover(context, messageId, emoji) {
-    try {
-      const deleted = await this.client.database.reactionRoles.findOneAndDelete(
-        {
-          messageId,
-          emoji,
+    const isInteraction = context.deferReply !== undefined;
+
+    const sendResponse = async (embed) => {
+        if (isInteraction) {
+            await context.editReply({ embeds: [embed] });
+        } else {
+            await context.channel.send({ embeds: [embed] });
         }
-      );
+    };
 
-      if (!deleted) {
-        return error.msg(context, `Nenhuma regra encontrada para ${emoji}`);
-      }
+    try {
+        const deleted = await this.client.database.reactionRoles.findOneAndDelete({
+            messageId,
+            emoji
+        });
 
-      const targetMessage = await findMessage(context.guild, messageId);
-      if (targetMessage) {
-        const reaction = targetMessage.reactions.cache.get(emoji);
-        if (reaction?.me) await reaction.remove();
-      }
+        if (!deleted) {
+            const errorEmbed = new EmbedBuilder()
+                .setColor(color.red)
+                .setDescription(`❌ Nenhuma regra encontrada para ${emoji}`);
+            
+            await sendResponse(errorEmbed);
+            return;
+        }
 
-      const successEmbed = new EmbedBuilder()
-        .setColor(color.orange)
-        .setTitle("🗑️ Regra Removida!")
-        .setDescription(`Regra do emoji ${emoji} removida.`);
+        const targetMessage = await findMessage(context.guild, messageId);
+        if (targetMessage) {
+            const reaction = targetMessage.reactions.cache.get(emoji);
+            if (reaction?.me) await reaction.remove();
+        }
 
-      await context.reply({ embeds: [successEmbed], ephemeral: true });
+        const successEmbed = new EmbedBuilder()
+            .setColor(color.orange)
+            .setTitle("🗑️ Regra Removida!")
+            .setDescription(`Regra do emoji ${emoji} removida.`);
+
+        await sendResponse(successEmbed);
     } catch (err) {
-      console.error("Erro ao remover Reaction Role:", err);
-      return error.msg(context, "Erro ao remover a regra.");
+        console.error("Erro ao remover Reaction Role:", err);
+        const errorEmbed = new EmbedBuilder()
+            .setColor(color.red)
+            .setDescription(`❌ Erro ao remover a regra: ${err.message}`);
+        
+        await sendResponse(errorEmbed);
     }
-  }
+}
   /* #endregion */
 };
 
