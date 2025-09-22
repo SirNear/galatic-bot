@@ -12,29 +12,27 @@ const client = new Client({
     ]
 });
 
-// Carrega comandos e eventos
-client.loadCommands('./commands')
-client.loadEvents('./events')
+(async () => {
+    // Carrega eventos primeiro
+    client.loadEvents('./events');
+    // Carrega os comandos e espera a conclusão
+    await client.loadCommands();
 
-// Evento ready mais robusto
-client.on('ready', async () => {
-    console.log(`🤖 Bot online como ${client.user.tag}`);
-    
-    // Aguarda mais tempo para garantir que tudo carregou
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // Registra os slash commands apenas uma vez
-    if (!client.slashCommandsRegistered) {
-        try {
-            await client.registerSlashCommands();
-            client.slashCommandsRegistered = true;
-        } catch (err) {
-            console.error('Erro ao registrar slash commands:', err);
+    // Evento ready mais robusto
+    client.on('ready', async () => {
+        console.log(`🤖 Bot online como ${client.user.tag}`);
+        
+        // Registra os slash commands apenas uma vez, após o bot estar pronto
+        if (!client.slashCommandsRegistered) {
+            try {
+                await client.registerSlashCommands();
+                client.slashCommandsRegistered = true;
+            } catch (err) {
+                console.error('Erro ao registrar slash commands:', err);
+            }
         }
-    }
-});
+    });
 
-// Login
-client.login(config.token)
-    .then(() => console.log("✅ Login realizado!"))
-    .catch((err) => console.error(`❌ Erro ao iniciar:`, err));
+    // Login
+    await client.login(config.token);
+})();
