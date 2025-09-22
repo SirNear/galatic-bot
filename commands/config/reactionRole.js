@@ -1,4 +1,4 @@
-const { EmbedBuilder, ChannelType } = require('discord.js');
+const { EmbedBuilder, ChannelType, SlashCommandBuilder } = require('discord.js');
 const Command = require('../../structures/Command');
 const color = require('../../api/colors.json');
 const error = require('../../api/error.js');
@@ -6,20 +6,20 @@ const error = require('../../api/error.js');
 module.exports = class reactionRole extends Command {
     constructor(client) {
         super(client, {
-            name: "reactionRole",
+            name: "reactionrole", // Importante: nome em minúsculo e sem caracteres especiais
             category: "config",
             aliases: ['rr', 'rrole', 'reactionrole', 'addreactionrole', 'addrr'],
             UserPermission: ["Administrator"],
             clientPermission: null,
             OnlyDevs: false,
-            slash: true, // Habilita slash commands
+            slash: true,
             description: 'Gerencia reações que concedem cargos'
         });
 
-        // Configurar slash command se habilitado
+        // Configuração do slash command
         if (this.config.slash) {
-            this.data
-                .setName(this.config.name.toLowerCase())
+            this.data = new SlashCommandBuilder()
+                .setName(this.config.name) // Usa o mesmo nome do construtor
                 .setDescription(this.config.description)
                 .addSubcommand(subcommand =>
                     subcommand
