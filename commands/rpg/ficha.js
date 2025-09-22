@@ -155,50 +155,47 @@ module.exports = class ficha extends Command {
   }
 
   async handleFichaCreate(interaction) {
-    const modal = new ModalBuilder()
-      .setCustomId("fichaCreate")
-      .setTitle("Criar Ficha de Personagem");
+    try {
+        const nome = interaction.fields.getTextInputValue('campoNome');
+        const raca = interaction.fields.getTextInputValue('campoRaca');
+        const reino = interaction.fields.getTextInputValue('campoReino');
+        const aparencia = interaction.fields.getTextInputValue('campoAparencia');
 
-    let campoNome = new TextInputBuilder()
-      .setCustomId("campoNome")
-      .setLabel("Nome do Personagem")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+        // ID único usando timestamp
+        const fichaId = `${interaction.user.id}_${Date.now()}`;
 
-    let campoReino = new TextInputBuilder()
-      .setCustomId("campoReino")
-      .setLabel("Reino")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+        await this.client.database.Ficha.create({
+            _id: fichaId,
+            userId: interaction.user.id,
+            guildId: interaction.guild.id,
+            nome,
+            raca,
+            reino,
+            aparencia,
+            habilidades: []
+        });
 
-    let campoRaca = new TextInputBuilder()
-      .setCustomId("campoRaca")
-      .setLabel("Raça")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+        const embed = new EmbedBuilder()
+            .setColor('Green')
+            .setTitle('✅ Ficha Criada!')
+            .addFields(
+                { name: 'Nome', value: nome, inline: true },
+                { name: 'Raça', value: raca, inline: true },
+                { name: 'Reino', value: reino },
+                { name: 'Aparência', value: aparencia }
+            );
 
-    let campoAparencia = new TextInputBuilder()
-      .setCustomId("campoAparencia")
-      .setLabel("Aparência")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setValue("Insira o nome do personagem e o universo pertencente");
-
-    const actionRowNome = new ActionRowBuilder().addComponents(campoNome);
-    const actionRowReino = new ActionRowBuilder().addComponents(campoReino);
-    const actionRowRaca = new ActionRowBuilder().addComponents(campoRaca);
-    const actionRowAparencia = new ActionRowBuilder().addComponents(
-      campoAparencia
-    );
-
-    modal.addComponents(
-      actionRowNome,
-      actionRowReino,
-      actionRowRaca,
-      actionRowAparencia
-    );
-
-    await interaction.showModal(modal);
+        await interaction.reply({
+            embeds: [embed],
+            flags: 64 // Substitui ephemeral: true
+        });
+    } catch (err) {
+        console.error('Erro ao criar ficha:', err);
+        await interaction.reply({
+            content: 'Ocorreu um erro ao criar a ficha!',
+            flags: 64
+        });
+    }
   }
 
   async handleHabilidadeAdd(interaction) {

@@ -14,81 +14,84 @@ module.exports = class {
     }
 
     async run(interaction) {
-        // Handle Modal Submits
-        if (interaction.isModalSubmit()) {
-            if (interaction.customId === 'fichaCreate') {
-                await this.handleFichaCreate(interaction);
+        try {
+            // Handle Modal Submits
+            if (interaction.isModalSubmit()) {
+                if (interaction.customId === 'fichaCreate') {
+                    await this.handleFichaCreate(interaction);
+                    return;
+                }
+                else if (interaction.customId.startsWith('habilidade_')) {
+                    await this.handleHabilidadeSubmit(interaction);
+                    return;
+                }
             }
-            else if (interaction.customId.startsWith('habilidade_')) {
-                await this.handleHabilidadeSubmit(interaction);
+
+            // Handle Button Interactions
+            if (interaction.isButton()) {
+                if (interaction.customId === 'abrirModal' || interaction.customId === 'addHabilidade') {
+                    const modal = new ModalBuilder()
+                        .setCustomId('habilidade_inicial')
+                        .setTitle('Nova Habilidade');
+
+                    // Campos do modal com IDs consistentes
+                    const categoriaInput = new TextInputBuilder()
+                        .setCustomId('categoria')
+                        .setLabel('Categoria da Habilidade')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true);
+
+                    const nomeInput = new TextInputBuilder()
+                        .setCustomId('nomeHabilidade') // ID único
+                        .setLabel('Nome da Habilidade')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true);
+
+                    const descricaoInput = new TextInputBuilder()
+                        .setCustomId('descricaoHabilidade') // ID único
+                        .setLabel('Descrição da Habilidade')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(true);
+
+                    const subHabilidade1 = new TextInputBuilder()
+                        .setCustomId('subHabilidade1') // ID único
+                        .setLabel('Sub-habilidade 1 (opcional)')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(false);
+
+                    const subHabilidade2 = new TextInputBuilder()
+                        .setCustomId('subHabilidade2') // ID único
+                        .setLabel('Sub-habilidade 2 (opcional)')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(false);
+
+                    // Adiciona todos os campos
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(categoriaInput),
+                        new ActionRowBuilder().addComponents(nomeInput),
+                        new ActionRowBuilder().addComponents(descricaoInput),
+                        new ActionRowBuilder().addComponents(subHabilidade1),
+                        new ActionRowBuilder().addComponents(subHabilidade2)
+                    );
+
+                    await interaction.showModal(modal);
+                    return;
+                }
             }
-            return;
-        }
 
-        // Handle Button Interactions
-        if (interaction.isButton()) {
-            if (interaction.customId === 'abrirModal') {
-                const modal = new ModalBuilder()
-                    .setCustomId('habilidade_inicial')
-                    .setTitle('Nova Habilidade');
+            // Handle Command Interactions
+            if (interaction.isChatInputCommand()) {
+                const command = this.client.slashCommands.get(interaction.commandName);
+                if (!command) return;
 
-                // Campos do modal com IDs consistentes
-                const categoriaInput = new TextInputBuilder()
-                    .setCustomId('categoria')
-                    .setLabel('Categoria da Habilidade')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-
-                const nomeInput = new TextInputBuilder()
-                    .setCustomId('nomeHabilidade') // ID único
-                    .setLabel('Nome da Habilidade')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-
-                const descricaoInput = new TextInputBuilder()
-                    .setCustomId('descricaoHabilidade') // ID único
-                    .setLabel('Descrição da Habilidade')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true);
-
-                const subHabilidade1 = new TextInputBuilder()
-                    .setCustomId('subHabilidade1') // ID único
-                    .setLabel('Sub-habilidade 1 (opcional)')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(false);
-
-                const subHabilidade2 = new TextInputBuilder()
-                    .setCustomId('subHabilidade2') // ID único
-                    .setLabel('Sub-habilidade 2 (opcional)')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(false);
-
-                // Adiciona todos os campos
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(categoriaInput),
-                    new ActionRowBuilder().addComponents(nomeInput),
-                    new ActionRowBuilder().addComponents(descricaoInput),
-                    new ActionRowBuilder().addComponents(subHabilidade1),
-                    new ActionRowBuilder().addComponents(subHabilidade2)
-                );
-
-                await interaction.showModal(modal);
-            }
-            return;
-        }
-
-        // Handle Command Interactions
-        if (interaction.isChatInputCommand()) {
-            const command = this.client.slashCommands.get(interaction.commandName);
-            if (!command) return;
-
-            try {
                 await command.execute(interaction);
-            } catch (error) {
-                console.error(error);
-                await interaction.reply({
+            }
+        } catch (err) {
+            console.error('Erro ao processar interação:', err);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ 
                     content: 'Ocorreu um erro ao executar este comando!',
-                    ephemeral: true
+                    flags: 64 // Substitui ephemeral: true
                 });
             }
         }

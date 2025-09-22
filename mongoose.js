@@ -92,14 +92,15 @@ const habilidadeSchema = new mongoose.Schema({
 });
 
 const fichaSchema = new mongoose.Schema({
-    _id: { type: String }, // Será userId_nome do personagem
+    _id: { type: String }, // Será userId_nome_timestamp para permitir duplicatas
     userId: { type: String, required: true },
     guildId: { type: String, required: true },
-    nome: { type: String, required: true },
+    nome: { type: String, required: true }, // Remove unique: true
     reino: { type: String, required: true },
     raca: { type: String, required: true },
     aparencia: { type: String, required: true },
-    habilidades: [habilidadeSchema]
+    habilidades: [habilidadeSchema],
+    createdAt: { type: Date, default: Date.now } // Adiciona timestamp
 });
 
 let pokeReg = mongoose.model("pokeReg", pokeRegistro)
