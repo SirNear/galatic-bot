@@ -173,24 +173,13 @@ module.exports = class {
 
             // Obtém os valores usando os IDs corretos
             const nome = interaction.fields.getTextInputValue('nomeHabilidade');
-            const descricao = interaction.fields.getTextInputValue('descricaoHabilidade');
+            const descricao1 = interaction.fields.getTextInputValue('descricaoHabilidade1');
+            const descricao2 = interaction.fields.getTextInputValue('descricaoHabilidade2') || ''; // Pega a parte 2 ou uma string vazia
+            const descricao = descricao1 + (descricao2 ? `\n\n${descricao2}` : ''); // Junta as duas partes
             const categoria = interaction.fields.getTextInputValue('categoria');
             
+            // Como removemos os campos de sub-habilidade do modal, inicializamos como um array vazio.
             const subHabilidades = [];
-            let subNome1, subDesc1;
-
-            try { subNome1 = interaction.fields.getTextInputValue('subHabilidadeNome1'); } catch { subNome1 = null; }
-            try { subDesc1 = interaction.fields.getTextInputValue('subHabilidadeDesc1'); } catch { subDesc1 = null; }
-
-            if (subNome1 && subDesc1) {
-                subHabilidades.push({ nome: subNome1, descricao: subDesc1 });
-            } else if (subNome1 || subDesc1) {
-                // Se apenas um dos campos da sub-habilidade foi preenchido, avisa o usuário.
-                return interaction.editReply({
-                    content: '❌ Para adicionar uma sub-habilidade, você precisa preencher tanto o nome quanto a descrição dela.',
-                    flags: 64
-                });
-            }
 
             // Busca a ficha específica pelo ID passado no customId do modal
             const ficha = await this.client.database.Ficha.findById(fichaId);
@@ -226,13 +215,6 @@ module.exports = class {
                     { name: 'Categoria', value: categoria, inline: true },
                     { name: 'Descrição', value: descricao }
                 );
-
-            if (subHabilidades.length > 0) {
-                embed.addFields({
-                    name: `Sub-habilidade: ${subHabilidades[0].nome}`,
-                    value: subHabilidades[0].descricao
-                });
-            }
 
             await interaction.editReply({ embeds: [embed] });
 

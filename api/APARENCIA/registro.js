@@ -437,7 +437,7 @@ async function handleRegistro(
                 await modalInteraction.followUp({
                   content: `<:cpnews:1411060646019338406> | O verso "${args.argNome}" foi registrado. Como o uso é ${args.argUso}, é obrigatório adicionar as aparências já utilizadas. Clique no botão abaixo para isso ou a ação será cancelada.`,
                   components: [row],
-                  ephemeral: true,
+                  flags: 64,
                   fetchReply: true,
                 });
 
@@ -569,7 +569,7 @@ async function handleRegistro(
                       content: `<a:cat_dance:1409062402288521266> | ${aparenciasParaRegistrar.length} aparências foram registradas com sucesso!`,
                       embeds: [initialEmbed],
                       components: totalPages > 1 ? [initialActionRow] : [],
-                      ephemeral: true,
+                      flags: 64,
                       fetchReply: true,
                     });
 
@@ -630,7 +630,7 @@ async function handleRegistro(
                 } "${args.argNome}" foi registrad${
                   tipo === "aparência" ? "a" : "o"
                 } com sucesso!`,
-                ephemeral: true,
+                flags: 64,
               });
             }
 

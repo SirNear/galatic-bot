@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^0.1.76",
     "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.11.0",
