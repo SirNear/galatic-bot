@@ -85,6 +85,7 @@ const habilidadeSchema = new mongoose.Schema({
     nome: { type: String, required: true },
     descricao: { type: String, required: true },
     categoria: { type: String, required: true },
+    custo: { type: String, required: false, default: 'Nenhum' },
     subHabilidades: [{
         nome: { type: String },
         descricao: { type: String }
@@ -98,6 +99,7 @@ const fichaSchema = new mongoose.Schema({
     reino: { type: String, required: true },
     raca: { type: String, required: true },
     aparencia: { type: String, required: true },
+    imagemURL: { type: String, required: false },
     habilidades: [habilidadeSchema],
     createdAt: { type: Date, default: Date.now } // Adiciona timestamp
 });

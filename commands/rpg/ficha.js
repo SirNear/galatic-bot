@@ -10,6 +10,7 @@ const {
 const fetch = require("node-fetch");
 const Command = require("../../structures/Command");
 const color = require("../../api/colors.json");
+const { summarizeText } = require("../../api/resumir.js");
 
 function splitDescription(text, maxLength = 2000) {
   const parts = [];
@@ -23,8 +24,10 @@ function splitDescription(text, maxLength = 2000) {
     }
 
     let splitIndex = currentChunk.lastIndexOf("\n\n", maxLength);
-    if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf("\n", maxLength);
-    if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf(" ", maxLength);
+    if (splitIndex === -1)
+      splitIndex = currentChunk.lastIndexOf("\n", maxLength);
+    if (splitIndex === -1)
+      splitIndex = currentChunk.lastIndexOf(" ", maxLength);
     if (splitIndex === -1) splitIndex = maxLength;
 
     parts.push(currentChunk.substring(0, splitIndex));
@@ -49,8 +52,9 @@ module.exports = class ficha extends Command {
     /* #region  CONFIG SLASH */
     if (this.config.slash) {
       this.data = new SlashCommandBuilder()
-        .setName("ficha") // Garante que o nome está em minúsculo
+        .setName("ficha")
         .setDescription(this.config.description)
+        /* #region  OPÇÕES DE COMANDOS /ficha {ver, habilidade ou criar} */
         .addSubcommand((sub) =>
           sub
             .setName("criar")
@@ -59,13 +63,12 @@ module.exports = class ficha extends Command {
         .addSubcommand((sub) =>
           sub.setName("ver").setDescription("Visualiza fichas de personagem")
         )
-        .addSubcommand(
-          (sub) =>
-            sub
-              .setName("habilidade")
-              .setDescription("Adiciona uma habilidade à ficha")
-          // A categoria será solicitada no formulário
+        .addSubcommand((sub) =>
+          sub
+            .setName("habilidade")
+            .setDescription("Adiciona uma habilidade à ficha")
         );
+      /* #endregion */
     }
     /* #endregion */
   }
@@ -75,14 +78,16 @@ module.exports = class ficha extends Command {
     try {
       const subcommand = interaction.options.getSubcommand();
 
+      /* #region  ACIONA BACK-ENDS EM FUNCTIONS */
       switch (subcommand) {
         case "criar":
-          return this.handleFichaCreate(interaction);
+          return this.backFichaCriar(interaction);
         case "ver":
-          return this.handleFichaView(interaction);
+          return this.backFichaVer(interaction);
         case "habilidade":
-          return this.handleHabilidadeAdd(interaction);
+          return this.backFichaHabAdd(interaction);
       }
+      /* #endregion */
     } catch (err) {
       console.error("Erro no comando ficha:", err);
       return interaction.reply({
@@ -95,29 +100,86 @@ module.exports = class ficha extends Command {
 
   /* #region  BACK-END */
 
-  async handleFichaCreate(interaction) {
+  /* #region  CRIAÇÃO DE FICHA */
+  async backFichaCriar(interaction) {
+    /* #region  ENVIAR IAMGEM DE APARENCIA P/ SALVAR */
+    const enviarImagemParaArmazenamento = async (attachment, fichaNome) => {
+      const storageChannelId = "1094070734151766026"; // ID do seu canal de armazenamento
+      const storageChannel = await this.client.channels
+        .fetch(storageChannelId)
+        .catch(() => null);
+
+      if (!storageChannel || !storageChannel.isTextBased()) {
+        console.error(
+          `Canal de armazenamento (ID: ${storageChannelId}) inválido ou não encontrado.`
+        );
+        await interaction.followUp({
+          content:
+            "⚠️ Erro de configuração: O canal para salvar imagens é inválido. A imagem não será salva.",
+          flags: 64,
+        });
+        return null;
+      }
+
+      try {
+        const sentMessage = await storageChannel.send({ files: [attachment] });
+        const ImgUrl = sentMessage.attachments.first()?.url;
+
+        if (ImgUrl) {
+          const embedRAparencia = new EmbedBuilder()
+            .setColor(color.dblue)
+            .setTitle(
+              "<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>"
+            )
+            .setFooter({
+              text: `Aparência para a ficha de ${
+                fichaNome || "Nome não definido"
+              }`,
+            })
+            .setImage(ImgUrl);
+          await sentMessage.edit({ embeds: [embedRAparencia] });
+          return ImgUrl;
+        }
+      } catch (e) {
+        console.error(
+          `Erro ao enviar imagem para o canal de armazenamento (ID: ${storageChannelId}):`,
+          e
+        );
+        await interaction.followUp({
+          content:
+            "❌ Não foi possível enviar a imagem para o canal de armazenamento. Verifique as permissões do bot.",
+          flags: 64,
+        });
+      }
+      return null;
+    };
+    /* #endregion */
+
     try {
-      await interaction.reply({
+      await interaction.deferReply({ flags: 64 });
+      await interaction.editReply({
         content:
-          "Iniciando criação de ficha... Responda às perguntas a seguir no chat.",
-        flags: 64,
+          "<:cpnews:1411060646019338406> | **Iniciando criação de ficha...** Responda as perguntas a seguir:",
       });
 
+      /* #region  CONFIGURAÇÕES */
       const channel = interaction.channel;
       const author = interaction.user;
 
-      const questions = [
+      const perguntas = [
         "Qual o nome do personagem?",
-        "Qual a raça do personagem? (Verifique as raças disponíveis no sistema do RPG)",
+        "Qual a raça do personagem? (Verifique as raças disponíveis no [sistema do RPG](https://discord.com/channels/731974689798488185/1142949580779032636))",
         "Qual o reino de origem do personagem? (Elysium, Ozark, Minerva, etc.)",
         "Qual a aparência do personagem? (Você pode enviar um texto ou um arquivo .txt com 'Nome da Aparência, Universo de Origem')",
       ];
 
-      const answers = [];
+      const fichaData = {};
 
-      for (const question of questions) {
-        const questionMsg = await interaction.followUp({
-          content: question,
+      for (let i = 0; i < perguntas.length; i++) {
+        const pergunta = perguntas[i];
+        const perguntaMsg = await interaction.followUp({
+          content: pergunta,
+          fetchReply: true,
           flags: 64,
         });
 
@@ -127,6 +189,7 @@ module.exports = class ficha extends Command {
           max: 1,
         });
 
+        //passa valores de collected a cada instância concluida
         const collected = await new Promise((resolve) => {
           collector.on("collect", (m) => resolve(m));
           collector.on("end", (collected) => {
@@ -136,23 +199,29 @@ module.exports = class ficha extends Command {
 
         if (!collected) {
           await interaction.followUp({
-            content: "Tempo esgotado. Processo de criação de ficha cancelado.",
+            content:
+              "<:berror:1406837900556898304> | **Tempo esgotado.** Criação de ficha cancelada, faça o comando novamente.",
             flags: 64,
           });
           return;
         }
 
-        let answer = collected.content;
+        let resposta = collected.content;
         const attachment = collected.attachments.first();
 
-        if (question.includes("aparência") && !answer && attachment) {
+        // Lógica para a pergunta da aparência
+        if (pergunta.includes("aparência") && !resposta && attachment) {
           if (attachment.contentType?.startsWith("text/plain")) {
             try {
               const response = await fetch(attachment.url);
+              // ... (código para ler .txt)
               if (!response.ok) throw new Error("Falha ao buscar anexo.");
-              answer = await response.text();
+              resposta = await response.text();
             } catch (error) {
-              console.error("Erro ao processar anexo na criação de ficha:", error);
+              console.error(
+                "Erro ao processar anexo na criação de ficha:",
+                error
+              );
               await interaction.followUp({
                 content: "Ocorreu um erro ao ler o arquivo. Tente novamente.",
                 flags: 64,
@@ -162,60 +231,233 @@ module.exports = class ficha extends Command {
           }
         }
 
-        answers.push(answer);
+        // Salva a resposta no objeto de dados da ficha
+        if (i === 0) fichaData.nome = resposta;
+        if (i === 1) fichaData.raca = resposta;
+        if (i === 2) fichaData.reino = resposta;
+        if (i === 3) {
+          // Lógica específica para a pergunta da aparência
+          if (attachment && attachment.contentType?.startsWith("image/")) {
+            fichaData.imagemURL = await enviarImagemParaArmazenamento(
+              attachment,
+              fichaData.nome
+            );
+            if (resposta) {
+              // Se enviou imagem E texto, o texto é a aparência.
+              fichaData.aparencia = resposta;
+            } else {
+              // Se enviou só a imagem, pergunta o nome.
+              const askNameMsg = await interaction.followUp({
+                content:
+                  "Você enviou uma imagem. Agora, por favor, digite o nome da aparência e o universo (Ex: Goku, Dragon Ball Z).",
+                flags: 64,
+                fetchReply: true,
+              });
+
+              const nameCollector = channel.createMessageCollector({
+                filter: (m) => m.author.id === author.id,
+                time: 120000,
+                max: 1,
+              });
+              const nameCollected = await new Promise((resolve) => {
+                nameCollector.on("collect", (m) => resolve(m));
+                nameCollector.on("end", (c) => {
+                  if (c.size === 0) resolve(null);
+                });
+              });
+
+              if (nameCollected) {
+                fichaData.aparencia = nameCollected.content;
+                await nameCollected.delete().catch(() => {});
+                await askNameMsg.delete().catch(() => {});
+              } else {
+                await interaction.followUp({
+                  content:
+                    "Tempo esgotado. A aparência será salva como 'Aparência com imagem, sem nome'.",
+                  flags: 64,
+                });
+                fichaData.aparencia = "Aparência com imagem, sem nome";
+              }
+            }
+          } else {
+            // Caso 2: Usuário enviou apenas texto (ou .txt).
+            fichaData.aparencia = resposta;
+          }
+        }
+
         await collected.delete().catch(() => {});
-        await questionMsg.delete().catch(() => {});
+        await perguntaMsg.delete().catch(() => {});
       }
+      /* #endregion */
 
-      const [nome, raca, reino, aparencia] = answers;
+      /* #region  BACK COLETOR DA IMAGEM */
+      if (fichaData.aparencia && !fichaData.imagemURL) {
+        const addImagem = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("add_image_yes")
+            .setLabel("Sim")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId("add_image_no")
+            .setLabel("Não")
+            .setStyle(ButtonStyle.Danger)
+        );
+        const askMsg = await interaction.followUp({
+          content: "Deseja enviar uma imagem para a aparência?",
+          components: [addImagem],
+          flags: 64,
+          fetchReply: true,
+        });
 
-      const existingFicha = await this.client.database.Ficha.findOne({
+        try {
+          const botaoAddImg = await askMsg.awaitMessageComponent({
+            filter: (i) => i.user.id === author.id,
+            time: 60000,
+          });
+
+          /* #region  COLETORES - SIM OU NÃO */
+          if (botaoAddImg.customId === "add_image_yes") {
+            //SE QUISER
+            //se for adicionar
+            await botaoAddImg.update({
+              content: "Ótimo! Por favor, envie a imagem agora.",
+              components: [],
+            });
+
+            /* #region  CONFIG COLETORES ADD */
+
+            const coletorImg = channel.createMessageCollector({
+              filter: (m) =>
+                m.author.id === author.id && m.attachments.size > 0,
+              time: 120000,
+              max: 1,
+            });
+
+            const imgColetada = await new Promise((resolve) => {
+              coletorImg.on("collect", (m) => resolve(m));
+              coletorImg.on("end", (c) => {
+                if (c.size === 0) resolve(null);
+              });
+            });
+            /* #endregion */
+
+            /* #region  AO COLETAR - sim*/
+            if (
+              imgColetada &&
+              imgColetada.attachments.first()?.contentType?.startsWith("image/")
+            ) {
+              const imgAnexada = imgColetada.attachments.first();
+              const ImgUrl = await enviarImagemParaArmazenamento(
+                imgAnexada,
+                fichaData.nome
+              );
+              if (ImgUrl) {
+                fichaData.imagemURL = ImgUrl;
+                await interaction.followUp({
+                  content: "✅ Imagem da aparência salva!",
+                  flags: 64,
+                });
+              }
+
+              await imgColetada.delete().catch(() => {});
+            } else {
+              await interaction.followUp({
+                content:
+                  "Nenhuma imagem válida foi enviada. Continuando sem imagem.",
+                flags: 64,
+              });
+            }
+            /* #endregion */
+          } else {
+            //SE NÃO QUISER
+            await botaoAddImg.update({
+              content: "Ok, você pode adicionar depois se quiser.",
+              components: [],
+            });
+          }
+          /* #endregion */
+        } catch (e) {
+          await askMsg
+            .edit({
+              content: "Tempo esgotado. Continuando sem imagem.",
+              components: [],
+            })
+            .catch(() => {});
+        }
+      }
+      /* #endregion */
+
+      /* #region  SE JÁ HOUVER UMA FICHA DAQUELE PERSONAGEM */
+      const fichaExistente = await this.client.database.Ficha.findOne({
         userId: interaction.user.id,
         guildId: interaction.guild.id,
-        nome: nome,
+        nome: fichaData.nome,
       });
 
-      if (existingFicha) {
+      if (fichaExistente) {
         return interaction.followUp({
           content: "❌ Você já possui um personagem com este nome!",
           flags: 64,
         });
       }
+      /* #endregion */
 
+      // CRIAÇÃO DA FICHA EM DATABASE
       await this.client.database.Ficha.create({
         userId: interaction.user.id,
         guildId: interaction.guild.id,
-        nome,
-        raca,
-        reino,
-        aparencia,
+        nome: fichaData.nome,
+        raca: fichaData.raca,
+        reino: fichaData.reino,
+        aparencia: fichaData.aparencia,
+        imagemURL: fichaData.imagemURL,
         habilidades: [],
       });
 
+      //EMBED CONFIRMAÇÃO DE CRIAÇÃO DE FICHA
       const embed = new EmbedBuilder()
         .setColor("Green")
         .setTitle("✅ Ficha Criada!")
-        .setDescription(`A ficha para **${nome}** foi criada com sucesso!`);
+        .setDescription(
+          `A ficha para **${fichaData.nome}** foi criada com sucesso!`
+        );
 
       await interaction.followUp({ embeds: [embed], flags: 64 });
     } catch (err) {
       console.error("Erro ao criar ficha:", err);
-      await interaction.followUp({
-        content: `Ocorreu um erro ao abrir o formulário! Erro: \`${err.message}\`.`,
-        flags: 64,
-      });
+      if (interaction.deferred || interaction.replied) {
+        // evitar erros de resposta do discord
+        await interaction
+          .editReply({
+            content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
+            embeds: [],
+            components: [],
+          })
+          .catch(() => {});
+      } else {
+        await interaction
+          .reply({
+            content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
+            flags: 64,
+          })
+          .catch(() => {});
+      }
     }
   }
+  /* #endregion */
 
-  async handleHabilidadeAdd(interaction) {
+  /* #region  ADICIONAR HABILIDADE NOVA */
+  async backFichaHabAdd(interaction) {
     const fichasDoUsuario = await this.client.database.Ficha.find({
       userId: interaction.user.id,
       guildId: interaction.guild.id,
     });
 
-    if (!fichasDoUsuario.length) { //se não tem fichas
+    if (!fichasDoUsuario.length) {
+      // se não tem fichas
       return interaction.reply({
-        content: "❌ Você não tem fichas registradas, precisa criar uma ficha primeiro com `/ficha criar`.",
+        content:
+          "❌ Você não tem fichas registradas, precisa criar uma ficha primeiro com `/ficha criar`.",
         flags: 64,
       });
     }
@@ -250,7 +492,7 @@ module.exports = class ficha extends Command {
 
       collector.on("collect", async (i) => {
         const fichaId = i.values[0];
-        await this.collectHabilidadeInfo(i, fichaId);
+        await this.backFichaUnicaHabAdd(i, fichaId);
       });
 
       collector.on("end", (collected) => {
@@ -263,30 +505,41 @@ module.exports = class ficha extends Command {
     } else {
       // Se tem apenas uma ficha, usa ela diretamente
       const fichaId = fichasDoUsuario[0]._id.toString();
-      await this.collectHabilidadeInfo(interaction, fichaId);
+      await this.backFichaUnicaHabAdd(interaction, fichaId);
     }
   }
 
-  async collectHabilidadeInfo(interaction, fichaId) {
-    if (interaction.isStringSelectMenu()) {
-      await interaction.deferUpdate();
-    } else {
-      await interaction.reply({ content: "Iniciando adição de habilidade...", flags: 64 });
+  /* #endregion */
+
+  /* #region  ADICIONAR HABILIDADE NOVA */
+  async backFichaUnicaHabAdd(interaction, fichaId) {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: 64 });
     }
 
+    await interaction.editReply({
+      content: "Iniciando adição de habilidade...",
+      components: [],
+    });
+
+    /* #region  CONFIGURAÇÃO DE COLETORES, PERGUNTAS E RESPOSTAS */
     const channel = interaction.channel;
     const author = interaction.user;
 
-    const questions = [
+    const perguntas = [
       "Qual o nome da habilidade?",
       "Qual a categoria da habilidade? (Física, Mágica, Passiva, Haki, Aura de Combate, Sagrada, Demoníaca, Outros (diga qual))",
+      "Qual o custo da habilidade? (Ex: 10 Mana, 1 de CARDIO (<:patrickconcern:1407564230256758855>), 100 de mana sagrada, etc. Deixe em branco ou digite 'nenhum' se não houver custo.)",
       "Qual a descrição da habilidade?",
     ];
 
-    const answers = [];
+    const respostas = [];
 
-    for (const question of questions) {
-      const questionMsg = await interaction.followUp({ content: question, flags: 64 });
+    for (const pergunta of perguntas) {
+      const perguntaMsg = await interaction.followUp({
+        content: pergunta,
+        flags: 64,
+      });
 
       const collector = channel.createMessageCollector({
         filter: (m) => m.author.id === author.id,
@@ -302,74 +555,115 @@ module.exports = class ficha extends Command {
       });
 
       if (!collected) {
-        await interaction.followUp({ content: "Tempo esgotado. Processo cancelado.", flags: 64 });
+        await interaction.followUp({
+          content: "Tempo esgotado. Processo cancelado.",
+          flags: 64,
+        });
         return;
       }
 
-      let answer = collected.content;
+      let resposta = collected.content;
       const attachment = collected.attachments.first();
+      /* #endregion */
 
-      if (question.includes("descrição") && !answer && attachment) {
+      if (
+        pergunta.includes("custo") &&
+        (!resposta || resposta.includes("nenhum"))
+      ) {
+        // se for custo e não tiver custo
+        resposta = " ";
+      }
+
+      /* #region  SE A DESCRIÇÃO FOR MAIOR QUE 6000 CARACTERES, O DISCORD TRANSFORMA EM TXT E A LÓGICA MUDA */
+      if (pergunta.includes("descrição") && !resposta && attachment) {
         if (attachment.contentType?.startsWith("text/plain")) {
           try {
             const response = await fetch(attachment.url);
             if (!response.ok) throw new Error("Falha ao buscar anexo.");
-            answer = await response.text();
+            resposta = await response.text();
           } catch (error) {
-            console.error("Erro ao processar anexo na adição de habilidade:", error);
-            await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", flags: 64 });
+            console.error(
+              "Erro ao processar anexo na adição de habilidade:",
+              error
+            );
+            await interaction.followUp({
+              content: "Ocorreu um erro ao ler o arquivo. Tente novamente.",
+              flags: 64,
+            });
             return;
           }
         }
       }
+      /* #endregion */
 
-      answers.push(answer);
+      respostas.push(resposta);
       await collected.delete().catch(() => {});
-      await questionMsg.delete().catch(() => {});
+      await perguntaMsg.delete().catch(() => {});
     }
 
-    const [nome, categoria, descricao] = answers;
+    const [nome, categoria, custo, descricao] = respostas;
 
     const ficha = await this.client.database.Ficha.findById(fichaId);
+
     if (!ficha) {
-      return interaction.followUp({ content: "Erro: A ficha selecionada não foi encontrada.", flags: 64 });
+      return interaction.followUp({
+        content:
+          "Erro no banco de dados: A ficha selecionada não foi encontrada. Contate um administrador.",
+        flags: 64,
+      });
     }
 
-    ficha.habilidades.push({ nome, descricao, categoria, subHabilidades: [] });
+    ficha.habilidades.push({
+      nome,
+      descricao,
+      categoria,
+      custo,
+      subHabilidades: [],
+    });
     await ficha.save();
 
     const embed = new EmbedBuilder()
-        .setColor("Green")
-        .setTitle("✅ Habilidade Adicionada!")
-        .setDescription(`Habilidade **${nome}** adicionada à ficha de **${ficha.nome}**.`);
+      .setColor("Green")
+      .setTitle("✅ Habilidade Adicionada!")
+      .setDescription(
+        `Habilidade **${nome}** adicionada à ficha de **${ficha.nome}**.`
+      );
 
-    const components = []; // Renomeado para evitar conflito
-    let summarizeButton;
+    /* #region RESUMIR DESCRIÇÃO COM MAIS DE 4000 CARACTERES */
+    const components = [];
+    let botaoResumo;
     if (descricao.length > 4000) {
-        // O ID da habilidade é gerado pelo Mongoose no array
-        const habilidadeId = ficha.habilidades[ficha.habilidades.length - 1]._id;
-        summarizeButton = new ButtonBuilder()
-            .setCustomId(`summarize_${ficha._id}_${habilidadeId}`)
-            .setLabel("Resumir Descrição (Excede 4000 caracteres)")
-            .setStyle(ButtonStyle.Primary);
+      // O ID da habilidade é gerado pelo Mongoose no array
+      const habilidadeId = ficha.habilidades[ficha.habilidades.length - 1]._id;
+      botaoResumo = new ButtonBuilder()
+        .setCustomId(`summarize_${ficha._id}_${habilidadeId}`)
+        .setLabel("Resumir Descrição (Excede 4000 caracteres)")
+        .setStyle(ButtonStyle.Primary);
 
-        const row = new ActionRowBuilder().addComponents(summarizeButton);
-        components.push(row);
+      const row = new ActionRowBuilder().addComponents(botaoResumo);
+      components.push(row);
     }
 
-    const followUpMessage = await interaction.followUp({ embeds: [embed], components: components, flags: 64, fetchReply: true });
+    const followUpMessage = await interaction.followUp({
+      embeds: [embed],
+      components: components,
+      flags: 64,
+      fetchReply: true,
+    });
 
-    // Adiciona um coletor para o botão de resumo, se ele existir
-    if (summarizeButton) {
-      const buttonCollector = followUpMessage.createMessageComponentCollector({
-        filter: i => i.user.id === interaction.user.id && i.customId.startsWith('summarize_'),
-        time: 300000 // 5 minutos para clicar
-      });
+    if (botaoResumo) {
+      const botaoResumoColetor =
+        followUpMessage.createMessageComponentCollector({
+          filter: (i) =>
+            i.user.id === interaction.user.id &&
+            i.customId.startsWith("summarize_"),
+          time: 300000, // 5 minutos para clicar
+        });
 
-      buttonCollector.on('collect', async i => {
-        buttonCollector.stop(); // Para o coletor inicial, pois a interação continuará em um novo coletor
-        await i.deferReply({ flags: 64 }); // Responde de forma efêmera para o menu de opções
-        const [_, fichaId, habilidadeId] = i.customId.split('_');
+      botaoResumoColetor.on("collect", async (i) => {
+        botaoResumoColetor.stop(); // Para o coletor inicial, pois a interação continuará em um novo coletor
+        await i.deferReply({ flags: 64 });
+        const [_, fichaId, habilidadeId] = i.customId.split("_");
 
         try {
           const ficha = await this.client.database.Ficha.findById(fichaId);
@@ -377,99 +671,168 @@ module.exports = class ficha extends Command {
           if (!habilidade) {
             return i.editReply({ content: "Habilidade não encontrada." });
           }
-          const originalDescription = habilidade.descricao;
+          const descCompleta = habilidade.descricao;
 
-          await i.editReply({ content: "Resumindo a habilidade com a IA... 🤖" });
-          const { summarizeText } = require("../../api/resumir.js");
-          let summarizedDesc = await summarizeText(originalDescription);
+          await i.editReply({
+            content: "Resumindo a habilidade com a IA... 🤖",
+          });
 
-          const createComponents = () => new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`).setLabel("Confirmar").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`).setLabel("Resumir Novamente").setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('cancel_summary').setLabel("Cancelar").setStyle(ButtonStyle.Danger)
-          );
+          let descResumida = await summarizeText(descCompleta);
+          /* #region  CONFIG FRONT-END */
 
-          const createEmbed = (text) => new EmbedBuilder()
-            .setTitle("📝 Proposta de Resumo")
-            .setDescription(text.substring(0, 4096))
-            .setColor("Blue")
-            .setFooter({ text: "Escolha uma opção abaixo." });
+          /* #region  BOTÕES RESUMO */
+          const botoesResumo = () =>
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`)
+                .setLabel("Confirmar")
+                .setStyle(ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`)
+                .setLabel("Resumir Novamente")
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId("cancel_summary")
+                .setLabel("Cancelar")
+                .setStyle(ButtonStyle.Danger)
+            );
+          /* #endregion */
 
-          const summaryMessage = await i.editReply({
+          const embedResumo = (text) =>
+            new EmbedBuilder()
+              .setTitle("📝 DESCRIÇÃO RESUMIDA")
+              .setDescription(text.substring(0, 4096))
+              .setColor("Blue")
+              .setFooter({ text: "Escolha uma opção abaixo." });
+
+          const msgResumo = await i.editReply({
             content: "Aqui está o resumo gerado:",
-            embeds: [createEmbed(summarizedDesc)],
-            components: [createComponents()]
+            embeds: [embedResumo(descResumida)],
+            components: [botoesResumo()],
           });
 
-          const optionsCollector = summaryMessage.createMessageComponentCollector({
-            filter: (btn) => btn.user.id === i.user.id,
-            time: 300000 // 5 minutos
-          });
+          const opcoesColetoresBotoesSum =
+            msgResumo.createMessageComponentCollector({
+              filter: (btn) => btn.user.id === i.user.id,
+              time: 300000, // 5 minutos
+            });
 
-          optionsCollector.on('collect', async (btnInteraction) => {
-            const btnFichaId = btnInteraction.customId.split('_')[2];
-            const btnHabilidadeId = btnInteraction.customId.split('_')[3];
+          /* #endregion */
 
-            if (btnInteraction.customId.startsWith('confirm_summary_')) {
+          opcoesColetoresBotoesSum.on("collect", async (btnInteraction) => {
+            const btnFichaId = btnInteraction.customId.split("_")[2];
+            const btnHabilidadeId = btnInteraction.customId.split("_")[3];
+
+            /* #region  OPÇÕES BOTÕES */
+            if (btnInteraction.customId.startsWith("confirm_summary_")) {
+              //CONFIRMAR RESUMO
               await btnInteraction.deferUpdate();
-              const fichaToUpdate = await this.client.database.Ficha.findById(btnFichaId);
-              const habilidadeToUpdate = fichaToUpdate.habilidades.id(btnHabilidadeId);
-              habilidadeToUpdate.descricao = summarizedDesc;
+              const fichaToUpdate = await this.client.database.Ficha.findById(
+                btnFichaId
+              );
+              const habilidadeToUpdate =
+                fichaToUpdate.habilidades.id(btnHabilidadeId);
+              habilidadeToUpdate.descricao = descResumida;
               await fichaToUpdate.save();
-              await i.editReply({ content: "✅ Resumo aplicado com sucesso! Você pode vê-la usando `/ficha ver`.", embeds: [], components: [] });
-              summarizeButton.setDisabled(true);
+              await i.editReply({
+                content:
+                  "✅ Resumo aplicado com sucesso! Você pode ver a habilidade usando `/ficha ver`.",
+                embeds: [],
+                components: [],
+              });
+
+              botaoResumo.setDisabled(true);
+
               try {
-                await followUpMessage.edit({ components: [new ActionRowBuilder().addComponents(summarizeButton)] });
+                await followUpMessage.edit({
+                  components: [
+                    new ActionRowBuilder().addComponents(botaoResumo),
+                  ],
+                });
               } catch (editError) {
-                if (editError.code === 10008) { // Unknown Message
-                  console.log('A mensagem original de confirmação de habilidade foi deletada, não foi possível desabilitar o botão.');
+                if (editError.code === 10008) {
+                  console.log(
+                    "A mensagem original de confirmação de habilidade foi deletada, não foi possível desabilitar o botão."
+                  );
                 } else {
-                  console.error('Erro ao tentar editar a mensagem de confirmação:', editError);
+                  console.error(
+                    "Erro ao tentar editar a mensagem de confirmação:",
+                    editError
+                  );
                 }
               }
-              optionsCollector.stop();
-            } else if (btnInteraction.customId.startsWith('resummarize_again_')) {
+              opcoesColetoresBotoesSum.stop();
+            } else if (
+              btnInteraction.customId.startsWith("resummarize_again_")
+            ) {
+              //RESUMIR DNV
+
               await btnInteraction.deferUpdate();
-              await i.editReply({ content: "Resumindo novamente... 🤖", embeds: [], components: [] });
-              summarizedDesc = await summarizeText(originalDescription);
+              await i.editReply({
+                content: "Resumindo novamente... 🤖",
+                embeds: [],
+                components: [],
+              });
+
+              descResumida = await summarizeText(descCompleta);
               await i.editReply({
                 content: "Aqui está o novo resumo:",
-                embeds: [createEmbed(summarizedDesc)],
-                components: [createComponents()]
+                embeds: [embedResumo(descResumida)],
+                components: [botoesResumo()],
               });
-            } else if (btnInteraction.customId === 'cancel_summary') {
+            } else if (btnInteraction.customId === "cancel_summary") {
+              // CANCELAR RESUMo
               await btnInteraction.deferUpdate();
-              await i.editReply({ content: "Operação cancelada.", embeds: [], components: [] });
-              optionsCollector.stop();
+              await i.editReply({
+                content:
+                  "Resumo cancelado. A descrição permanece a mesma dividida na ficha.",
+                embeds: [],
+                components: [],
+              });
+              opcoesColetoresBotoesSum.stop();
             }
+            /* #endregion */
           });
 
-          optionsCollector.on('end', async (collected, reason) => {
-            if (reason === 'time') {
-              await i.editReply({ content: "Tempo esgotado.", embeds: [], components: [] }).catch(() => {});
+          opcoesColetoresBotoesSum.on("end", async (collected, reason) => {
+            //erro ou timeout
+            if (reason === "time") {
+              await i
+                .editReply({
+                  content: "Tempo esgotado.",
+                  embeds: [],
+                  components: [],
+                })
+                .catch(() => {});
             }
           });
         } catch (error) {
           console.error("Erro ao resumir habilidade (criação):", error);
-          await i.editReply({ content: "Ocorreu um erro ao tentar resumir a habilidade." }).catch(() => {});
+          await i
+            .editReply({
+              content: "Ocorreu um erro ao tentar resumir a habilidade.",
+            })
+            .catch(() => {});
         }
       });
     }
-  }
 
-  //seletor de fichas
-  async handleFichaView(interaction) {
-    // Busca as fichas do usuário para o menu de seleção
+    /* #endregion */
+  }
+  /* #endregion */
+
+  /* #region VISUALIZAÇÃO DE FICHA UNICA */
+  async backFichaVer(interaction) {
+    await interaction.deferReply({ flags: 64 });
     const fichasDoUsuario = await this.client.database.Ficha.find({
       userId: interaction.user.id,
       guildId: interaction.guild.id,
     });
 
     if (!fichasDoUsuario.length) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.",
-        flags: 64,
       });
     }
 
@@ -487,22 +850,22 @@ module.exports = class ficha extends Command {
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    const response = await interaction.reply({
+    const response = await interaction.editReply({
       content: "Qual ficha você gostaria de ver?",
       components: [row],
-      flags: 64,
     });
-    const msg = await response.fetch();
 
-    const collector = msg.createMessageComponentCollector({
+    // O 'response' de editReply já é o objeto da mensagem.
+    // Tentar .fetch() em uma mensagem efêmera (flags: 64) causa o erro "Unknown Message".
+    const collector = response.createMessageComponentCollector({
       filter: (i) =>
         i.user.id === interaction.user.id && i.customId === "select_ficha_view",
-      time: 6000000, // 1 minuto
+      time: 600000, // 10 minutos
     });
 
     collector.on("collect", async (i) => {
       const fichaId = i.values[0];
-      await this.showFicha(i, fichaId); // Passa a nova interação e o ID da ficha
+      await this.backFichaVerMultipla(i, fichaId); // Passa a nova interação e o ID da ficha
     });
 
     collector.on("end", (collected, reason) => {
@@ -514,10 +877,11 @@ module.exports = class ficha extends Command {
     });
   }
 
-  // visualizador de fichas
-  async showFicha(interaction, fichaId) {
+  /* #endregion */
+
+  /* #region  VISUALIZAÇÃO DE FICHA MULTIPLA */
+  async backFichaVerMultipla(interaction, fichaId) {
     try {
-      // Adia a primeira interação (do menu de seleção)
       if (interaction.isStringSelectMenu()) {
         await interaction.deferUpdate();
       }
@@ -529,11 +893,8 @@ module.exports = class ficha extends Command {
       }).sort({ createdAt: -1 }); // Ordena por data de criação
 
       if (!fichas.length) {
-        // Esta verificação já é feita em handleFichaView, mas é bom ter como segurança.
-        return interaction.followUp({
-          content: "Nenhuma ficha encontrada.",
-          flags: 64,
-        });
+        // Esta verificação já é feita em backFichaVer, mas é bom ter como segurança.
+        return interaction.editReply({ content: "Nenhuma ficha encontrada." });
       }
 
       this.client.fichaStates.set(interaction.user.id, {
@@ -568,8 +929,8 @@ module.exports = class ficha extends Command {
           .setColor("Blue")
           .setTitle(`📝 Ficha: ${ficha.nome}`)
           .addFields(
-            { name: "Reino", value: ficha.reino, inline: true },
-            { name: "Raça", value: ficha.raca, inline: true },
+            { name: "Reino", value: ficha.reino },
+            { name: "Raça", value: ficha.raca },
             { name: "Aparência", value: ficha.aparencia },
             {
               name: "Habilidades",
@@ -579,6 +940,10 @@ module.exports = class ficha extends Command {
             }
           )
           .setFooter({ text: `Página ${currentFichaIndex + 1} de ${pages}` });
+
+        if (ficha.imagemURL) {
+          embed.setImage(ficha.imagemURL);
+        }
 
         return embed;
       };
@@ -596,68 +961,95 @@ module.exports = class ficha extends Command {
           };
         }
 
-        const categorySkills = ficha.habilidades.filter(s => (s.categoria.toLowerCase() || "outros") === (habilidade.categoria.toLowerCase() || "outros"));
-        const totalHabilidadesNaCategoria = categorySkills.length;
+        const skillCategoriasPresentes = ficha.habilidades.filter(
+          (s) =>
+            (s.categoria.toLowerCase() || "outros") ===
+            (habilidade.categoria.toLowerCase() || "outros")
+        );
+
+        const totalHabilidadesNaCategoria = skillCategoriasPresentes.length;
 
         const embed = new EmbedBuilder()
           .setColor("Purple")
           .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
-          .addFields(
-            { name: "Categoria", value: habilidade.categoria, inline: true }
-          )
+          .addFields({ name: "Categoria", value: habilidade.categoria });
 
-        const MAX_DESC_LENGTH = 2000; // Reduzido para uma paginação mais agradável
+        if (habilidade.custo && habilidade.custo.toLowerCase() !== "nenhum") {
+          embed.addFields({ name: "Custo", value: habilidade.custo });
+        } //se o custo estiver disponivel e não for "nenhum"
+
+        /* #region  PARAMTROS DE CONFIG */
+        const MAX_DESC_LENGTH = 2000;
         const MAX_FIELD_LENGTH = 1024;
         let extraComponents = [];
-        let descriptionPages = [];
+        let pageDescs = [];
+        /* #endregion */
 
-        // Truncate long description to prevent crash
         if (habilidade.descricao) {
           if (habilidade.descricao.length > 4000) {
-            const summarizeButton = new ButtonBuilder()
+            //APARECE BOTÃO DE RESUMIR DESCRIÇÃO CASO SEJA MAIOR QUE 4000 CARACTERES, VAI TER PAGINAÇÃO
+            const botaoResumo = new ButtonBuilder()
               .setCustomId(`summarize_${ficha._id}_${habilidade._id}`)
               .setLabel("Resumir Descrição")
               .setStyle(ButtonStyle.Success);
 
-            const actionRow = new ActionRowBuilder().addComponents(summarizeButton);
+            const actionRow = new ActionRowBuilder().addComponents(botaoResumo);
             extraComponents.push(actionRow);
           }
 
           if (habilidade.descricao.length <= MAX_DESC_LENGTH) {
+            //SE FOR MENOR QUE 2000 CARACTERES, MOSTRA NORMAL
             embed.setDescription(habilidade.descricao);
           } else {
-            descriptionPages = splitDescription(habilidade.descricao, MAX_DESC_LENGTH);
-            embed.setDescription(descriptionPages[descPageIndex]);
+            //SE FOR MAIOR QUE 2000 CARACTERES, DIVIDE EM PÁGINAS
 
+            pageDescs = splitDescription(habilidade.descricao, MAX_DESC_LENGTH);
+            embed.setDescription(pageDescs[descPageIndex]);
+
+            /* #region  BOTÕES DE PAGINAÇÃO PARTES DESCRIÇÕES */
             const descNavButtons = new ActionRowBuilder().addComponents(
               new ButtonBuilder()
-                .setCustomId('prev_desc_page')
-                .setLabel('◀ Descrição')
+                .setCustomId("prev_desc_page")
+                .setLabel("◀ Descrição")
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(descPageIndex === 0),
               new ButtonBuilder()
-                .setCustomId('next_desc_page')
-                .setLabel('Descrição ▶')
+                .setCustomId("next_desc_page")
+                .setLabel("Descrição ▶")
                 .setStyle(ButtonStyle.Secondary)
-                .setDisabled(descPageIndex >= descriptionPages.length - 1)
+                .setDisabled(descPageIndex >= pageDescs.length - 1)
             );
             extraComponents.push(descNavButtons);
+            /* #endregion */
           }
         }
 
         const footerParts = [
-          `Habilidade ${habilidade.categoria} ${currentHabilidadeIndex + 1}/${totalHabilidadesNaCategoria}`
-        ];
-        if (descriptionPages.length > 0) {
-          embed.setTitle(`🔮 Habilidade: ${habilidade.nome} - DESCRIÇÃO DIVIDIDA`);
-          footerParts.push(`Descrição - parte ${descPageIndex + 1}/${descriptionPages.length}`);
-        }
-        embed.setFooter({ text: footerParts.join(' | ') });
+          `Habilidade ${habilidade.categoria} ${
+            currentHabilidadeIndex + 1
+          }/${totalHabilidadesNaCategoria}`,
+        ]; //posição da habilidade na categoria
 
+        if (pageDescs.length > 0) {
+          // FRONT-END PAGINAÇÃO DA DESCRIÇÃO > 2000 CARACTERES
+          embed.setTitle(
+            `🔮 Habilidade: ${habilidade.nome} - DESCRIÇÃO DIVIDIDA`
+          );
+          footerParts.push(
+            `Descrição - parte ${descPageIndex + 1}/${pageDescs.length}`
+          );
+        }
+
+        embed.setFooter({ text: footerParts.join(" | ") });
+
+        /* #region  FRONT-END SUB-HABILIDADES */
         if (habilidade.subHabilidades && habilidade.subHabilidades.length > 0) {
           const subFields = habilidade.subHabilidades.map((sub) => ({
             name: `Sub-habilidade: ${sub.nome}`,
-            value: sub.descricao.length > MAX_FIELD_LENGTH ? `${sub.descricao.substring(0, MAX_FIELD_LENGTH - 4)}...` : sub.descricao,
+            value:
+              sub.descricao.length > MAX_FIELD_LENGTH
+                ? `${sub.descricao.substring(0, MAX_FIELD_LENGTH - 4)}...`
+                : sub.descricao,
             inline: false,
           }));
 
@@ -666,11 +1058,14 @@ module.exports = class ficha extends Command {
           }
         }
 
+        /* #endregion */
+
         return { embed, components: extraComponents };
       };
 
-      // Botões de navegação da Ficha
-      const getButtons = (disablePrev, disableNext) => {
+      /* #region  FRONT-END BOTÕES DE NAVEGAÇÃO DA FICHA */
+      // Botões padrão da visualização da Ficha
+      const botNavFicha = (disablePrev, disableNext) => {
         return new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId("prevPage")
@@ -695,7 +1090,7 @@ module.exports = class ficha extends Command {
       };
 
       // Botões de navegação das Habilidades
-      const getNavButtons = (disablePrev, disableNext) => {
+      const botNavHabs = (disablePrev, disableNext) => {
         return new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId("prevHab")
@@ -713,17 +1108,15 @@ module.exports = class ficha extends Command {
             .setDisabled(disableNext)
         );
       };
+      /* #endregion */
 
-      // Envia mensagem inicial
-      const message = await interaction.editReply({
+      const message = await interaction.followUp({
         embeds: [getFichaEmbed(fichas[currentFichaIndex])],
         components: [
-          getButtons(currentFichaIndex === 0, currentFichaIndex === pages - 1),
+          botNavFicha(currentFichaIndex === 0, currentFichaIndex === pages - 1),
         ],
-        flags: 64,
       });
 
-      // Cria coletor de botões
       const collector = message.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
         time: 6000000,
@@ -741,78 +1134,135 @@ module.exports = class ficha extends Command {
             if (!habilidade) {
               return i.editReply({ content: "Habilidade não encontrada." });
             }
-            const originalDescription = habilidade.descricao;
+            const descCompleta = habilidade.descricao;
 
-            await i.editReply({ content: "Resumindo a habilidade com a IA... 🤖" });
+            await i.editReply({
+              content: "Resumindo a habilidade com a IA... 🤖",
+            });
             const { summarizeText } = require("../../api/resumir.js");
-            let summarizedDesc = await summarizeText(originalDescription);
+            let descResumida = await summarizeText(descCompleta);
 
-            const createComponents = () => new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`).setLabel("Confirmar").setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`).setLabel("Resumir Novamente").setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('cancel_summary').setLabel("Cancelar").setStyle(ButtonStyle.Danger)
-            );
+            const botoesResumo = () =>
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`)
+                  .setLabel("Confirmar")
+                  .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                  .setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`)
+                  .setLabel("Resumir Novamente")
+                  .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                  .setCustomId("cancel_summary")
+                  .setLabel("Cancelar")
+                  .setStyle(ButtonStyle.Danger)
+              );
 
-            const createEmbed = (text) => new EmbedBuilder()
+            const embedResumo = (text) =>
+              new EmbedBuilder()
                 .setTitle("📝 Proposta de Resumo")
                 .setDescription(text.substring(0, 4096))
                 .setColor("Blue")
                 .setFooter({ text: "Escolha uma opção abaixo." });
 
-            const summaryMessage = await i.editReply({
-                content: "Aqui está o resumo gerado:",
-                embeds: [createEmbed(summarizedDesc)],
-                components: [createComponents()]
+            const msgResumo = await i.editReply({
+              content: "Aqui está o resumo gerado:",
+              embeds: [embedResumo(descResumida)],
+              components: [botoesResumo()],
             });
 
-            const optionsCollector = summaryMessage.createMessageComponentCollector({
+            const opcoesColetoresBotoesSum =
+              msgResumo.createMessageComponentCollector({
                 filter: (btn) => btn.user.id === i.user.id,
-                time: 300000 // 5 minutes
-            });
+                time: 300000, // 5 minutes
+              });
 
-            optionsCollector.on('collect', async (btnInteraction) => {
-              const btnFichaId = btnInteraction.customId.split('_')[2];
-              const btnHabilidadeId = btnInteraction.customId.split('_')[3];
+            opcoesColetoresBotoesSum.on("collect", async (btnInteraction) => {
+              const btnFichaId = btnInteraction.customId.split("_")[2];
+              const btnHabilidadeId = btnInteraction.customId.split("_")[3];
 
-              if (btnInteraction.customId.startsWith('confirm_summary_')) {
-                  await btnInteraction.deferUpdate();
-                  const fichaToUpdate = await this.client.database.Ficha.findById(btnFichaId);
-                  const habilidadeToUpdate = fichaToUpdate.habilidades.id(btnHabilidadeId);
-                  habilidadeToUpdate.descricao = summarizedDesc;
-                  await fichaToUpdate.save();
+              if (btnInteraction.customId.startsWith("confirm_summary_")) {
+                await btnInteraction.deferUpdate();
+                const fichaToUpdate = await this.client.database.Ficha.findById(
+                  btnFichaId
+                );
+                const habilidadeToUpdate =
+                  fichaToUpdate.habilidades.id(btnHabilidadeId);
+                habilidadeToUpdate.descricao = descResumida;
+                await fichaToUpdate.save();
 
-                  viewMode = `habilidade_categoria_${habilidadeToUpdate.categoria.toLowerCase()}`;
-                  currentDescPageIndex = 0;
-                  const { embed: newHabilidadeEmbed, components: newComponents } = getHabilidadeEmbed(habilidadeToUpdate, fichaToUpdate, 0);
-                  
-                  // Atualiza a mensagem pública original
-                  await message.edit({
-                    embeds: [newHabilidadeEmbed],
-                    components: [getNavButtons(currentHabilidadeIndex === 0, currentHabilidadeIndex >= fichaToUpdate.habilidades.filter(s => s.categoria.toLowerCase() === habilidadeToUpdate.categoria.toLowerCase()).length - 1), ...newComponents],
-                  });
+                viewMode = `habilidade_categoria_${habilidadeToUpdate.categoria.toLowerCase()}`;
+                currentDescPageIndex = 0;
+                const { embed: newHabilidadeEmbed, components: newComponents } =
+                  getHabilidadeEmbed(habilidadeToUpdate, fichaToUpdate, 0);
 
-                  await i.editReply({ content: "✅ Resumo aplicado com sucesso!", embeds: [], components: [] });
-                  optionsCollector.stop();
-              } else if (btnInteraction.customId.startsWith('resummarize_again_')) {
-                  await btnInteraction.deferUpdate();
-                  await i.editReply({ content: "Resumindo novamente... 🤖", embeds: [], components: [] });
-                  summarizedDesc = await summarizeText(originalDescription);
-                  await i.editReply({ content: "Aqui está o novo resumo:", embeds: [createEmbed(summarizedDesc)], components: [createComponents()] });
-              } else if (btnInteraction.customId === 'cancel_summary') {
-                  await btnInteraction.deferUpdate();
-                  await i.editReply({ content: "Operação cancelada.", embeds: [], components: [] });
-                  optionsCollector.stop();
+                // Atualiza a mensagem pública original
+                await message.edit({
+                  embeds: [newHabilidadeEmbed],
+                  components: [
+                    botNavHabs(
+                      currentHabilidadeIndex === 0,
+                      currentHabilidadeIndex >=
+                        fichaToUpdate.habilidades.filter(
+                          (s) =>
+                            s.categoria.toLowerCase() ===
+                            habilidadeToUpdate.categoria.toLowerCase()
+                        ).length -
+                          1
+                    ),
+                    ...newComponents,
+                  ],
+                });
+
+                await i.editReply({
+                  content: "✅ Resumo aplicado com sucesso!",
+                  embeds: [],
+                  components: [],
+                });
+                opcoesColetoresBotoesSum.stop();
+              } else if (
+                btnInteraction.customId.startsWith("resummarize_again_")
+              ) {
+                await btnInteraction.deferUpdate();
+                await i.editReply({
+                  content: "Resumindo novamente... 🤖",
+                  embeds: [],
+                  components: [],
+                });
+                descResumida = await summarizeText(descCompleta);
+                await i.editReply({
+                  content: "Aqui está o novo resumo:",
+                  embeds: [embedResumo(descResumida)],
+                  components: [botoesResumo()],
+                });
+              } else if (btnInteraction.customId === "cancel_summary") {
+                await btnInteraction.deferUpdate();
+                await i.editReply({
+                  content: "Operação cancelada.",
+                  embeds: [],
+                  components: [],
+                });
+                opcoesColetoresBotoesSum.stop();
               }
             });
 
-            optionsCollector.on('end', async (collected, reason) => {
-                if (reason === 'time') {
-                    await i.editReply({ content: "Tempo esgotado.", embeds: [], components: [] }).catch(() => {});
-                }
+            opcoesColetoresBotoesSum.on("end", async (collected, reason) => {
+              if (reason === "time") {
+                await i
+                  .editReply({
+                    content: "Tempo esgotado.",
+                    embeds: [],
+                    components: [],
+                  })
+                  .catch(() => {});
+              }
             });
           } catch (error) {
             console.error("Erro ao resumir:", error);
-            await i.followUp({ content: "Ocorreu um erro ao tentar resumir a habilidade.", ephemeral: true });
+            await i.followUp({
+              content: "Ocorreu um erro ao tentar resumir a habilidade.",
+              ephemeral: true,
+            });
           }
           return;
         }
@@ -828,7 +1278,7 @@ module.exports = class ficha extends Command {
             currentDescPageIndex = 0;
           } else if (i.customId === "addHabilidadeFicha") {
             const fichaAtual = fichas[currentFichaIndex];
-            await this.collectHabilidadeInfo(i, fichaAtual._id.toString());
+            await this.backFichaUnicaHabAdd(i, fichaAtual._id.toString());
             return; // Impede a atualização da mensagem, pois um modal foi aberto
           }
         } else if (viewMode === "habilidades") {
@@ -851,9 +1301,9 @@ module.exports = class ficha extends Command {
             viewMode = "habilidades";
             currentHabilidadeIndex = 0;
             currentDescPageIndex = 0;
-          } else if (i.customId === 'prev_desc_page') {
+          } else if (i.customId === "prev_desc_page") {
             if (currentDescPageIndex > 0) currentDescPageIndex--;
-          } else if (i.customId === 'next_desc_page') {
+          } else if (i.customId === "next_desc_page") {
             currentDescPageIndex++;
           }
         }
@@ -864,7 +1314,7 @@ module.exports = class ficha extends Command {
             await i.update({
               embeds: [getFichaEmbed(fichas[currentFichaIndex])],
               components: [
-                getButtons(
+                botNavFicha(
                   currentFichaIndex === 0,
                   currentFichaIndex === pages - 1
                 ),
@@ -932,11 +1382,13 @@ module.exports = class ficha extends Command {
             });
           } else if (viewMode.startsWith("habilidade_categoria_")) {
             const fichaAtual = fichas[currentFichaIndex];
-            const currentCategory = viewMode.substring("habilidade_categoria_".length);
-            const categorySkills = fichaAtual.habilidades.filter(
+            const currentCategory = viewMode.substring(
+              "habilidade_categoria_".length
+            );
+            const skillCategoriasPresentes = fichaAtual.habilidades.filter(
               (s) => (s.categoria.toLowerCase() || "outros") === currentCategory
             );
-            const totalHabilidades = categorySkills.length;
+            const totalHabilidades = skillCategoriasPresentes.length;
 
             const navButtons = new ActionRowBuilder().addComponents(
               new ButtonBuilder()
@@ -955,7 +1407,12 @@ module.exports = class ficha extends Command {
                 .setDisabled(currentHabilidadeIndex >= totalHabilidades - 1)
             );
 
-            const { embed: habilidadeEmbed, components: extraComponents } = getHabilidadeEmbed(categorySkills[currentHabilidadeIndex], fichaAtual, currentDescPageIndex);
+            const { embed: habilidadeEmbed, components: extraComponents } =
+              getHabilidadeEmbed(
+                skillCategoriasPresentes[currentHabilidadeIndex],
+                fichaAtual,
+                currentDescPageIndex
+              );
 
             await i.update({
               embeds: [habilidadeEmbed],
@@ -963,7 +1420,6 @@ module.exports = class ficha extends Command {
             });
           }
         } catch (error) {
-          // Ignora erros de interação já respondida que podem ocorrer se um modal foi aberto
           if (error.code !== "InteractionAlreadyReplied") {
             console.error("Erro ao atualizar interação no coletor:", error);
           }
@@ -985,5 +1441,7 @@ module.exports = class ficha extends Command {
       });
     }
   }
+  /* #endregion */
+
   /* #endregion */
 };
