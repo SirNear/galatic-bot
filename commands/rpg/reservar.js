@@ -62,9 +62,13 @@ module.exports = class reservar extends Command {
         }
     }
 
-    let canalReserva = await message.guild.channels.cache.find(
-      (i) => i.id === "1410385607317913640"
-    );
+    const canalReservaId = "1410385607317913640";
+    let canalReserva = await message.guild.channels.fetch(canalReservaId).catch(() => null);
+    
+    if (!canalReserva || !canalReserva.isTextBased()) {
+        return message.reply({ content: "Erro: O canal de reservas não foi encontrado ou não tenho permissão para vê-lo." });
+    }
+
     let choose = args[0];
 
     const userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
@@ -222,8 +226,8 @@ module.exports = class reservar extends Command {
                 }
             }); // coletorConfirmacao.collect
 
-            coletorConfirmacao.on("end", async (reason) => {
-                if (reason === "time" &&  collected.size === 0) return cancelamento(deletable)
+            coletorConfirmacao.on("end", async (collected, reason) => {
+                if (reason === "time" && collected.size === 0) return cancelamento(deletable);
             }) //₢oletorConfirmacao.end
 
             }); //coletorRAparenciaImagem.collect
@@ -241,7 +245,7 @@ module.exports = class reservar extends Command {
 
           }); //coletorRAparenciaVerso.collect
 
-          coletorRAparenciaVerso.on('end', async (reason, msg) => {
+          coletorRAparenciaVerso.on('end', async (collected, reason) => {
             if (reason === "time" && collected.size === 0) return cancelamento(deletable)
           }) //coletorRAparenciaVerso.end
 

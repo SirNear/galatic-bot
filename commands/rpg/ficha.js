@@ -6,36 +6,14 @@ const {
   SlashCommandBuilder,
   StringSelectMenuComponent,
   StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
-const fetch = require("node-fetch");
+const fetch = require("node-fetch"); 
 const Command = require("../../structures/Command");
 const color = require("../../api/colors.json");
 const { summarizeText } = require("../../api/resumir.js");
-
-function splitDescription(text, maxLength = 2000) {
-  const parts = [];
-  if (!text) return parts;
-
-  let currentChunk = text;
-  while (currentChunk.length > 0) {
-    if (currentChunk.length <= maxLength) {
-      parts.push(currentChunk);
-      break;
-    }
-
-    let splitIndex = currentChunk.lastIndexOf("\n\n", maxLength);
-    if (splitIndex === -1)
-      splitIndex = currentChunk.lastIndexOf("\n", maxLength);
-    if (splitIndex === -1)
-      splitIndex = currentChunk.lastIndexOf(" ", maxLength);
-    if (splitIndex === -1) splitIndex = maxLength;
-
-    parts.push(currentChunk.substring(0, splitIndex));
-    currentChunk = currentChunk.substring(splitIndex).trim();
-  }
-  return parts;
-}
-
 module.exports = class ficha extends Command {
   constructor(client) {
     super(client, {
@@ -72,90 +50,164 @@ module.exports = class ficha extends Command {
     }
     /* #endregion */
   }
+  // #region FUNÇÕES ARMAZENAR APARÊNCIA, COLETAR RESPOSTA, CONFIRMAR BOTÃO, MOSTRAR FORMULARIO
 
-  /* #region  SLASH COMMAND */
-  async execute(interaction) {
-    try {
-      const subcommand = interaction.options.getSubcommand();
+  async coletarResposta(interaction, pergunta) {
+    const channel = interaction.channel;
+    const author = interaction.user;
 
-      /* #region  ACIONA BACK-ENDS EM FUNCTIONS */
-      switch (subcommand) {
-        case "criar":
-          return this.backFichaCriar(interaction);
-        case "ver":
-          return this.backFichaVer(interaction);
-        case "habilidade":
-          return this.backFichaHabAdd(interaction);
-      }
-      /* #endregion */
-    } catch (err) {
-      console.error("Erro no comando ficha:", err);
-      return interaction.reply({
-        content: "Ocorreu um erro ao executar este comando!",
+    const perguntaMsg = await interaction.followUp({ //envia msgBotao para cada pergunta
+      content: pergunta,
+      fetchReply: true,
+      flags: 64,
+    });
+
+    const coletorResposta = channel.createMessageCollector({ //coletor da perguntaMsg
+      filter: (m) => m.author.id === author.id,
+      time: 300000, // 5 minutos
+      max: 1,
+    });
+
+    const collected = await new Promise((resolve) => {
+      coletorResposta.on("collect", (m) => resolve(m));
+      coletorResposta.on("end", (c) => {
+        if (c.size === 0) resolve(null);
+      });
+    });
+
+    await perguntaMsg.delete().catch(() => {});
+
+    if (!collected) {
+      await interaction.followUp({
+        content: "<:berror:1406837900556898304> | **Tempo esgotado.** Operação cancelada.",
         flags: 64,
       });
+      return null;
+    }
+
+    const resposta = collected.content;
+    const attachment = collected.attachments.first();
+
+    await collected.delete().catch(() => {});
+
+    return { resposta, attachment };
+  }
+
+  async armazemAparencia(interaction, fichaNome) {
+    const resposta = await this.coletarResposta(interaction, "Envie a imagem agora.");
+    const attachment = resposta.attachment;
+    const canalArmazenamento = await this.client.channels.fetch('1094070734151766026').catch(() => null);
+
+/* #region  DEBUG */
+    if (!resposta || !resposta.attachment || !resposta.attachment.contentType?.startsWith("image/")) { //se não tem imagem ou se for arquvio, segue sem img
+      await interaction.followUp({ content: "Nenhuma imagem válida foi enviada. Continuando sem imagem.", flags: 64 });
+      return null;
+    }
+
+    if (!canalArmazenamento || !canalArmazenamento.isTextBased()) {
+      console.error(`Canal de armazenamento (ID: ${canalArmazenamentoId}) inválido ou não encontrado.`);
+      await interaction.followUp({ content: "❌ Erro de configuração: O canal de armazenamento de imagens não foi encontrado.", flags: 64 });
+      return null;
+    }
+/* #endregion */
+    
+  //backend
+    try {
+      const embedAparencia = new EmbedBuilder()
+        .setColor(color.dblue)
+        .setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>")
+        .setFooter({ text: `Aparência para a ficha de ${fichaNome || "Nome não definido"}` })
+        .setImage(attachment.url);
+
+      const sentMessage = await canalArmazenamento.send({ embeds: [embedAparencia]});
+
+      if (!attachment.url) throw new Error("A URL do anexo não foi encontrada após o envio.");
+
+      await sentMessage.edit({ embeds: [embedAparencia] });
+      return attachment.url;
+    } catch (e) {
+      console.error(`Erro ao enviar imagem para o canal de armazenamento (ID: ${canalArmazenamentoId}):`, e);
+      await interaction.followUp({ content: "❌ Ocorreu um erro ao salvar a imagem. Contate um administrador.", flags: 64 });
+      return null;
     }
   }
-  /* #endregion */
+
+  async formulario(interaction, modal, timeout = 1800000) {
+    await interaction.showModal(modal); //exibir formulário
+
+    try {
+      const formEnviado = await interaction.awaitModalSubmit({
+        filter: i => i.user.id === interaction.user.id && i.customId === modal.data.custom_id,
+        time: timeout,
+      });
+      return formEnviado; //retorna respostas do form
+
+    } catch (err) {
+      if (err.code === 'InteractionCollectorError') {
+        // O tempo esgotou, não precisa notificar o usuário pois o modal some.
+      } else {
+        console.error("Erro ao aguardar modal:", err);
+      }
+      return null;
+    }
+  }
+
+  async botaoConfirma(interaction, mensagemPergunta, customLabelButtomY, customLabelButtomN, msgPersonalizadaUpdt) {
+    const botoesRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('botaoConfirmaId').setLabel(customLabelButtomY).setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('botaoNegaId').setLabel(customLabelButtomN).setStyle(ButtonStyle.Danger)
+    );
+
+    const msgBotao = await interaction.followUp({
+      content: mensagemPergunta,
+      components: [botoesRow],
+      flags: 64,
+      fetchReply: true,
+    });
+
+    try {
+      const btnInteraction = await msgBotao.awaitMessageComponent({ filter: i => i.user.id === interaction.user.id, time: 60000 });
+      await btnInteraction.update({ content: msgPersonalizadaUpdt, components: [] });
+      return btnInteraction.customId === 'botaoConfirmaId';
+    } catch (e) {
+      await msgBotao.edit({ content: "Tempo esgotado. Continuando...", components: [] }).catch(() => {});
+      return false;
+    }
+  }
+
+  async splitDescription(text, maxLength = 2000) {
+  const parts = [];
+  if (!text) return parts;
+
+  let currentChunk = text;
+  while (currentChunk.length > 0) {
+    if (currentChunk.length <= maxLength) {
+      parts.push(currentChunk);
+      break;
+    }
+
+    let splitIndex = currentChunk.lastIndexOf("\n\n", maxLength);
+    if (splitIndex === -1)
+      splitIndex = currentChunk.lastIndexOf("\n", maxLength);
+    if (splitIndex === -1)
+      splitIndex = currentChunk.lastIndexOf(" ", maxLength);
+    if (splitIndex === -1) splitIndex = maxLength;
+
+    parts.push(currentChunk.substring(0, splitIndex));
+    currentChunk = currentChunk.substring(splitIndex).trim();
+  }
+  return parts;
+  }
+
+  // #endregion
+
 
   /* #region  BACK-END */
 
   /* #region  CRIAÇÃO DE FICHA */
+  
   async backFichaCriar(interaction) {
-    /* #region  ENVIAR IAMGEM DE APARENCIA P/ SALVAR */
-    const enviarImagemParaArmazenamento = async (attachment, fichaNome) => {
-      const storageChannelId = "1094070734151766026"; // ID do seu canal de armazenamento
-      const storageChannel = await this.client.channels
-        .fetch(storageChannelId)
-        .catch(() => null);
-
-      if (!storageChannel || !storageChannel.isTextBased()) {
-        console.error(
-          `Canal de armazenamento (ID: ${storageChannelId}) inválido ou não encontrado.`
-        );
-        await interaction.followUp({
-          content:
-            "⚠️ Erro de configuração: O canal para salvar imagens é inválido. A imagem não será salva.",
-          flags: 64,
-        });
-        return null;
-      }
-
-      try {
-        const sentMessage = await storageChannel.send({ files: [attachment] });
-        const ImgUrl = sentMessage.attachments.first()?.url;
-
-        if (ImgUrl) {
-          const embedRAparencia = new EmbedBuilder()
-            .setColor(color.dblue)
-            .setTitle(
-              "<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>"
-            )
-            .setFooter({
-              text: `Aparência para a ficha de ${
-                fichaNome || "Nome não definido"
-              }`,
-            })
-            .setImage(ImgUrl);
-          await sentMessage.edit({ embeds: [embedRAparencia] });
-          return ImgUrl;
-        }
-      } catch (e) {
-        console.error(
-          `Erro ao enviar imagem para o canal de armazenamento (ID: ${storageChannelId}):`,
-          e
-        );
-        await interaction.followUp({
-          content:
-            "❌ Não foi possível enviar a imagem para o canal de armazenamento. Verifique as permissões do bot.",
-          flags: 64,
-        });
-      }
-      return null;
-    };
-    /* #endregion */
-
-    try {
+    try { 
       await interaction.deferReply({ flags: 64 });
       await interaction.editReply({
         content:
@@ -172,217 +224,51 @@ module.exports = class ficha extends Command {
         "Qual o reino de origem do personagem? (Elysium, Ozark, Minerva, etc.)",
         "Qual a aparência do personagem? (Você pode enviar um texto ou um arquivo .txt com 'Nome da Aparência, Universo de Origem')",
       ];
+      
+      const camposFicha = [
+        "nome",
+        "raca",
+        "reino",
+        "aparencia" 
+      ];
 
       const fichaData = {};
 
-      for (let i = 0; i < perguntas.length; i++) {
-        const pergunta = perguntas[i];
-        const perguntaMsg = await interaction.followUp({
-          content: pergunta,
-          fetchReply: true,
-          flags: 64,
-        });
-
-        const collector = channel.createMessageCollector({
-          filter: (m) => m.author.id === author.id,
-          time: 300000, // 5 minutos
-          max: 1,
-        });
-
-        //passa valores de collected a cada instância concluida
-        const collected = await new Promise((resolve) => {
-          collector.on("collect", (m) => resolve(m));
-          collector.on("end", (collected) => {
-            if (collected.size === 0) resolve(null);
-          });
-        });
-
-        if (!collected) {
-          await interaction.followUp({
-            content:
-              "<:berror:1406837900556898304> | **Tempo esgotado.** Criação de ficha cancelada, faça o comando novamente.",
-            flags: 64,
-          });
-          return;
-        }
-
-        let resposta = collected.content;
-        const attachment = collected.attachments.first();
-
-        // Lógica para a pergunta da aparência
-        if (pergunta.includes("aparência") && !resposta && attachment) {
-          if (attachment.contentType?.startsWith("text/plain")) {
-            try {
-              const response = await fetch(attachment.url);
-              // ... (código para ler .txt)
-              if (!response.ok) throw new Error("Falha ao buscar anexo.");
-              resposta = await response.text();
-            } catch (error) {
-              console.error(
-                "Erro ao processar anexo na criação de ficha:",
-                error
-              );
-              await interaction.followUp({
-                content: "Ocorreu um erro ao ler o arquivo. Tente novamente.",
-                flags: 64,
-              });
-              return;
-            }
-          }
-        }
-
-        // Salva a resposta no objeto de dados da ficha
-        if (i === 0) fichaData.nome = resposta;
-        if (i === 1) fichaData.raca = resposta;
-        if (i === 2) fichaData.reino = resposta;
-        if (i === 3) {
-          // Lógica específica para a pergunta da aparência
-          if (attachment && attachment.contentType?.startsWith("image/")) {
-            fichaData.imagemURL = await enviarImagemParaArmazenamento(
-              attachment,
-              fichaData.nome
-            );
-            if (resposta) {
-              // Se enviou imagem E texto, o texto é a aparência.
-              fichaData.aparencia = resposta;
-            } else {
-              // Se enviou só a imagem, pergunta o nome.
-              const askNameMsg = await interaction.followUp({
-                content:
-                  "Você enviou uma imagem. Agora, por favor, digite o nome da aparência e o universo (Ex: Goku, Dragon Ball Z).",
-                flags: 64,
-                fetchReply: true,
-              });
-
-              const nameCollector = channel.createMessageCollector({
-                filter: (m) => m.author.id === author.id,
-                time: 120000,
-                max: 1,
-              });
-              const nameCollected = await new Promise((resolve) => {
-                nameCollector.on("collect", (m) => resolve(m));
-                nameCollector.on("end", (c) => {
-                  if (c.size === 0) resolve(null);
-                });
-              });
-
-              if (nameCollected) {
-                fichaData.aparencia = nameCollected.content;
-                await nameCollected.delete().catch(() => {});
-                await askNameMsg.delete().catch(() => {});
-              } else {
-                await interaction.followUp({
-                  content:
-                    "Tempo esgotado. A aparência será salva como 'Aparência com imagem, sem nome'.",
-                  flags: 64,
-                });
-                fichaData.aparencia = "Aparência com imagem, sem nome";
-              }
-            }
-          } else {
-            // Caso 2: Usuário enviou apenas texto (ou .txt).
-            fichaData.aparencia = resposta;
-          }
-        }
-
-        await collected.delete().catch(() => {});
-        await perguntaMsg.delete().catch(() => {});
-      }
       /* #endregion */
 
-      /* #region  BACK COLETOR DA IMAGEM */
+      /* #region  BACK LOGICA DE SALVAMENTO */
       if (fichaData.aparencia && !fichaData.imagemURL) {
-        const addImagem = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("add_image_yes")
-            .setLabel("Sim")
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId("add_image_no")
-            .setLabel("Não")
-            .setStyle(ButtonStyle.Danger)
-        );
-        const askMsg = await interaction.followUp({
-          content: "Deseja enviar uma imagem para a aparência?",
-          components: [addImagem],
-          flags: 64,
-          fetchReply: true,
-        });
+        const querImagem = await this.botaoConfirma(interaction, "Deseja enviar uma imagem para a aparência?", "Sim", "Não", "Iniciando coleta de imagem...");
+        if (querImagem) {
+          const url = await this.armazemAparencia(interaction, fichaData.nome); 
+        }
 
-        try {
-          const botaoAddImg = await askMsg.awaitMessageComponent({
-            filter: (i) => i.user.id === author.id,
-            time: 60000,
-          });
+        for (let i = 0; i < perguntas.length; i++) {
+          const pergunta = perguntas[i];
+          const respostaColetada = await this.coletarResposta(interaction, pergunta);
 
-          /* #region  COLETORES - SIM OU NÃO */
-          if (botaoAddImg.customId === "add_image_yes") {
-            //SE QUISER
-            //se for adicionar
-            await botaoAddImg.update({
-              content: "Ótimo! Por favor, envie a imagem agora.",
-              components: [],
-            });
+          if (!respostaColetada) return
 
-            /* #region  CONFIG COLETORES ADD */
+          let { resposta, attachment } = respostaColetada;
 
-            const coletorImg = channel.createMessageCollector({
-              filter: (m) =>
-                m.author.id === author.id && m.attachments.size > 0,
-              time: 120000,
-              max: 1,
-            });
-
-            const imgColetada = await new Promise((resolve) => {
-              coletorImg.on("collect", (m) => resolve(m));
-              coletorImg.on("end", (c) => {
-                if (c.size === 0) resolve(null);
-              });
-            });
-            /* #endregion */
-
-            /* #region  AO COLETAR - sim*/
-            if (
-              imgColetada &&
-              imgColetada.attachments.first()?.contentType?.startsWith("image/")
-            ) {
-              const imgAnexada = imgColetada.attachments.first();
-              const ImgUrl = await enviarImagemParaArmazenamento(
-                imgAnexada,
-                fichaData.nome
-              );
-              if (ImgUrl) {
-                fichaData.imagemURL = ImgUrl;
-                await interaction.followUp({
-                  content: "✅ Imagem da aparência salva!",
-                  flags: 64,
-                });
+          // Lógica para a pergunta da aparência
+          if (pergunta.includes("aparência") && !resposta && attachment) {
+            if (attachment.contentType?.startsWith("text/plain")) {
+              try {
+                const response = await fetch(attachment.url);
+                if (!response.ok) throw new Error("Falha ao buscar anexo.");
+                resposta = await response.text();
+              } catch (error) {
+                console.error("Erro ao processar anexo na criação de ficha:", error);
+                await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", flags: 64 });
+                return;
               }
-
-              await imgColetada.delete().catch(() => {});
-            } else {
-              await interaction.followUp({
-                content:
-                  "Nenhuma imagem válida foi enviada. Continuando sem imagem.",
-                flags: 64,
-              });
             }
-            /* #endregion */
-          } else {
-            //SE NÃO QUISER
-            await botaoAddImg.update({
-              content: "Ok, você pode adicionar depois se quiser.",
-              components: [],
-            });
           }
-          /* #endregion */
-        } catch (e) {
-          await askMsg
-            .edit({
-              content: "Tempo esgotado. Continuando sem imagem.",
-              components: [],
-            })
-            .catch(() => {});
+
+          if (i === 3) return i = url
+          fichaData[camposFicha[i]] = resposta;
+          
         }
       }
       /* #endregion */
@@ -444,7 +330,6 @@ module.exports = class ficha extends Command {
       }
     }
   }
-  /* #endregion */
 
   /* #region  ADICIONAR HABILIDADE NOVA */
   async backFichaHabAdd(interaction) {
@@ -453,8 +338,8 @@ module.exports = class ficha extends Command {
       guildId: interaction.guild.id,
     });
 
-    if (!fichasDoUsuario.length) {
-      // se não tem fichas
+    if (!fichasDoUsuario.length) {  // se não tem fichas
+
       return interaction.reply({
         content:
           "❌ Você não tem fichas registradas, precisa criar uma ficha primeiro com `/ficha criar`.",
@@ -474,28 +359,28 @@ module.exports = class ficha extends Command {
         .setPlaceholder("Selecione o personagem para adicionar a habilidade")
         .addOptions(options);
 
-      const row = new ActionRowBuilder().addComponents(selectMenu);
+      const botoesRow = new ActionRowBuilder().addComponents(selectMenu);
 
       const response = await interaction.reply({
         content: "Para qual personagem você quer adicionar esta habilidade?",
-        components: [row],
+        components: [botoesRow],
         flags: 64,
       });
-      const msg = await response.fetch();
+      const msgBotao = await response.fetch();
 
-      const collector = msg.createMessageComponentCollector({
+      const coletorResposta = msgBotao.createMessageComponentCollector({
         filter: (i) =>
           i.user.id === interaction.user.id &&
           i.customId === "select_ficha_habilidade_add",
         time: 6000000,
       });
 
-      collector.on("collect", async (i) => {
+      coletorResposta.on("collect", async (i) => {
         const fichaId = i.values[0];
         await this.backFichaUnicaHabAdd(i, fichaId);
       });
 
-      collector.on("end", (collected) => {
+      coletorResposta.on("end", (collected) => {
         if (collected.size === 0) {
           interaction
             .editReply({ content: "Tempo esgotado.", components: [] })
@@ -517,15 +402,15 @@ module.exports = class ficha extends Command {
       await interaction.deferReply({ flags: 64 });
     }
 
+    if (interaction.isStringSelectMenu()) await interaction.deferUpdate();
+
     await interaction.editReply({
       content: "Iniciando adição de habilidade...",
+      embeds: [],
       components: [],
     });
 
     /* #region  CONFIGURAÇÃO DE COLETORES, PERGUNTAS E RESPOSTAS */
-    const channel = interaction.channel;
-    const author = interaction.user;
-
     const perguntas = [
       "Qual o nome da habilidade?",
       "Qual a categoria da habilidade? (Física, Mágica, Passiva, Haki, Aura de Combate, Sagrada, Demoníaca, Outros (diga qual))",
@@ -533,48 +418,16 @@ module.exports = class ficha extends Command {
       "Qual a descrição da habilidade?",
     ];
 
-    const respostas = [];
+    const dadosHabilidade = {};
 
     for (const pergunta of perguntas) {
-      const perguntaMsg = await interaction.followUp({
-        content: pergunta,
-        flags: 64,
-      });
-
-      const collector = channel.createMessageCollector({
-        filter: (m) => m.author.id === author.id,
-        time: 300000, // 5 minutes
-        max: 1,
-      });
-
-      const collected = await new Promise((resolve) => {
-        collector.on("collect", (m) => resolve(m));
-        collector.on("end", (collected) => {
-          if (collected.size === 0) resolve(null);
-        });
-      });
-
-      if (!collected) {
-        await interaction.followUp({
-          content: "Tempo esgotado. Processo cancelado.",
-          flags: 64,
-        });
+      const respostaColetada = await this.coletarResposta(interaction, pergunta);
+      if (!respostaColetada) {
         return;
       }
 
-      let resposta = collected.content;
-      const attachment = collected.attachments.first();
-      /* #endregion */
+      let { resposta, attachment } = respostaColetada;
 
-      if (
-        pergunta.includes("custo") &&
-        (!resposta || resposta.includes("nenhum"))
-      ) {
-        // se for custo e não tiver custo
-        resposta = " ";
-      }
-
-      /* #region  SE A DESCRIÇÃO FOR MAIOR QUE 6000 CARACTERES, O DISCORD TRANSFORMA EM TXT E A LÓGICA MUDA */
       if (pergunta.includes("descrição") && !resposta && attachment) {
         if (attachment.contentType?.startsWith("text/plain")) {
           try {
@@ -582,57 +435,72 @@ module.exports = class ficha extends Command {
             if (!response.ok) throw new Error("Falha ao buscar anexo.");
             resposta = await response.text();
           } catch (error) {
-            console.error(
-              "Erro ao processar anexo na adição de habilidade:",
-              error
-            );
-            await interaction.followUp({
-              content: "Ocorreu um erro ao ler o arquivo. Tente novamente.",
-              flags: 64,
-            });
+            console.error("Erro ao processar anexo na adição de habilidade:", error);
+            await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", flags: 64 });
             return;
           }
         }
       }
-      /* #endregion */
 
-      respostas.push(resposta);
-      await collected.delete().catch(() => {});
-      await perguntaMsg.delete().catch(() => {});
+      if (pergunta.includes("nome")) dadosHabilidade.nome = resposta;
+      if (pergunta.includes("categoria")) dadosHabilidade.categoria = resposta;
+      if (pergunta.includes("custo")) dadosHabilidade.custo = resposta || " ";
+      if (pergunta.includes("descrição")) dadosHabilidade.descricao = resposta;
     }
-
-    const [nome, categoria, custo, descricao] = respostas;
 
     const ficha = await this.client.database.Ficha.findById(fichaId);
-
     if (!ficha) {
-      return interaction.followUp({
-        content:
-          "Erro no banco de dados: A ficha selecionada não foi encontrada. Contate um administrador.",
-        flags: 64,
-      });
+      return interaction.followUp({ content: "Erro: A ficha selecionada não foi encontrada.", flags: 64 });
     }
 
-    ficha.habilidades.push({
-      nome,
-      descricao,
-      categoria,
-      custo,
-      subHabilidades: [],
-    });
+    // Pergunta se quer adicionar imagem para a habilidade principal
+    if (await this.botaoConfirma(interaction, "Deseja adicionar uma imagem para esta habilidade?")) {
+      const imageUrl = await this.armazemAparencia(interaction, ficha.nome);
+      if (imageUrl) dadosHabilidade.imagemURL = imageUrl;
+    }
+
+    dadosHabilidade.subHabilidades = [];
+
+    // Loop para adicionar sub-habilidades
+    while (await this.botaoConfirma(interaction, "Deseja adicionar uma sub-habilidade?")) {
+      await interaction.followUp({ content: "Iniciando adição de sub-habilidade...", flags: 64 });
+      const nomeSub = await this.coletarResposta(interaction, "Qual o nome da sub-habilidade?");
+      if (!nomeSub) break;
+
+      const descSub = await this.coletarResposta(interaction, "Qual a descrição da sub-habilidade?");
+      if (!descSub) break;
+
+      const custoSub = await this.coletarResposta(interaction, "Qual o custo da sub-habilidade? (Opcional)");
+
+      const dadosSubHabilidade = {
+        nome: nomeSub.resposta,
+        descricao: descSub.resposta,
+        custo: custoSub ? custoSub.resposta : "Nenhum",
+      };
+
+      if (await this.botaoConfirma(interaction, "Deseja adicionar uma imagem para esta sub-habilidade?")) {
+        const imageUrl = await this.armazemAparencia(interaction, ficha.nome);
+        if (imageUrl) dadosSubHabilidade.imagemURL = imageUrl;
+      }
+
+      dadosHabilidade.subHabilidades.push(dadosSubHabilidade);
+      await interaction.followUp({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada.`, flags: 64 });
+    }
+
+    ficha.habilidades.push(dadosHabilidade);
     await ficha.save();
 
     const embed = new EmbedBuilder()
       .setColor("Green")
       .setTitle("✅ Habilidade Adicionada!")
       .setDescription(
-        `Habilidade **${nome}** adicionada à ficha de **${ficha.nome}**.`
+        `Habilidade **${dadosHabilidade.nome}** adicionada à ficha de **${ficha.nome}**.`
       );
 
     /* #region RESUMIR DESCRIÇÃO COM MAIS DE 4000 CARACTERES */
     const components = [];
     let botaoResumo;
-    if (descricao.length > 4000) {
+    if (dadosHabilidade.descricao.length > 4000) {
       // O ID da habilidade é gerado pelo Mongoose no array
       const habilidadeId = ficha.habilidades[ficha.habilidades.length - 1]._id;
       botaoResumo = new ButtonBuilder()
@@ -640,8 +508,8 @@ module.exports = class ficha extends Command {
         .setLabel("Resumir Descrição (Excede 4000 caracteres)")
         .setStyle(ButtonStyle.Primary);
 
-      const row = new ActionRowBuilder().addComponents(botaoResumo);
-      components.push(row);
+      const botoesRow = new ActionRowBuilder().addComponents(botaoResumo);
+      components.push(botoesRow);
     }
 
     const followUpMessage = await interaction.followUp({
@@ -678,9 +546,7 @@ module.exports = class ficha extends Command {
           });
 
           let descResumida = await summarizeText(descCompleta);
-          /* #region  CONFIG FRONT-END */
 
-          /* #region  BOTÕES RESUMO */
           const botoesResumo = () =>
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
@@ -696,7 +562,6 @@ module.exports = class ficha extends Command {
                 .setLabel("Cancelar")
                 .setStyle(ButtonStyle.Danger)
             );
-          /* #endregion */
 
           const embedResumo = (text) =>
             new EmbedBuilder()
@@ -705,27 +570,23 @@ module.exports = class ficha extends Command {
               .setColor("Blue")
               .setFooter({ text: "Escolha uma opção abaixo." });
 
-          const msgResumo = await i.editReply({
+          const msgBotaoResumo = await i.editReply({
             content: "Aqui está o resumo gerado:",
             embeds: [embedResumo(descResumida)],
             components: [botoesResumo()],
           });
 
           const opcoesColetoresBotoesSum =
-            msgResumo.createMessageComponentCollector({
+            msgBotaoResumo.createMessageComponentCollector({
               filter: (btn) => btn.user.id === i.user.id,
               time: 300000, // 5 minutos
             });
-
-          /* #endregion */
 
           opcoesColetoresBotoesSum.on("collect", async (btnInteraction) => {
             const btnFichaId = btnInteraction.customId.split("_")[2];
             const btnHabilidadeId = btnInteraction.customId.split("_")[3];
 
-            /* #region  OPÇÕES BOTÕES */
             if (btnInteraction.customId.startsWith("confirm_summary_")) {
-              //CONFIRMAR RESUMO
               await btnInteraction.deferUpdate();
               const fichaToUpdate = await this.client.database.Ficha.findById(
                 btnFichaId
@@ -765,8 +626,6 @@ module.exports = class ficha extends Command {
             } else if (
               btnInteraction.customId.startsWith("resummarize_again_")
             ) {
-              //RESUMIR DNV
-
               await btnInteraction.deferUpdate();
               await i.editReply({
                 content: "Resumindo novamente... 🤖",
@@ -781,7 +640,6 @@ module.exports = class ficha extends Command {
                 components: [botoesResumo()],
               });
             } else if (btnInteraction.customId === "cancel_summary") {
-              // CANCELAR RESUMo
               await btnInteraction.deferUpdate();
               await i.editReply({
                 content:
@@ -791,11 +649,9 @@ module.exports = class ficha extends Command {
               });
               opcoesColetoresBotoesSum.stop();
             }
-            /* #endregion */
           });
 
           opcoesColetoresBotoesSum.on("end", async (collected, reason) => {
-            //erro ou timeout
             if (reason === "time") {
               await i
                 .editReply({
@@ -848,27 +704,27 @@ module.exports = class ficha extends Command {
       .setPlaceholder("Selecione uma ficha para visualizar")
       .addOptions(options);
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const botoesRow = new ActionRowBuilder().addComponents(selectMenu);
 
     const response = await interaction.editReply({
       content: "Qual ficha você gostaria de ver?",
-      components: [row],
+      components: [botoesRow],
     });
 
     // O 'response' de editReply já é o objeto da mensagem.
     // Tentar .fetch() em uma mensagem efêmera (flags: 64) causa o erro "Unknown Message".
-    const collector = response.createMessageComponentCollector({
+    const coletorResposta = response.createMessageComponentCollector({
       filter: (i) =>
         i.user.id === interaction.user.id && i.customId === "select_ficha_view",
       time: 600000, // 10 minutos
     });
 
-    collector.on("collect", async (i) => {
+    coletorResposta.on("collect", async (i) => {
       const fichaId = i.values[0];
       await this.backFichaVerMultipla(i, fichaId); // Passa a nova interação e o ID da ficha
     });
 
-    collector.on("end", (collected, reason) => {
+    coletorResposta.on("end", (collected, reason) => {
       if (collected.size === 0) {
         interaction
           .editReply({ content: "Tempo esgotado.", components: [] })
@@ -929,8 +785,8 @@ module.exports = class ficha extends Command {
           .setColor("Blue")
           .setTitle(`📝 Ficha: ${ficha.nome}`)
           .addFields(
-            { name: "Reino", value: ficha.reino },
-            { name: "Raça", value: ficha.raca },
+            { name: "Reino", value: ficha.reino, inline: true },
+            { name: "Raça", value: ficha.raca, inline: true },
             { name: "Aparência", value: ficha.aparencia },
             {
               name: "Habilidades",
@@ -971,12 +827,15 @@ module.exports = class ficha extends Command {
 
         const embed = new EmbedBuilder()
           .setColor("Purple")
-          .setTitle(`🔮 Habilidade: ${habilidade.nome}`)
-          .addFields({ name: "Categoria", value: habilidade.categoria });
+          .setTitle(`🔮 Habilidade: ${habilidade.nome}`);
 
         if (habilidade.custo && habilidade.custo.toLowerCase() !== "nenhum") {
-          embed.addFields({ name: "Custo", value: habilidade.custo });
+          embed.addFields({ name: "Custo", value: habilidade.custo, inline: true });
         } //se o custo estiver disponivel e não for "nenhum"
+
+        if (habilidade.imagemURL) {
+            embed.setImage(habilidade.imagemURL);
+        }
 
         /* #region  PARAMTROS DE CONFIG */
         const MAX_DESC_LENGTH = 2000;
@@ -985,16 +844,40 @@ module.exports = class ficha extends Command {
         let pageDescs = [];
         /* #endregion */
 
+        // Botões de Ação da Habilidade
+        const actionRow = new ActionRowBuilder();
+        actionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`edit_habilidade_${ficha._id}_${habilidade._id}`)
+                .setLabel("Editar")
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('✏️')
+        );
+        actionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`add_subhabilidade_${ficha._id}_${habilidade._id}`)
+                .setLabel("Adicionar Sub-habilidade")
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('➕')
+        );
+
+
+        if (habilidade.subHabilidades && habilidade.subHabilidades.length > 0) {
+            actionRow.addComponents(new ButtonBuilder()
+                .setCustomId(`view_sub_habilidades_${habilidade._id}`)
+                .setLabel("Ver Sub-habilidades")
+                .setStyle(ButtonStyle.Secondary)
+            );
+        }
+
         if (habilidade.descricao) {
           if (habilidade.descricao.length > 4000) {
             //APARECE BOTÃO DE RESUMIR DESCRIÇÃO CASO SEJA MAIOR QUE 4000 CARACTERES, VAI TER PAGINAÇÃO
             const botaoResumo = new ButtonBuilder()
               .setCustomId(`summarize_${ficha._id}_${habilidade._id}`)
-              .setLabel("Resumir Descrição")
+              .setLabel("Resumir")
               .setStyle(ButtonStyle.Success);
-
-            const actionRow = new ActionRowBuilder().addComponents(botaoResumo);
-            extraComponents.push(actionRow);
+            actionRow.addComponents(botaoResumo);
           }
 
           if (habilidade.descricao.length <= MAX_DESC_LENGTH) {
@@ -1022,6 +905,10 @@ module.exports = class ficha extends Command {
             extraComponents.push(descNavButtons);
             /* #endregion */
           }
+        }
+
+        if (actionRow.components.length > 0) {
+            extraComponents.unshift(actionRow);
         }
 
         const footerParts = [
@@ -1083,10 +970,10 @@ module.exports = class ficha extends Command {
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(!fichas[currentFichaIndex].habilidades.length),
           new ButtonBuilder()
-            .setCustomId("addHabilidadeFicha")
-            .setLabel("Adicionar Habilidade")
-            .setStyle(ButtonStyle.Success)
-        );
+            .setCustomId(`edit_ficha_${fichas[currentFichaIndex]._id}`)
+            .setLabel("Editar Ficha")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('✏️'));
       };
 
       // Botões de navegação das Habilidades
@@ -1117,13 +1004,82 @@ module.exports = class ficha extends Command {
         ],
       });
 
-      const collector = message.createMessageComponentCollector({
+      const coletorResposta = message.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
         time: 6000000,
         idle: 60000,
       });
 
-      collector.on("collect", async (i) => {
+      coletorResposta.on("collect", async (i) => {
+        // Lógica para abrir modal de edição de ficha
+        if (i.customId.startsWith("edit_ficha_")) {
+            const fichaIdParaEditar = i.customId.split('_')[2];
+            const fichaParaEditar = await this.client.database.Ficha.findById(fichaIdParaEditar);
+
+            if (!fichaParaEditar) return i.reply({ content: "Ficha não encontrada.", flags: 64 });
+
+            const modal = new ModalBuilder().setCustomId(`modal_edit_ficha_${fichaIdParaEditar}`).setTitle(`Editando: ${fichaParaEditar.nome}`);
+            
+            const nomeInput = new TextInputBuilder().setCustomId('edit_nome').setLabel("Nome do Personagem").setStyle(TextInputStyle.Short).setValue(fichaParaEditar.nome).setRequired(true);
+            const racaInput = new TextInputBuilder().setCustomId('edit_raca').setLabel("Raça").setStyle(TextInputStyle.Short).setValue(fichaParaEditar.raca).setRequired(true);
+            const reinoInput = new TextInputBuilder().setCustomId('edit_reino').setLabel("Reino").setStyle(TextInputStyle.Short).setValue(fichaParaEditar.reino).setRequired(true);
+            const aparenciaInput = new TextInputBuilder().setCustomId('edit_aparencia').setLabel("Aparência (Nome, Universo)").setStyle(TextInputStyle.Short).setValue(fichaParaEditar.aparencia).setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(nomeInput),
+                new ActionRowBuilder().addComponents(racaInput),
+                new ActionRowBuilder().addComponents(reinoInput),
+                new ActionRowBuilder().addComponents(aparenciaInput)
+            );
+            await i.showModal(modal);
+            return; // Impede a atualização da mensagem principal
+        }
+
+        if (i.customId.startsWith("edit_habilidade_")) {
+            const [,, fichaId, habilidadeId] = i.customId.split('_');
+            const fichaSearch = await this.client.database.Ficha.findById(fichaId);
+            const habilidadeParaEditar = fichaSearch.habilidades.id(habilidadeId);
+
+            if (!habilidadeParaEditar) return i.reply({ content: "Habilidade não encontrada.", flags: 64 });
+
+            const modal = new ModalBuilder().setCustomId(`modal_edit_habilidade_${habilidadeId}`).setTitle(`Editando Habilidade: ${habilidadeParaEditar.nome}`);
+
+            const nomeInput = new TextInputBuilder().setCustomId('edit_nome').setLabel("Nome da Habilidade").setStyle(TextInputStyle.Short).setValue(habilidadeParaEditar.nome).setRequired(true);
+            const descricaoInput = new TextInputBuilder().setCustomId('edit_descricao').setLabel("Descrição da Habilidade").setStyle(TextInputStyle.Paragraph).setValue(habilidadeParaEditar.descricao).setRequired(true);
+            const categoriaInput = new TextInputBuilder().setCustomId('edit_categoria').setLabel("Categoria").setStyle(TextInputStyle.Short).setValue(habilidadeParaEditar.categoria).setRequired(true);
+            const custoInput = new TextInputBuilder().setCustomId('edit_custo').setLabel("Custo (Opcional)").setStyle(TextInputStyle.Short).setValue(habilidadeParaEditar.custo || "Nenhum").setRequired(false);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(nomeInput),
+                new ActionRowBuilder().addComponents(descricaoInput),
+                new ActionRowBuilder().addComponents(categoriaInput),
+                new ActionRowBuilder().addComponents(custoInput)
+            );
+            await i.showModal(modal);
+            return;
+        }
+
+        if (i.customId.startsWith("add_subhabilidade_")) {
+            const perguntasSub = [
+              'Qual o nome da sub-habilidade?',
+              'Qual a descrição da sub-habilidade?',
+              'Qual o custo da sub-habilidade? (Opcional)'
+            ];
+            const respostasSub = {};
+
+            for (const pergunta of perguntasSub) {
+              const respostaColetada = await this.coletarResposta(i, pergunta);
+              if (!respostaColetada) {
+                return;
+              }
+              respostasSub[pergunta] = respostaColetada.resposta;
+            }
+
+            const fichaParaEditar = await this.client.database.Ficha.findById(fichaId);
+            const habilidadeParaEditar = fichaParaEditar.habilidades.id(habilidadeId);
+            
+        }
+
         if (i.customId.startsWith("summarize_")) {
           await i.deferReply({ flags: 64 });
           const [_, fichaId, habilidadeId] = i.customId.split("_");
@@ -1165,14 +1121,14 @@ module.exports = class ficha extends Command {
                 .setColor("Blue")
                 .setFooter({ text: "Escolha uma opção abaixo." });
 
-            const msgResumo = await i.editReply({
+            const msgBotaoResumo = await i.editReply({
               content: "Aqui está o resumo gerado:",
               embeds: [embedResumo(descResumida)],
               components: [botoesResumo()],
             });
 
             const opcoesColetoresBotoesSum =
-              msgResumo.createMessageComponentCollector({
+              msgBotaoResumo.createMessageComponentCollector({
                 filter: (btn) => btn.user.id === i.user.id,
                 time: 300000, // 5 minutes
               });
@@ -1276,20 +1232,16 @@ module.exports = class ficha extends Command {
             viewMode = "habilidades";
             currentHabilidadeIndex = 0;
             currentDescPageIndex = 0;
-          } else if (i.customId === "addHabilidadeFicha") {
-            const fichaAtual = fichas[currentFichaIndex];
-            await this.backFichaUnicaHabAdd(i, fichaAtual._id.toString());
-            return; // Impede a atualização da mensagem, pois um modal foi aberto
           }
         } else if (viewMode === "habilidades") {
-          if (i.customId.startsWith("view_category_")) {
-            const category = i.customId.substring("view_category_".length);
-            viewMode = `habilidade_categoria_${category}`;
-            currentHabilidadeIndex = 0;
-            currentDescPageIndex = 0;
-          } else if (i.customId === "voltarFicha") {
-            viewMode = "ficha";
-          }
+            if (i.customId.startsWith("view_category_")) {
+                const category = i.customId.substring("view_category_".length);
+                viewMode = `habilidade_categoria_${category}`;
+                currentHabilidadeIndex = 0;
+                currentDescPageIndex = 0;
+            } else if (i.customId === "voltarFicha") {
+                viewMode = "ficha";
+            }
         } else if (viewMode.startsWith("habilidade_categoria_")) {
           if (i.customId === "prevHab") {
             currentHabilidadeIndex--;
@@ -1359,15 +1311,15 @@ module.exports = class ficha extends Command {
                 legendDescription || "Nenhuma habilidade para mostrar."
               );
 
-            const rows = [];
+            const botoesRows = [];
             for (let i = 0; i < categoryButtons.length; i += 5) {
-              rows.push(
+              botoesRows.push(
                 new ActionRowBuilder().addComponents(
                   categoryButtons.slice(i, i + 5)
                 )
               );
             }
-            rows.push(
+            botoesRows.push(
               new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                   .setCustomId("voltarFicha")
@@ -1378,7 +1330,7 @@ module.exports = class ficha extends Command {
 
             await i.update({
               embeds: [legendEmbed],
-              components: rows,
+              components: botoesRows,
             });
           } else if (viewMode.startsWith("habilidade_categoria_")) {
             const fichaAtual = fichas[currentFichaIndex];
@@ -1426,7 +1378,7 @@ module.exports = class ficha extends Command {
         }
       });
 
-      collector.on("end", () => {
+      coletorResposta.on("end", () => {
         message
           .edit({
             components: [],
