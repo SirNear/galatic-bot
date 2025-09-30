@@ -38,7 +38,7 @@ module.exports = class aparencia extends Command {
         "pesquisarap",
         "pesquisaraparecia",
         "pesquisaraparencias",
-        "pesquisaraparências    ",
+        "pesquisaraparências",
         "pesquisaraparecias",
       ],
       UserPermission: [""],
