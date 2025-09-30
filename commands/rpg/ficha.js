@@ -58,7 +58,7 @@ module.exports = class ficha extends Command {
 
     const perguntaMsg = await interaction.followUp({ //envia msgBotao para cada pergunta
       content: pergunta,
-      fetchReply: true,
+      fetchReply: true, // fetchReply está obsoleto, mas mantido por enquanto.
       flags: 64,
     });
 
@@ -161,7 +161,7 @@ module.exports = class ficha extends Command {
     const msgBotao = await interaction.followUp({
       content: mensagemPergunta,
       components: [botoesRow],
-      flags: 64,
+      ephemeral: true,
       fetchReply: true,
     });
 
@@ -208,7 +208,7 @@ module.exports = class ficha extends Command {
   
   async backFichaCriar(interaction) {
     try { 
-      await interaction.deferReply({ flags: 64 });
+      await interaction.deferReply({ ephemeral: true });
       await interaction.editReply({
         content:
           "<:cpnews:1411060646019338406> | **Iniciando criação de ficha...** Responda as perguntas a seguir:",
@@ -283,7 +283,7 @@ module.exports = class ficha extends Command {
       if (fichaExistente) {
         return interaction.followUp({
           content: "❌ Você já possui um personagem com este nome!",
-          flags: 64,
+          ephemeral: true,
         });
       }
       /* #endregion */
@@ -308,7 +308,7 @@ module.exports = class ficha extends Command {
           `A ficha para **${fichaData.nome}** foi criada com sucesso!`
         );
 
-      await interaction.followUp({ embeds: [embed], flags: 64 });
+      await interaction.followUp({ embeds: [embed], ephemeral: true });
     } catch (err) {
       console.error("Erro ao criar ficha:", err);
       if (interaction.deferred || interaction.replied) {
@@ -324,7 +324,7 @@ module.exports = class ficha extends Command {
         await interaction
           .reply({
             content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
-            flags: 64,
+            ephemeral: true,
           })
           .catch(() => {});
       }
@@ -343,7 +343,7 @@ module.exports = class ficha extends Command {
       return interaction.reply({
         content:
           "❌ Você não tem fichas registradas, precisa criar uma ficha primeiro com `/ficha criar`.",
-        flags: 64,
+        ephemeral: true,
       });
     }
 
@@ -364,7 +364,7 @@ module.exports = class ficha extends Command {
       const response = await interaction.reply({
         content: "Para qual personagem você quer adicionar esta habilidade?",
         components: [botoesRow],
-        flags: 64,
+        ephemeral: true,
       });
       const msgBotao = await response.fetch();
 
@@ -399,7 +399,7 @@ module.exports = class ficha extends Command {
   /* #region  ADICIONAR HABILIDADE NOVA */
   async backFichaUnicaHabAdd(interaction, fichaId) {
     if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ flags: 64 });
+      await interaction.deferReply({ ephemeral: true });
     }
 
     if (interaction.isStringSelectMenu()) await interaction.deferUpdate();
@@ -436,13 +436,13 @@ module.exports = class ficha extends Command {
             resposta = await response.text();
           } catch (error) {
             console.error("Erro ao processar anexo na adição de habilidade:", error);
-            await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", flags: 64 });
+            await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", ephemeral: true });
             return;
           }
         }
       }
 
-      if (pergunta.includes("nome")) dadosHabilidade.nome = resposta;
+      if (pergunta.includes("nome")) dadosHabilidade.nome = resposta; // TODO: Corrigir, está pegando a resposta inteira
       if (pergunta.includes("categoria")) dadosHabilidade.categoria = resposta;
       if (pergunta.includes("custo")) dadosHabilidade.custo = resposta || " ";
       if (pergunta.includes("descrição")) dadosHabilidade.descricao = resposta;
@@ -450,7 +450,7 @@ module.exports = class ficha extends Command {
 
     const ficha = await this.client.database.Ficha.findById(fichaId);
     if (!ficha) {
-      return interaction.followUp({ content: "Erro: A ficha selecionada não foi encontrada.", flags: 64 });
+      return interaction.followUp({ content: "Erro: A ficha selecionada não foi encontrada.", ephemeral: true });
     }
 
     // Pergunta se quer adicionar imagem para a habilidade principal
@@ -463,7 +463,7 @@ module.exports = class ficha extends Command {
 
     // Loop para adicionar sub-habilidades
     while (await this.botaoConfirma(interaction, "Deseja adicionar uma sub-habilidade?")) {
-      await interaction.followUp({ content: "Iniciando adição de sub-habilidade...", flags: 64 });
+      await interaction.followUp({ content: "Iniciando adição de sub-habilidade...", ephemeral: true });
       const nomeSub = await this.coletarResposta(interaction, "Qual o nome da sub-habilidade?");
       if (!nomeSub) break;
 
@@ -484,7 +484,7 @@ module.exports = class ficha extends Command {
       }
 
       dadosHabilidade.subHabilidades.push(dadosSubHabilidade);
-      await interaction.followUp({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada.`, flags: 64 });
+      await interaction.followUp({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada.`, ephemeral: true });
     }
 
     ficha.habilidades.push(dadosHabilidade);
@@ -515,7 +515,7 @@ module.exports = class ficha extends Command {
     const followUpMessage = await interaction.followUp({
       embeds: [embed],
       components: components,
-      flags: 64,
+      ephemeral: true,
       fetchReply: true,
     });
 
@@ -530,7 +530,7 @@ module.exports = class ficha extends Command {
 
       botaoResumoColetor.on("collect", async (i) => {
         botaoResumoColetor.stop(); // Para o coletor inicial, pois a interação continuará em um novo coletor
-        await i.deferReply({ flags: 64 });
+        await i.deferReply({ ephemeral: true });
         const [_, fichaId, habilidadeId] = i.customId.split("_");
 
         try {
@@ -679,7 +679,7 @@ module.exports = class ficha extends Command {
 
   /* #region VISUALIZAÇÃO DE FICHA UNICA */
   async backFichaVer(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    await interaction.deferReply({ ephemeral: true });
     const fichasDoUsuario = await this.client.database.Ficha.find({
       userId: interaction.user.id,
       guildId: interaction.guild.id,
@@ -688,7 +688,7 @@ module.exports = class ficha extends Command {
     if (!fichasDoUsuario.length) {
       return interaction.editReply({
         content:
-          "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.",
+          "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.", ephemeral: true
       });
     }
 
@@ -708,7 +708,7 @@ module.exports = class ficha extends Command {
 
     const response = await interaction.editReply({
       content: "Qual ficha você gostaria de ver?",
-      components: [botoesRow],
+      components: [botoesRow], ephemeral: true
     });
 
     // O 'response' de editReply já é o objeto da mensagem.
@@ -1015,8 +1015,7 @@ module.exports = class ficha extends Command {
         if (i.customId.startsWith("edit_ficha_")) {
             const fichaIdParaEditar = i.customId.split('_')[2];
             const fichaParaEditar = await this.client.database.Ficha.findById(fichaIdParaEditar);
-
-            if (!fichaParaEditar) return i.reply({ content: "Ficha não encontrada.", flags: 64 });
+            if (!fichaParaEditar) return i.reply({ content: "Ficha não encontrada.", ephemeral: true });
 
             const modal = new ModalBuilder().setCustomId(`modal_edit_ficha_${fichaIdParaEditar}`).setTitle(`Editando: ${fichaParaEditar.nome}`);
             
@@ -1040,7 +1039,7 @@ module.exports = class ficha extends Command {
             const fichaSearch = await this.client.database.Ficha.findById(fichaId);
             const habilidadeParaEditar = fichaSearch.habilidades.id(habilidadeId);
 
-            if (!habilidadeParaEditar) return i.reply({ content: "Habilidade não encontrada.", flags: 64 });
+            if (!habilidadeParaEditar) return i.reply({ content: "Habilidade não encontrada.", ephemeral: true });
 
             const modal = new ModalBuilder().setCustomId(`modal_edit_habilidade_${habilidadeId}`).setTitle(`Editando Habilidade: ${habilidadeParaEditar.nome}`);
 
@@ -1081,7 +1080,7 @@ module.exports = class ficha extends Command {
         }
 
         if (i.customId.startsWith("summarize_")) {
-          await i.deferReply({ flags: 64 });
+          await i.deferReply({ ephemeral: true });
           const [_, fichaId, habilidadeId] = i.customId.split("_");
 
           try {
@@ -1388,8 +1387,7 @@ module.exports = class ficha extends Command {
     } catch (err) {
       console.error("Erro ao visualizar fichas:", err);
       return interaction.editReply({
-        content: "Ocorreu um erro ao exibir a ficha!",
-        flags: 64,
+        content: "Ocorreu um erro ao exibir a ficha!", ephemeral: true
       });
     }
   }

@@ -99,6 +99,43 @@ module.exports = class GalaticClient extends Client {
         }
     }
 
+    	loadCommands(path) {
+            readdir(`./commands/`, (err, files) => {
+                if (err) console.error(err)
+                let slashCount = 0;
+                
+                files.forEach(category => {
+                    readdir(`./commands/${category}`, (err, commandFiles) => {
+                        if (err) {
+                            console.error(`Erro ao ler a categoria '${category}':`, err);
+                            return;
+                        }
+                        
+                        commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
+                            try {
+                                const command = new (require(`./commands/${category}/${cmdFile}`))(this)
+                                command.dir = `./commands/${category}/${cmdFile}`
+                                
+                                // Registra comando normal
+                                this.commands.set(command.config.name, command)
+                                command.config.aliases?.forEach(a => this.aliases.set(a, command.config.name))
+
+                                // Registra slash command
+                                if (command.config.slash && command.data) {
+                                    this.slashCommands.set(command.data.name, command);
+                                    slashCount++;
+                                    console.log(`[SLASH] ✅ Carregado: ${command.config.name}`);
+                                }
+                            } catch (error) {
+                                console.error(`Erro ao carregar ${cmdFile}:`, error);
+                            }
+                        })
+                    })
+                })
+            })
+            return this
+        }
+
     async login(token) {
         return super.login(token);
     }
@@ -312,8 +349,6 @@ module.exports = class GalaticClient extends Client {
         }
     }
 
-	loadCommands() { return this.utils.loadCommands() }
-	
 		loadEvents(path) {
 				readdir(path, (err, files) => {
 					if (err) {

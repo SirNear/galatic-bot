@@ -20,8 +20,11 @@ async function handleRegistro(
   exactMatch,
   resultados
 ) {
+  const isInteraction = 'user' in message;
+  const author = isInteraction ? message.user : message.author;
+  const guild = message.guild;
   let userDb = await client.database.userData.findById(
-    `${message.author.globalName} ${message.guild.name}`
+    `${author.globalName} ${guild.name}`
   );
 
   /* #region  CONFIGURAÇÃO - SELEÇÃO VERSO OU APARÊNCIA */
@@ -149,11 +152,11 @@ async function handleRegistro(
     /* #endregion */
 
     await msgNavegacao
-      .edit({ embeds: [pages[page]], components: [navRow(page)] })
+      .edit({ embeds: [pages[page]], components: [navRow(page)], fetchReply: false })
       .catch(() => {});
 
     const navCollector = msgNavegacao.createMessageComponentCollector({
-      filter: (ii) => ii.user.id === message.author.id,
+      filter: (ii) => ii.user.id === author.id,
       time: 60000,
     });
 
@@ -166,7 +169,7 @@ async function handleRegistro(
             tipo,
             target,
             msgNavegacao,
-            message,
+            ii, // Passa a nova interação para a chamada recursiva
             sChannel,
             client,
             sheets
@@ -175,19 +178,19 @@ async function handleRegistro(
         case "nao_ver_similares":
           page = 1; // Pula para a primeira página de resultados navegação
           await ii
-            .update({ embeds: [pages[page]], components: [navRow(page)] })
+            .update({ embeds: [pages[page]], components: [navRow(page)], fetchReply: false })
             .catch(() => {});
           break;
         case "prev_paginado":
           page = Math.max(1, page - 1);
           await ii
-            .update({ embeds: [pages[page]], components: [navRow(page)] })
+            .update({ embeds: [pages[page]], components: [navRow(page)], fetchReply: false })
             .catch(() => {});
           break;
         case "next_paginado":
           page = Math.min(pages.length - 1, page + 1);
           await ii
-            .update({ embeds: [pages[page]], components: [navRow(page)] })
+            .update({ embeds: [pages[page]], components: [navRow(page)], fetchReply: false })
             .catch(() => {});
           break;
         case "close_paginado":
@@ -200,8 +203,8 @@ async function handleRegistro(
     navCollector.on("end", async (collected, reason) => {
       if (reason === "closed") {
         await msgNavegacao.delete().catch(() => {});
-        message
-          .reply({
+        (isInteraction ? message.channel : message.channel)
+          .send({
             content:
               "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**",
           })
@@ -238,12 +241,12 @@ async function handleRegistro(
     await msgNavegacao
       .edit({
         embeds: [embedEmpty],
-        components: [botaoSelecaoRegistro],
+        components: [botaoSelecaoRegistro], fetchReply: false
       })
       .catch(() => {});
 
     const coletorBotoesRegistro = msgNavegacao.createMessageComponentCollector({
-      filter: (ii) => ii.user.id === message.author.id,
+      filter: (ii) => ii.user.id === author.id,
       time: 15000,
     });
 
@@ -324,7 +327,7 @@ async function handleRegistro(
                       config.customIdCampo3
                     )
                   : null,
-              argJogador: userDb.jogador,
+              argJogador: userDb?.jogador,
             };
 
             // LÓGICA VERSO DAQUI PRA BAIXO
@@ -444,7 +447,7 @@ async function handleRegistro(
               try {
                 const botaoRegistroAparenciaVerso =
                   await msgRegistroAparenciasVerso.awaitMessageComponent({
-                    filter: (i) => i.user.id === message.author.id,
+                    filter: (i) => i.user.id === author.id,
                     time: 150000,
                   });
 
@@ -576,7 +579,7 @@ async function handleRegistro(
                   if (totalPages > 1) {
                     const collector =
                       replyMessage.createMessageComponentCollector({
-                        filter: (i) => i.user.id === message.author.id,
+                        filter: (i) => i.user.id === author.id,
                         time: 300000,
                       });
 
@@ -648,7 +651,7 @@ async function handleRegistro(
       } else if (ii.customId === "nao_registro") {
         msgNavegacao.delete().catch(() => {});
         await message
-          .reply({
+          .channel.send({
             content:
               "<a:cdfpatpat:1407135944456536186> | **REGISTRO CANCELADO!**",
           })
