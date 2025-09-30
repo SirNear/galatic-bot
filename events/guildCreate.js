@@ -22,8 +22,8 @@ module.exports = class GuildCreate {
 		.addFields(
 			{name: '**Servidor:**', value: guild.name},
 			{name: '**ID**', value: guild.id},
-			{name: '**Dono**', value: guild.ownerId},
-		)
+			{name: '**Dono**', value: guild.ownerId.toString()},
+		);
 		
 		async function msgLog(guild, embedCreated, client, context) {
 		  const canal = context.client.channels.cache.get('1094070734151766026')

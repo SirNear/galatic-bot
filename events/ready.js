@@ -9,12 +9,11 @@ module.exports = class {
         // Carrega reaction roles do banco de dados
         await this.setupReactionRoles();
 
-        this.client.owner = await this.client.users.fetch("395788326835322882");
-
-        console.log([
-            `Logado em ${this.client.user.tag}`,
-            `${this.client.commands.size} comandos carregados!`,
-        ].join('\n'));
+        try {
+            this.client.owner = await this.client.users.fetch("395788326835322882");
+        } catch (err) {
+            console.warn("Não foi possível encontrar o dono do bot pelo ID. Verifique o ID em events/ready.js");
+        }
 
         let status = [ 	
             {name: `Pó de café na pia`, type: ActivityType.Playing},
@@ -27,7 +26,14 @@ module.exports = class {
         setInterval(() => {
             let randomStatus = status[Math.floor(Math.random() * status.length)]
             this.client.user.setActivity(randomStatus, {type: randomStatus} )
-        }, 10000)
+        }, 10000);
+
+        // Log unificado e mais claro
+        console.log("========================================================");
+        console.log(`✅ Bot online e logado como ${this.client.user.tag}`);
+        console.log(`✅ ${this.client.commands.size} comandos de prefixo carregados.`);
+        console.log(`✅ ${this.client.slashCommands.size} comandos de barra prontos para registro.`);
+        console.log("========================================================");
     }
 
     // Novo método para configurar reaction roles

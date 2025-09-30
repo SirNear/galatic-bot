@@ -103,6 +103,37 @@ const fichaSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now } // Adiciona timestamp
 });
 
+const questSchema = new mongoose.Schema({
+    nome: { type: String, required: true },
+    descricao: { type: String, required: true },
+    regras: { type: String, required: true },
+    recompensa: { type: String, required: false },
+    maxPlayers: { type: Number, required: true },
+    participantes: [{ type: String }], // Array de IDs de usuários
+    status: { type: String, enum: ['aberta', 'em andamento', 'concluida'], default: 'aberta' },
+    mestre: { type: String, required: true },
+    dataInicio: { type: String, required: true },
+    dataInicioTimestamp: { type: Number, required: true },
+    createdAt: { type: Date, default: Date.now },
+    messageId: { type: String, required: false },
+    channelId: { type: String, required: false },
+    forumChannelId: { type: String, required: false }, // ID do canal do fórum da quest
+});
+
+// Schema para quests pendentes de aprovação
+const pendingQuestSchema = new mongoose.Schema({
+    creatorId: { type: String, required: true },
+    nome: { type: String, required: true },
+    descricao: { type: String, required: true },
+    regras: { type: String, required: true },
+    recompensa: { type: String, required: false },
+    maxPlayers: { type: Number, required: true },
+    dataInicio: { type: String, required: true },
+    dataInicioTimestamp: { type: Number, required: true },
+    approvalMessageId: { type: String, required: false },
+    createdAt: { type: Date, default: Date.now }
+});
+
 // Garante que um usuário não pode ter duas fichas com o mesmo nome no mesmo servidor.
 fichaSchema.index({ userId: 1, guildId: 1, nome: 1 }, { unique: true });
 
@@ -133,3 +164,9 @@ let reactionRole = new mongoose.Schema({
 
 let ReactionRoles = mongoose.model("ReactionRoles", reactionRole)
 module.exports.ReactionRoles = ReactionRoles
+
+let Quest = mongoose.model("Quest", questSchema);
+module.exports.Quest = Quest;
+
+let PendingQuest = mongoose.model("PendingQuest", pendingQuestSchema);
+module.exports.PendingQuest = PendingQuest;
