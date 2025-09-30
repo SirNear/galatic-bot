@@ -16,11 +16,7 @@ module.exports = class Command {
 		}
 	}
 
-	// Método padrão para slash commands.
-	// Se um comando não tiver um `execute` próprio, ele chamará o `run`.
-	// Isso permite que comandos de prefixo e barra compartilhem a mesma lógica.
 	async execute(interaction) {
-		// `this.run` precisa ser chamado com o contexto correto.
 		return this.run(interaction);
 	}
 
