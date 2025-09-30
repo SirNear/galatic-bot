@@ -18,7 +18,7 @@ module.exports = class painel extends Command {
 		});
 	}
   
-	 run({ message, args, client, server }) {	
+	 async run({ message, args, client, server }) {	
 		 
 		 
 		 // Thumbnail do servidor (fallback para avatar do bot)

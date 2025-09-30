@@ -50,7 +50,7 @@ module.exports = class Util {
 			const { name } = path.parse(commandFile);
 			const File = require(path.resolve(commandFile));
 			if (!this.isClass(File)) throw new TypeError(`Comando ${name} não exporta uma classe.`);
-			const command = new File(this.client, name.toLowerCase());
+			const command = new File(this.client);
 			if (!(command instanceof Command)) throw new TypeError(`Comando ${name} não herda da classe Command.`);
 			
 			// Adiciona à coleção de comandos de prefixo
