@@ -209,51 +209,56 @@ module.exports = class GalaticClient extends Client {
      * @param {Snowflake} guildId O ID do servidor.
      */
     async unarchiveAllThreads(guildId) {
+      const summary = {
+        reopened: 0,
+        failed: 0,
+        errors: [],
+      };
+
       try {
         const guild = await this.guilds.fetch(guildId);
         if (!guild) {
           console.error(`[Thread Unarchiver] Guild com ID ${guildId} não encontrada.`);
           return;
         }
-        console.log(`[Thread Unarchiver] Iniciando para o servidor: ${guild.name}`);
         
-        // 1. Encontra todos os canais de fórum no servidor.
         const forumChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildForum);
         if (forumChannels.size === 0) {
-          console.log(`[Thread Unarchiver] Nenhum canal de fórum encontrado em ${guild.name}.`);
           return;
         }
 
-        console.log(`[Thread Unarchiver] Encontrados ${forumChannels.size} canais de fórum. Verificando postagens arquivadas...`);
-
-        // 2. Itera sobre cada canal de fórum.
         for (const forum of forumChannels.values()) {
           try {
-            // 3. Busca as postagens arquivadas dentro do fórum.
             const archivedThreads = await forum.threads.fetchArchived();
             if (archivedThreads.threads.size > 0) {
-              console.log(`[Thread Unarchiver] Reabrindo ${archivedThreads.threads.size} postagens em #${forum.name}...`);
-              // 4. Reabre cada postagem arquivada.
               for (const thread of archivedThreads.threads.values()) {
                 try {
                   if (thread.archived) {
                     await thread.setArchived(false, 'Reabertura automática de postagens.');
+                    summary.reopened++;
                   }
                 } catch (err) {
+                  summary.failed++;
                   if (err.code !== RESTJSONErrorCodes.MissingAccess) {
-                    console.error(`[Thread Unarchiver] Falha ao reabrir a postagem "${thread.name}" (${thread.id}):`, err.message);
+                    summary.errors.push(`- Falha ao reabrir "${thread.name}" em #${forum.name}: ${err.message}`);
                   }
                 }
               }
             }
           } catch (forumError) {
-            console.error(`[Thread Unarchiver] Erro ao processar o fórum #${forum.name}:`, forumError);
+            summary.failed++;
+            summary.errors.push(`- Erro ao processar o fórum #${forum.name}: ${forumError.message}`);
           }
         }
 
-        console.log(`[Thread Unarchiver] Processo concluído para o servidor: ${guild.name}`);
       } catch (error) {
-        console.error(`[Thread Unarchiver] Erro ao processar o servidor ${guildId}:`, error);
+        console.error(`[OPEN TOPICS SYSTEM] Erro crítico ao processar o servidor ${guildId}:`, error);
+      } finally {
+        let logMessage = `[OPEN TOPICS SYSTEM] Processo concluído. Total de postagens reabertas: ${summary.reopened}.`;
+        if (summary.failed > 0) {
+          logMessage += ` Falhas: ${summary.failed}.\nErros detalhados:\n${summary.errors.join('\n')}`;
+        }
+        console.log(logMessage);
       }
     }
 
@@ -261,7 +266,7 @@ module.exports = class GalaticClient extends Client {
       this.unarchiveAllThreads(guildId); // Executa imediatamente
       if (this.unarchiveInterval) clearInterval(this.unarchiveInterval); // Limpa intervalo antigo se houver
       this.unarchiveInterval = setInterval(() => this.unarchiveAllThreads(guildId), interval);
-      console.log(`[Thread Unarchiver] Loop de reabertura automática configurado para cada 24 horas.`);
+      console.log(`[OPEN TOPICS SYSTEM] Loop de reabertura automática configurado para cada 24 horas.`);
     }
 
     async loadQuestCollectors() {
