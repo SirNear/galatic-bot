@@ -1,5 +1,5 @@
 const Util = require('./structures/Util.js')
-const { Client, Collection, Discord, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField } = require("discord.js")
+const { Client, Collection, Discord, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField, RESTJSONErrorCodes } = require("discord.js")
 const { readdir } = require("fs")
 const path = require('path');
 const config = require('./config.json')
@@ -35,6 +35,7 @@ module.exports = class GalaticClient extends Client {
     this.events = new EventManager(this);
     this.activeCollector = false;
     this.fichaStates = new Map();
+    this.unarchiveInterval = null;
 }
 
 	reloadCommand(commandName) {
@@ -203,6 +204,58 @@ module.exports = class GalaticClient extends Client {
         }
     }
 	
+    /**
+     * Busca e reabre todas as threads arquivadas em um servidor específico.
+     * @param {Snowflake} guildId O ID do servidor.
+     */
+    async unarchiveAllThreads(guildId) {
+      try {
+        const guild = await this.guilds.fetch(guildId);
+        if (!guild) {
+          console.error(`[Thread Unarchiver] Guild com ID ${guildId} não encontrada.`);
+          return;
+        }
+        console.log(`[Thread Unarchiver] Iniciando para o servidor: ${guild.name}`);
+
+        const fetchAndUnarchive = async (type) => {
+          let hasMore = true;
+          let before = null;
+          while (hasMore) {
+            const result = await guild.threads.fetchArchived({ type, before, limit: 100 });
+            if (result.threads.size === 0) break;
+
+            for (const thread of result.threads.values()) {
+              try {
+                if (thread.archived) {
+                  await thread.setArchived(false, 'Reabertura automática de tópicos.');
+                }
+              } catch (err) {
+                if (err.code !== RESTJSONErrorCodes.MissingAccess) {
+                  console.error(`[Thread Unarchiver] Falha ao reabrir a thread "${thread.name}" (${thread.id}):`, err.message);
+                }
+              }
+            }
+            before = result.threads.lastKey();
+            hasMore = result.hasMore;
+          }
+        };
+
+        await fetchAndUnarchive('private');
+        await fetchAndUnarchive('public');
+
+        console.log(`[Thread Unarchiver] Processo concluído para o servidor: ${guild.name}`);
+      } catch (error) {
+        console.error(`[Thread Unarchiver] Erro ao processar o servidor ${guildId}:`, error);
+      }
+    }
+
+    setupUnarchiveLoop(guildId, interval = 24 * 60 * 60 * 1000) { // 24 horas
+      this.unarchiveAllThreads(guildId); // Executa imediatamente
+      if (this.unarchiveInterval) clearInterval(this.unarchiveInterval); // Limpa intervalo antigo se houver
+      this.unarchiveInterval = setInterval(() => this.unarchiveAllThreads(guildId), interval);
+      console.log(`[Thread Unarchiver] Loop de reabertura automática configurado para cada 24 horas.`);
+    }
+
     async loadQuestCollectors() {
         console.log('Carregando coletores de quests...');
         const openQuests = await this.database.Quest.find({ status: 'aberta' });
