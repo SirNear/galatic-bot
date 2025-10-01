@@ -54,8 +54,11 @@ module.exports = class rpresumo extends Command {
       let lastId;
       
       if (channel.type === ChannelType.GuildForum) {
-        const fetchedThreads = await channel.threads.fetch();
-        const threads = Array.from(fetchedThreads.threads.values());
+        await interaction.editReply({ content: `<a:chickendonut:1423040252460925000> | Coletando postagens ativas e arquivadas do fórum <#${channel.id}>. Isso pode levar um tempo.` });
+        const activeThreads = await channel.threads.fetch();
+        const archivedThreads = await channel.threads.fetchArchived();
+        
+        const threads = [...activeThreads.threads.values(), ...archivedThreads.threads.values()];
         
         for (const thread of threads) {
           if (allMessages.length >= 1000) break;
