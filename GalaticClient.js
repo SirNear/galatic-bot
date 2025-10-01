@@ -216,32 +216,40 @@ module.exports = class GalaticClient extends Client {
           return;
         }
         console.log(`[Thread Unarchiver] Iniciando para o servidor: ${guild.name}`);
+        
+        // 1. Encontra todos os canais de fórum no servidor.
+        const forumChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildForum);
+        if (forumChannels.size === 0) {
+          console.log(`[Thread Unarchiver] Nenhum canal de fórum encontrado em ${guild.name}.`);
+          return;
+        }
 
-        const fetchAndUnarchive = async (type) => {
-          let hasMore = true;
-          let before = null;
-          while (hasMore) {
-            const result = await guild.threads.fetchArchived({ type, before, limit: 100 });
-            if (result.threads.size === 0) break;
+        console.log(`[Thread Unarchiver] Encontrados ${forumChannels.size} canais de fórum. Verificando postagens arquivadas...`);
 
-            for (const thread of result.threads.values()) {
-              try {
-                if (thread.archived) {
-                  await thread.setArchived(false, 'Reabertura automática de tópicos.');
-                }
-              } catch (err) {
-                if (err.code !== RESTJSONErrorCodes.MissingAccess) {
-                  console.error(`[Thread Unarchiver] Falha ao reabrir a thread "${thread.name}" (${thread.id}):`, err.message);
+        // 2. Itera sobre cada canal de fórum.
+        for (const forum of forumChannels.values()) {
+          try {
+            // 3. Busca as postagens arquivadas dentro do fórum.
+            const archivedThreads = await forum.threads.fetchArchived();
+            if (archivedThreads.threads.size > 0) {
+              console.log(`[Thread Unarchiver] Reabrindo ${archivedThreads.threads.size} postagens em #${forum.name}...`);
+              // 4. Reabre cada postagem arquivada.
+              for (const thread of archivedThreads.threads.values()) {
+                try {
+                  if (thread.archived) {
+                    await thread.setArchived(false, 'Reabertura automática de postagens.');
+                  }
+                } catch (err) {
+                  if (err.code !== RESTJSONErrorCodes.MissingAccess) {
+                    console.error(`[Thread Unarchiver] Falha ao reabrir a postagem "${thread.name}" (${thread.id}):`, err.message);
+                  }
                 }
               }
             }
-            before = result.threads.lastKey();
-            hasMore = result.hasMore;
+          } catch (forumError) {
+            console.error(`[Thread Unarchiver] Erro ao processar o fórum #${forum.name}:`, forumError);
           }
-        };
-
-        await fetchAndUnarchive('private');
-        await fetchAndUnarchive('public');
+        }
 
         console.log(`[Thread Unarchiver] Processo concluído para o servidor: ${guild.name}`);
       } catch (error) {
