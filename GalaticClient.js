@@ -73,6 +73,7 @@ module.exports = class GalaticClient extends Client {
 	}
 
     async sendLog(message, type = 'log') {
+        if (!this.isReady()) return; // Não tenta enviar log se o bot não estiver pronto
         if (!config.logChannelId) return;
 
         try {
@@ -94,12 +95,12 @@ module.exports = class GalaticClient extends Client {
                 .setTitle(titles[type] || titles.log)
                 .setTimestamp();
 
-            if (message.length > 4000) { // Limite de descrição do Embed é 4096
+            if (message.length > 4000) { 
                 const attachment = new AttachmentBuilder(Buffer.from(message, 'utf-8'), { name: 'log.txt' });
                 embed.setDescription('A mensagem de log era muito longa e foi enviada como anexo.');
                 await channel.send({ embeds: [embed], files: [attachment] });
             } else {
-                embed.setDescription('```' + message.substring(0, 4080) + '```'); // Adiciona ``` para formatar como bloco de código
+                embed.setDescription('```' + message.substring(0, 4080) + '```'); 
                 await channel.send({ embeds: [embed] });
             }
         } catch (error) {
