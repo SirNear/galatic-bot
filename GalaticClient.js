@@ -1,5 +1,5 @@
 const Util = require('./structures/Util.js')
-const { Client, Collection, Discord, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField, RESTJSONErrorCodes } = require("discord.js")
+const { Client, Collection, Discord, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField, RESTJSONErrorCodes, AttachmentBuilder } = require("discord.js")
 const { readdir } = require("fs")
 const path = require('path');
 const config = require('./config.json')
@@ -72,7 +72,41 @@ module.exports = class GalaticClient extends Client {
 		}
 	}
 
-    // Adiciona método para registrar slash commands no Discord
+    async sendLog(message, type = 'log') {
+        if (!config.logChannelId) return;
+
+        try {
+            const channel = await this.channels.fetch(config.logChannelId);
+            if (!channel || !channel.isTextBased()) {
+                console.log(`[LOG SYSTEM] Canal de log (ID: ${config.logChannelId}) inválido ou não encontrado.`);
+                return;
+            }
+
+            const colors = { log: '#0099ff', error: '#ff0000', warn: '#ffa500' };
+            const titles = { log: '📝 LOG', error: '❌ ERRO', warn: '⚠️ AVISO' };
+
+            if (typeof message !== 'string') {
+                message = require('util').inspect(message, { depth: null });
+            }
+
+            const embed = new EmbedBuilder()
+                .setColor(colors[type] || colors.log)
+                .setTitle(titles[type] || titles.log)
+                .setTimestamp();
+
+            if (message.length > 4000) { // Limite de descrição do Embed é 4096
+                const attachment = new AttachmentBuilder(Buffer.from(message, 'utf-8'), { name: 'log.txt' });
+                embed.setDescription('A mensagem de log era muito longa e foi enviada como anexo.');
+                await channel.send({ embeds: [embed], files: [attachment] });
+            } else {
+                embed.setDescription('```' + message.substring(0, 4080) + '```'); // Adiciona ``` para formatar como bloco de código
+                await channel.send({ embeds: [embed] });
+            }
+        } catch (error) {
+            console.log(`[LOG SYSTEM] Falha ao enviar log para o canal: ${error}`);
+        }
+    }
+
     async registerSlashCommands() {
         try {
             console.log('Iniciando registro de slash commands...');

@@ -13,6 +13,27 @@ const client = new Client({
     ]
 });
 
+// Guarda as funções originais do console
+const originalConsole = {
+    log: console.log,
+    error: console.error,
+    warn: console.warn,
+};
+
+// Sobrescreve as funções do console
+console.log = (...args) => {
+    originalConsole.log(...args);
+    client.sendLog(args.join(' '), 'log').catch(() => {});
+};
+console.error = (...args) => {
+    originalConsole.error(...args);
+    client.sendLog(args.join(' '), 'error').catch(() => {});
+};
+console.warn = (...args) => {
+    originalConsole.warn(...args);
+    client.sendLog(args.join(' '), 'warn').catch(() => {});
+};
+
 (async () => {
     // 1. Conectar ao banco de dados primeiro
     await connect();
