@@ -100,42 +100,45 @@ module.exports = class GalaticClient extends Client {
         }
     }
 
-    	loadCommands(path) {
-            readdir(`./commands/`, (err, files) => {
-                if (err) console.error(err)
-                let slashCount = 0;
-                
-                files.forEach(category => {
-                    readdir(`./commands/${category}`, (err, commandFiles) => {
-                        if (err) {
-                            console.error(`Erro ao ler a categoria '${category}':`, err);
-                            return;
-                        }
-                        
-                        commandFiles.filter(file => file.endsWith('.js')).forEach(async cmdFile => {
-                            try {
-                                const command = new (require(`./commands/${category}/${cmdFile}`))(this)
-                                command.dir = `./commands/${category}/${cmdFile}`
-                                
-                                // Registra comando normal
-                                this.commands.set(command.config.name, command)
-                                command.config.aliases?.forEach(a => this.aliases.set(a, command.config.name))
+    async loadCommands(path) {
+        const { readdir, stat } = require('fs/promises');
+        const commandPath = path || './commands/';
+        let slashCount = 0;
 
-                                // Registra slash command
-                                if (command.config.slash && command.data) {
-                                    this.slashCommands.set(command.data.name, command);
-                                    slashCount++;
-                                    console.log(`[SLASH] ✅ Carregado: ${command.config.name}`);
-                                }
-                            } catch (error) {
-                                console.error(`Erro ao carregar ${cmdFile}:`, error);
-                            }
-                        })
-                    })
-                })
-            })
-            return this
+        try {
+            const categories = await readdir(commandPath);
+
+            for (const category of categories) {
+                const categoryPath = `./commands/${category}`;
+                if (!(await stat(categoryPath)).isDirectory()) continue;
+
+                const commandFiles = await readdir(categoryPath);
+
+                for (const cmdFile of commandFiles.filter(file => file.endsWith('.js'))) {
+                    try {
+                        const command = new (require(`./commands/${category}/${cmdFile}`))(this);
+                        command.dir = `./commands/${category}/${cmdFile}`;
+
+                        // Registra comando normal
+                        this.commands.set(command.config.name, command);
+                        command.config.aliases?.forEach(a => this.aliases.set(a, command.config.name));
+
+                        // Registra slash command
+                        if (command.config.slash && command.data) {
+                            this.slashCommands.set(command.data.name, command);
+                            slashCount++;
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao carregar ${cmdFile}:`, error);
+                    }
+                }
+            }
+            console.log(`[SLASH] ✅ ${slashCount} slash commands carregados.`);
+        } catch (err) {
+            console.error("Erro ao carregar comandos:", err);
         }
+        return this;
+    }
 
     async login(token) {
         return super.login(token);

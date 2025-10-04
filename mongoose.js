@@ -1,14 +1,22 @@
 const config = require('./config.json')
 const mongoose = require('mongoose')
 
-// Conectar ao banco de dados 
-mongoose.connect(config.mongoose)
-  .then(() => {
-    console.log('MONGOOSE | Conectado ao banco de dados!');
-  })
-  .catch(err => {
-    console.error(`'MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
-  });
+const connectionOptions = {
+    connectTimeoutMS: 30000, // Aumenta o tempo de espera para conexão
+    serverSelectionTimeoutMS: 30000, // Aumenta o tempo para o driver encontrar um servidor
+    socketTimeoutMS: 45000, // Aumenta o tempo de inatividade do socket
+    bufferCommands: false, // Desativa o buffer de comandos do Mongoose globalmente
+};
+
+async function connectToDatabase() {
+    try {
+        await mongoose.connect(config.mongoose, connectionOptions);
+        console.log('MONGOOSE | Conectado ao banco de dados!');
+    } catch (err) {
+        console.error(`MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
+        process.exit(1); // Encerra o processo se não conseguir conectar
+    }
+}
 
 let Guild = new mongoose.Schema({ 
 	_id: {type: String}, 
@@ -170,3 +178,5 @@ module.exports.Quest = Quest;
 
 let PendingQuest = mongoose.model("PendingQuest", pendingQuestSchema);
 module.exports.PendingQuest = PendingQuest;
+
+module.exports.connect = connectToDatabase;

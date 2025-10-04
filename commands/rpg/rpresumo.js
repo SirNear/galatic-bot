@@ -199,7 +199,11 @@ module.exports = class rpresumo extends Command {
 
     } catch (err) {
       console.error("Erro ao executar /rpresumo:", err);
-      await interaction.editReply({ content: "❌ Ocorreu um erro ao tentar buscar as mensagens. Verifique se eu tenho permissão para ver o canal." }).catch(() => {});
+      if (err.status === 503) {
+        await interaction.editReply({ content: "🔧 O Gemini (IA que utilizo para resumir) está sobrecarregada no momento. Por favor, tente novamente em alguns minutos." }).catch(() => {});
+      } else {
+        await interaction.editReply({ content: "❌ Ocorreu um erro ao tentar buscar as mensagens ou gerar o resumo. Verifique se eu tenho permissão para ver o canal." }).catch(() => {});
+      }
     }
   }
 };
