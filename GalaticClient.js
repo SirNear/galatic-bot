@@ -116,8 +116,7 @@ module.exports = class GalaticClient extends Client {
             this.slashCommands.forEach(command => {
                 if (command.data) {
                     const data = command.data.toJSON();
-                    commands.push(data);
-                    console.log(`📝 Preparando comando: ${data.name}`);
+                    commands.push(data);                    
                 }
             });
 

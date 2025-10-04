@@ -13,31 +13,11 @@ const client = new Client({
     ]
 });
 
-// Guarda as funções originais do console
-const originalConsole = {
-    log: console.log,
-    error: console.error,
-    warn: console.warn,
-};
-
-// Sobrescreve as funções do console
-console.log = (...args) => {
-    originalConsole.log(...args);
-    client.sendLog(args.join(' '), 'log').catch(() => {});
-};
-console.error = (...args) => {
-    originalConsole.error(...args);
-    client.sendLog(args.join(' '), 'error').catch(() => {});
-};
-console.warn = (...args) => {
-    originalConsole.warn(...args);
-    client.sendLog(args.join(' '), 'warn').catch(() => {});
-};
-
 (async () => {
     await connect();
 
-    client.loadEvents('./events');
+    // O EventManager já carrega os eventos, esta linha era redundante e causava o problema.
+    // client.loadEvents('./events'); 
     await client.loadCommands();
 
     client.once('ready', async () => {
