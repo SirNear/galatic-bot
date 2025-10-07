@@ -234,10 +234,11 @@ module.exports = class MessageReceive {
 
         coletorDM.on("end", (collected, reason) => {
           if (reason === "time" && collected.size === 0) {
-            message.reply({
-              content:
-                "Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.",
-            });
+            //message.reply({
+              //content:
+                //"Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.",
+            //});
+            return
           }
         });
       }
