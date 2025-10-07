@@ -22,6 +22,10 @@ async run({ message, args, client, server}) {
 	let member = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
 	let msgJogador = args.slice(1).join(' ');
 
+	let userDb = await this.client.database.userData.findById(
+      `${msgJogador.globalName} ${message.guild.name}`
+    );
+
 	if (!message.member.roles.cache.has('731974690125643869') && message.guild.id == '731974689798488185' ) {  message.reply({content: `${error.noAdmod}`}) }
 	if(!member || !msgJogador.trim()) return error.helpCmd(server, this.config, message);
 
@@ -56,6 +60,9 @@ async run({ message, args, client, server}) {
 		if(i.customId == 'confirma') {
 			msgPadrao.edit({embeds: [embedRegistrado], components: []})
 			coletorBotao.stop('closed');
+			userDb.jogador = msgJogador;
+			userDb._id = `${msgJogador.globalName} ${message.guild.name}`
+			userDb.save()
 		}else { 
 			msgPadrao.edit({content: '<a:cdfpatpat:1407135944456536186> | Tudo bem! Você pode registar mais tarde!', components: [], embeds: []})
 			coletorBotao.stop('closed');
