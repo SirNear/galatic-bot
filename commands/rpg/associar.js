@@ -22,9 +22,9 @@ async run({ message, args, client, server}) {
 	let member = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
 	let msgJogador = args.slice(1).join(' ');
 
-	let userDb = await this.client.database.userData.findById(
-      `${msgJogador.globalName} ${message.guild.name}`
-    );
+	if(!member || !msgJogador.trim()) return error.helpCmd(server, this.config, message);
+
+	let userDb = await this.client.database.userData.findOne({ uid: member.id, uServer: message.guild.id });
 
 	if (!message.member.roles.cache.has('731974690125643869') && message.guild.id == '731974689798488185' ) {  message.reply({content: `${error.noAdmod}`}) }
 	if(!member || !msgJogador.trim()) return error.helpCmd(server, this.config, message);
@@ -51,8 +51,7 @@ async run({ message, args, client, server}) {
 	//? --------------- EMBED ZONE ---------------------
 
 
-	message.delete()
-	const msgPadrao = await message.reply({embeds: [embedConfirma], components: [botaoConfirma], ephemeral: true})
+	const msgPadrao = await message.channel.send({embeds: [embedConfirma], components: [botaoConfirma]})
 
 	const coletorBotao = msgPadrao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 }); //60s de espera
 
@@ -60,9 +59,23 @@ async run({ message, args, client, server}) {
 		if(i.customId == 'confirma') {
 			msgPadrao.edit({embeds: [embedRegistrado], components: []})
 			coletorBotao.stop('closed');
-			userDb.jogador = msgJogador;
-			userDb._id = `${msgJogador.globalName} ${message.guild.name}`
-			userDb.save()
+			if (userDb) {
+				userDb.jogador = msgJogador;
+				await userDb.save();
+			} else {
+				// Se o usuário não existir, cria um novo registro
+				await this.client.database.userData.create({
+					_id: `${member.user.globalName || member.user.username} ${message.guild.name}`,
+					uid: member.id,
+					uName: member.user.username,
+					uServer: message.guild.id,
+					jogador: msgJogador,
+					monitor: "desativado",
+				});
+			}
+			console.log(`RPG - SISTEMA DE ASSOCIAÇÃO | usuário ${member.user.username} associado ao jogador ${msgJogador} por ${message.author.username}`);
+			await i.reply({ content: `✅ Membro ${member} associado ao jogador \`\`${msgJogador}\`\` com sucesso!`, ephemeral: true });
+
 		}else { 
 			msgPadrao.edit({content: '<a:cdfpatpat:1407135944456536186> | Tudo bem! Você pode registar mais tarde!', components: [], embeds: []})
 			coletorBotao.stop('closed');
