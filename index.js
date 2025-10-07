@@ -16,7 +16,7 @@ const client = new Client({
 (async () => {
     await connect();
 
-    client.events.load();
+    await client.loadEvents();
     await client.loadCommands();
 
     client.once('ready', async () => {

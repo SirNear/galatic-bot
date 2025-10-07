@@ -174,6 +174,28 @@ module.exports = class GalaticClient extends Client {
         return this;
     }
 
+    async loadEvents(eventsPath = './events/') {
+        const { readdir } = require('fs/promises');
+        try {
+            const eventFiles = await readdir(eventsPath);
+            let count = 0;
+            for (const file of eventFiles.filter(f => f.endsWith('.js'))) {
+                try {
+                    const eventName = file.split('.')[0];
+                    const eventClass = require(`.${path.sep}events${path.sep}${file}`);
+                    const event = new eventClass(this);
+                    this.events.add(eventName, event);
+                    count++;
+                } catch (error) {
+                    console.error(`Erro ao carregar o evento ${file}:`, error);
+                }
+            }
+            console.log(`[EVENTS] ✅ ${count} eventos carregados.`);
+        } catch (err) {
+            console.error("Erro ao carregar eventos:", err);
+        }
+    }
+
     async login(token) {
         return super.login(token);
     }
