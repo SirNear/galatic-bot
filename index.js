@@ -16,8 +16,7 @@ const client = new Client({
 (async () => {
     await connect();
 
-    // O EventManager já carrega os eventos, esta linha era redundante e causava o problema.
-    // client.loadEvents('./events'); 
+    client.events.load();
     await client.loadCommands();
 
     client.once('ready', async () => {

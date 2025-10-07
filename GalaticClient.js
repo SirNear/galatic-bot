@@ -452,21 +452,5 @@ module.exports = class GalaticClient extends Client {
         }
     }
 
-		loadEvents(path) {
-				readdir(path, (err, files) => {
-					if (err) {
-						console.error(err);
-						return;
-		      }
-
-					files.forEach(em => {
-						const event = new (require(`./events/${em}`))(this)
-						this.events.add(em.split(".")[0], event)
-					})
-				})
-
-				return this
-			}
-
 	
 }
