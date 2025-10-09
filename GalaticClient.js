@@ -73,7 +73,7 @@ module.exports = class GalaticClient extends Client {
 	}
 
     async sendLog(message, type = 'log') {
-        if (!this.isReady()) return; // Não tenta enviar log se o bot não estiver pronto
+        if (!this.isReady()) return;
         if (!config.logChannelId) return;
 
         try {
