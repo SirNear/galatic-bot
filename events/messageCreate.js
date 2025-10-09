@@ -132,14 +132,17 @@ module.exports = class MessageReceive {
     /* #endregion */
 
     const userDb = await this.client.database.userData.findOneAndUpdate(
-      { uid: message.author.globalName, uServer: message.guild.name },
+      { _id: `${message.author.globalName} ${message.guild.name}` },
       { 
         $set: { uName: message.author.username, uGlobalName: message.author.globalName },
         $setOnInsert: {
           uid: message.author.id,
           uServer: message.guild.id,
           monitor: "desativado",
-          jogador: "nrpg"
+          jogador: message.guild.id === "731974689798488185" 
+            ? "nrpg" 
+            : (message.author.globalName || "nrpg"),
+          _id: `${message.author.globalName} ${message.guild.name}`
         }
       },
       { upsert: true, new: true }

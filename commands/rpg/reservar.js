@@ -71,7 +71,7 @@ module.exports = class reservar extends Command {
 
     let choose = args[0];
 
-    const userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+    const userDb = await this.client.database.userData.findOne({ _id: `${message.author.globalName} ${message.guild.name}` });
 
     let embedRAparencia = new EmbedBuilder()
       .setColor(color.dblue)

@@ -58,13 +58,14 @@ async run({ message, args, client, server}) {
 			msgPadrao.edit({embeds: [embedRegistrado], components: []})
 			coletorBotao.stop('closed');
 			await this.client.database.userData.findOneAndUpdate(
-				{ uid: member.globalName, uServer: message.guild.id },
+				{ _id: `${member.user.globalName} ${message.guild.name}` }, // Mantém a busca pelo _id composto
 				{ 
 				  $set: { jogador: msgJogador, uName: member.user.username, uGlobalName: member.user.globalName },
 				  $setOnInsert: {
 					uid: member.id,
 					uServer: message.guild.id,
-					monitor: "desativado"
+					monitor: "desativado",
+					_id: `${member.user.globalName} ${message.guild.name}` // Garante que o _id seja criado no formato correto
 				  }
 				},
 				{ upsert: true, new: true }
