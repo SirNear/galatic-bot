@@ -22,10 +22,8 @@ async function handleRegistro(
 ) {
   const isInteraction = 'user' in message;
   const author = isInteraction ? message.user : message.author;
-  const guild = message.guild;
-  let userDb = await client.database.userData.findById(
-    `${author.globalName} ${guild.name}`
-  );
+  const guild = isInteraction ? message.guild : message.guild;
+  let userDb = await client.database.userData.findOne({ uid: author.id, uServer: guild.id });
 
   /* #region  CONFIGURAÇÃO - SELEÇÃO VERSO OU APARÊNCIA */
   const configs = {

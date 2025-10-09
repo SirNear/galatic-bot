@@ -131,27 +131,22 @@ module.exports = class MessageReceive {
 		*/
     /* #endregion */
 
-    let userDb = await this.client.database.userData.findById(
-      `${message.author.globalName} ${message.guild.name}`
-    );
-
-    if (!userDb) {
-      //se o usuário não estiver salvo
-      await this.client.database
-        .userData({
-          _id: `${message.author.globalName} ${message.guild.name}`,
+    // Lógica de upsert: encontra pelo uid ou cria um novo se não existir.
+    // Atualiza o nome de usuário e globalName para manter os dados consistentes.
+    const userDb = await this.client.database.userData.findOneAndUpdate(
+      { uid: message.author.id, uServer: message.guild.id },
+      { 
+        $set: { uName: message.author.username, uGlobalName: message.author.globalName },
+        $setOnInsert: {
           uid: message.author.id,
-          uName: message.author.username,
           uServer: message.guild.id,
           monitor: "desativado",
-        })
-        .save()
-        .then(() => {
-          console.log(
-            `USER DATABASE | Usuário ${message.author.globalName} registrado no servidor ${message.guild.name}!`
-          );
-        });
-    } else {
+          jogador: "nrpg"
+        }
+      },
+      { upsert: true, new: true }
+    );
+
       if (userDb.monitor == "ativado" && userDb.uServer == message.guild.id) {
         // se o monitoramento do usuario estiver ativo
         if (!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {
@@ -253,8 +248,7 @@ module.exports = class MessageReceive {
             return
           }
         });
-      }
-    } // else monitoramento criado
+      } // if (message.guild.id === '731974689798488185'...)
 
     let prefix = server ? server.prefix : "g!";
 
