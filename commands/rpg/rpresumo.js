@@ -37,18 +37,45 @@ module.exports = class rpresumo extends Command {
             .setDescription("O canal do qual você deseja extrair as mensagens.")
             .setRequired(true)
             .addChannelTypes(ChannelType.GuildText, ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.GuildForum)
+        )
+        .addStringOption((option) =>
+            option
+                .setName('data_inicio')
+                .setDescription('Data de início para filtrar as mensagens (DD/MM/AAAA).')
+                .setRequired(false)
+        )
+        .addStringOption((option) =>
+            option
+                .setName('data_fim')
+                .setDescription('Data de fim para filtrar as mensagens (DD/MM/AAAA).')
+                .setRequired(false)
         );
     }
   }
 
   async execute(interaction) {
-    await interaction.deferReply(); // Corrigido aviso de depreciação
+    await interaction.deferReply({ ephemeral: true });
 
     const channel = interaction.options.getChannel("canal");
+    const dataInicioStr = interaction.options.getString("data_inicio");
+    const dataFimStr = interaction.options.getString("data_fim");
+
+    let dataInicio, dataFim;
+
+    if (dataInicioStr) {
+        dataInicio = moment(dataInicioStr, 'DD/MM/YYYY').startOf('day');
+        if (!dataInicio.isValid()) return interaction.editReply({ content: '❌ A data de início é inválida. Use o formato DD/MM/AAAA.' });
+    }
+    if (dataFimStr) {
+        dataFim = moment(dataFimStr, 'DD/MM/YYYY').endOf('day');
+        if (!dataFim.isValid()) return interaction.editReply({ content: '❌ A data de fim é inválida. Use o formato DD/MM/AAAA.' });
+    }
+    if (dataInicio && dataFim && dataInicio.isAfter(dataFim)) return interaction.editReply({ content: '❌ A data de início não pode ser posterior à data de fim.' });
+
     if(channel.id === '731974691228745820' || channel.id === '731974691228745823') return interaction.editReply({ content: 'mas ai você tá querendo abusar de mim né, pra que tu quer isso?' })
 
     try {
-      await interaction.editReply({ content: `<a:chickendonut:1423040252460925000> | Coletando mensagens do canal <#${channel.id}>. Isso pode levar um tempo.` });
+      await interaction.editReply({ content: `<a:chickendonut:1423040252460925000> | Coletando mensagens do canal <#${channel.id}>. Isso pode levar um tempo.${dataInicio || dataFim ? ' Aplicando filtro de data...' : ''}` });
 
       let allMessages = [];
       let lastId;
@@ -71,14 +98,18 @@ module.exports = class rpresumo extends Command {
             
             messages.forEach(msg => {
               if(msg.content.includes('//') || msg.content.includes('off')) return;
-              threadMessages.push(msg);
+              const msgDate = moment(msg.createdAt);
+              const withinDateRange = 
+                (!dataInicio || msgDate.isSameOrAfter(dataInicio)) &&
+                (!dataFim || msgDate.isSameOrBefore(dataFim));
+
+              if (withinDateRange) threadMessages.push(msg);
             });
             lastThreadMessageId = messages.last()?.id;
           }
           allMessages.push(...threadMessages);
         }
       } else {
-        // Lógica existente para canais de texto e threads
         while (allMessages.length < 1000) {
           const options = { limit: 100 };
           if (lastId) {
@@ -90,12 +121,18 @@ module.exports = class rpresumo extends Command {
             break;
           }
   
-          messages.forEach(msg => allMessages.push(msg));
+          messages.forEach(msg => {
+            const msgDate = moment(msg.createdAt);
+            const withinDateRange = 
+              (!dataInicio || msgDate.isSameOrAfter(dataInicio)) &&
+              (!dataFim || msgDate.isSameOrBefore(dataFim));
+
+            if (withinDateRange) allMessages.push(msg);
+          });
           lastId = messages.last().id;
         }
       }
 
-      // Garante que não tenhamos mais de 1000 mensagens se o último lote ultrapassar o limite.
       if (allMessages.length > 1000) {
         allMessages = allMessages.slice(0, 1000);
       }
@@ -160,11 +197,12 @@ module.exports = class rpresumo extends Command {
         embeds: [generateEmbed(currentPage)],
         files: [logAttachment, summaryAttachment],
         components: [getButtons(currentPage)],
+        ephemeral: false
       });
 
       const collector = message.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
-        time: 300000, // 5 minutos
+        time: 3000000000000, 
       });
 
       collector.on('collect', async (i) => {
@@ -173,7 +211,7 @@ module.exports = class rpresumo extends Command {
         } else if (i.customId === 'next_page') {
           currentPage++;
         } else if (i.customId === 'summarize_page') {
-          await i.reply({ content: '<a:aNgErY:1423045205979828345> | Resumindo de novo... (preguiçoso do caralho)'});
+          await i.reply({ content: '<a:aNgErY:1423045205979828345> | Resumindo de novo... (preguiçoso do caralho)', ephemeral: true});
           try {
             const fullSummaryText = pages.join('\n\n');
             const finalSummaryArray = await summarizeSummary(fullSummaryText);
@@ -182,14 +220,13 @@ module.exports = class rpresumo extends Command {
               .setColor("Gold")
               .setTitle(`🤖 Resumo do Resumo`)
               .setDescription(finalSummaryArray[0]);
-            await i.editReply({ content: '<:monkaStab:810735232458031145> | Ta ai, enche mais o saco não', embeds: [summaryEmbed] });
+            await i.followUp({ content: '<:monkaStab:810735232458031145> | Ta ai, enche mais o saco não', embeds: [summaryEmbed], ephemeral: true });
           } catch (summaryError) {
-            await i.editReply({ content: '❌ Ocorreu um erro ao tentar gerar o resumo final.' }).catch(() => {});
+            await i.followUp({ content: '❌ Ocorreu um erro ao tentar gerar o resumo final.', ephemeral: true }).catch(() => {});
           }
-          return; // Impede a execução do i.update() abaixo, que é apenas para paginação.
+          return; 
         }
 
-        // Este update só deve ocorrer para os botões de paginação.
         await i.update({ embeds: [generateEmbed(currentPage)], components: [getButtons(currentPage)] });
       });
 

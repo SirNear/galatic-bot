@@ -6,6 +6,8 @@ const { tiposPokemon } = require("../api/tiposPokemon.js");
 const { handleTypeIdentifier } = require("../api/typeIdentifier.js");
 const { iniciarContador, pararContador } = require("../api/contador.js");
 
+const registeringUsers = new Set();
+
 module.exports = class MessageReceive {
   constructor(client) {
     this.client = client;
@@ -190,11 +192,19 @@ module.exports = class MessageReceive {
 
       if (
         message.guild.id === "731974689798488185" &&
-        userDb.jogador === "nrpg"
+        userDb.jogador === "nrpg" &&
+        !registeringUsers.has(message.author.id) 
       ) {
+        registeringUsers.add(message.author.id);
+
         const msgDm = await this.client.users.send(message.author.id, {
           embeds: [embedRegistroPlayer],
+        }).catch(() => {
+            registeringUsers.delete(message.author.id);
+            return null;
         });
+
+        if (!msgDm) return; 
 
         let tempoRestante = 600;
         let sujeito = "apresentar-se";
@@ -213,13 +223,13 @@ module.exports = class MessageReceive {
         });
 
         coletorDM.on("collect", async (m) => {
-		  	let nome = m.content.trim().split(/\s+/); 
-			if(nome > 1) { 
+		  	let nomeArray = m.content.trim().split(/\s+/); 
+			if(nomeArray.length > 1) { 
 				msgDm.reply({content: 'Diga apenas seu nome! Sem sobrenome ou coisa adicional, apenas uma palavra!'})
 				coletorDM.resetTimer()
 				return
 			}
-			const jogador = await pararContador(nome, intervalo, contador);
+			const jogador = await pararContador(nomeArray[0], intervalo, contador);
 
           userDb.jogador = `${jogador}`;
           userDb.save();
@@ -233,11 +243,13 @@ module.exports = class MessageReceive {
         });
 
         coletorDM.on("end", (collected, reason) => {
+          registeringUsers.delete(message.author.id); // Remove o usuário do set ao final do coletor
           if (reason === "time" && collected.size === 0) {
             //message.reply({
               //content:
                 //"Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.",
             //});
+            msgDm.channel.send("Tempo esgotado. O registro foi cancelado. Envie uma mensagem no servidor novamente para tentar de novo.").catch(() => {});
             return
           }
         });
