@@ -58,7 +58,7 @@ async run({ message, args, client, server}) {
 			msgPadrao.edit({embeds: [embedRegistrado], components: []})
 			coletorBotao.stop('closed');
 			await this.client.database.userData.findOneAndUpdate(
-				{ uid: member.id, uServer: message.guild.id },
+				{ uid: member.globalName, uServer: message.guild.id },
 				{ 
 				  $set: { jogador: msgJogador, uName: member.user.username, uGlobalName: member.user.globalName },
 				  $setOnInsert: {

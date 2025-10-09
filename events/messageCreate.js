@@ -131,10 +131,8 @@ module.exports = class MessageReceive {
 		*/
     /* #endregion */
 
-    // Lógica de upsert: encontra pelo uid ou cria um novo se não existir.
-    // Atualiza o nome de usuário e globalName para manter os dados consistentes.
     const userDb = await this.client.database.userData.findOneAndUpdate(
-      { uid: message.author.id, uServer: message.guild.id },
+      { uid: message.author.globalName, uServer: message.guild.name },
       { 
         $set: { uName: message.author.username, uGlobalName: message.author.globalName },
         $setOnInsert: {
@@ -184,6 +182,15 @@ module.exports = class MessageReceive {
           text: "Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!",
         })
         .setTimestamp();
+
+      if (!userDb) {
+        await this.client.database.userData.findOne({
+          uid: message.author.id,
+          uServer: message.guild.id,
+        })
+        return
+        
+      }
 
       if (
         message.guild.id === "731974689798488185" &&
