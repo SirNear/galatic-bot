@@ -454,7 +454,7 @@ async function handleRegistro(
                 );
                 const aparenciasModalInteraction =
                   await botaoRegistroAparenciaVerso.awaitModalSubmit({
-                    time: 3000000,
+                    time: 300000, // 5 minutes
                   });
                 await aparenciasModalInteraction.deferUpdate();
 

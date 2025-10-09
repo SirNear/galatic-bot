@@ -201,7 +201,8 @@ module.exports = class rpresumo extends Command {
       });
 
       const collector = message.createMessageComponentCollector({
-        filter: (i) => i.user.id === interaction.user.id
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 900000 // 15 minutes
       });
 
       collector.on('collect', async (i) => {
