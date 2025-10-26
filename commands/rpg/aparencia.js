@@ -63,9 +63,9 @@ module.exports = class aparencia extends Command {
 
     // Responde à interação inicial se ainda não foi respondida
     if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: pergunta, fetchReply: true, ephemeral: true });
+        await interaction.reply({ content: pergunta, fetchReply: true });
     } else {
-        await interaction.followUp({ content: pergunta, fetchReply: true, ephemeral: true });
+        await interaction.followUp({ content: pergunta, fetchReply: true });
     }
 
     const coletorResposta = channel.createMessageCollector({
@@ -83,8 +83,7 @@ module.exports = class aparencia extends Command {
 
     if (!collected) {
       await interaction.followUp({
-        content: "<:berror:1406837900556898304> | **Tempo esgotado.** Operação cancelada.",
-        ephemeral: true,
+        content: "<:berror:1406837900556898304> | **Tempo esgotado.** Operação cancelada."
       });
       return null;
     }
