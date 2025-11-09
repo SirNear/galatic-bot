@@ -170,7 +170,6 @@ module.exports = class reservar extends Command {
               });
         
             coletorRAparenciaImagem.on("collect", async (img) => {
-                deletable.push(img)
               let imageAttachment = img.attachments.first();
               const imgUrl = await pararContador(imageAttachment.url, intervalo, contador)
               
