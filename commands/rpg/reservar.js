@@ -209,7 +209,7 @@ module.exports = class reservar extends Command {
             coletorConfirmacao.on("collect", async (i) => {
                 switch (i.customId) {
                     case "confirma":
-                        logs.AparenciaReservada(message, userDb, aparencia, verso, imgUrl, canalReserva)
+                        logs.AparenciaRegistrada(message, userDb, aparencia, verso, imgUrl, canalReserva)
                         message.channel.bulkDelete(deletable).catch(() => {});
                         message.reply({
                             content: `<:YaroCheck:1408857786221330443> | Aparência ${aparencia} reservada! Verifique no canal <#${canalReserva.id}> !`,
