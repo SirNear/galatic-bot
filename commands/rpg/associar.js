@@ -57,15 +57,15 @@ async run({ message, args, client, server}) {
 		if(i.customId == 'confirma') {
 			msgPadrao.edit({embeds: [embedRegistrado], components: []})
 			coletorBotao.stop('closed');
+			// Altera a busca para usar uid e uServer, garantindo que o membro correto seja atualizado/criado.
 			await this.client.database.userData.findOneAndUpdate(
-				{ _id: `${member.user.globalName} ${message.guild.name}` }, // Mantém a busca pelo _id composto
+				{ uid: member.id, uServer: message.guild.id },
 				{ 
-				  $set: { jogador: msgJogador, uName: member.user.username, uGlobalName: member.user.globalName },
+				  $set: { jogador: msgJogador, uName: member.user.username },
 				  $setOnInsert: {
 					uid: member.id,
 					uServer: message.guild.id,
-					monitor: "desativado",
-					_id: `${member.user.globalName} ${message.guild.name}` // Garante que o _id seja criado no formato correto
+					monitor: "desativado"
 				  }
 				},
 				{ upsert: true, new: true }

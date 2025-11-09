@@ -552,7 +552,7 @@ async function handleRegistro(
                           .setCustomId("next_page")
                           .setLabel("Próximo")
                           .setStyle(ButtonStyle.Primary)
-                          .setDisabled(currentPageIndex === totalPages - 1)
+                          .setDisabled(currentPageIndex === totalPages - 1),
                       );
                     }
                     return row;

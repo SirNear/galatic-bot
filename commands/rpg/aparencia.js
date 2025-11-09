@@ -1,6 +1,7 @@
 const {
   Discord,
   ModalBuilder,
+  PermissionsBitField,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
@@ -98,23 +99,18 @@ module.exports = class aparencia extends Command {
     const sChannel = await message.guild.channels.cache.find(
       (i) => i.id === "1409063037905670154"
     );
-    const userDb = await this.client.database.userData.findById(
-      `${message.author.globalName} ${message.guild.name}`
-    );
 
     async function normalizeText(s) {
       return String(s || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+        .normalize("NFD") // Separa os acentos das letras
+        .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
         .replace(/[^\w\s-]/g, "")
         .replace(/\s+/g, " ")
         .trim()
         .toLowerCase();
     }
 
-    /* #region FRONT-END INICIAL  */
-    //? MENSAGEM DE NAVEGAÇÃO INICIAL - SELECIONAR BASE DE DADOS
-    const embedNavegacao = new EmbedBuilder()
+    const embedNavegacao = new EmbedBuilder() //? MENSAGEM DE NAVEGAÇÃO INICIAL - SELECIONAR BASE DE DADOS
       .setColor("#02607a")
       .setTitle(
         "<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>"
@@ -132,16 +128,13 @@ module.exports = class aparencia extends Command {
         .setLabel("VERSO")
         .setStyle(ButtonStyle.Success)
     );
-    /* #endregion */
 
-    // !MSG UNIVERSAL ABAIXO - APENAS EDITAR
-    const msgNavegacao = await message.reply({
+    const msgNavegacao = await message.reply({ // !MSG UNIVERSAL ABAIXO - APENAS EDITAR
       embeds: [embedNavegacao],
       components: [botaoSelecao],
     });
 
-    //? COLETOR DOS BOTÕES
-    const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector(
+    const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector( //? COLETOR DOS BOTÕES
       { filter: (i) => i.user.id === message.author.id, time: 60000 }
     ); //60s de espera
 
@@ -152,8 +145,7 @@ module.exports = class aparencia extends Command {
 
       switch (i.customId) {
         case "botaoNavAparencia":
-          /* #region  embedAparencia */
-          const embedAparencia = new EmbedBuilder()
+          const embedAparencia = new EmbedBuilder() /* #region  embedAparencia */
             .setColor("#212416")
             .setTitle(
               `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
@@ -193,7 +185,6 @@ module.exports = class aparencia extends Command {
             );
 
             let resultados = [];
-
             target = await normalizeText(nomeAparencia);
 
             /* #region  BUSCA RESULTADOS NA PLANILHA */
@@ -222,6 +213,7 @@ module.exports = class aparencia extends Command {
                     universo,
                     personagem,
                     jogador,
+                    rowIndex: rowIndex + 1, // Adiciona o número da linha (planilhas são base 1)
                   });
                 }
               }
@@ -229,14 +221,11 @@ module.exports = class aparencia extends Command {
               console.error(err);
               return await message.channel.send("Erro ao acessar a planilha.");
             }
-            /* #endregion */
 
-            // verifica se tem o termo exato daquela aparencia
             let ExactMatch = resultados.find(
               (r) => normalizeText(r.aparencia) === target
             );
 
-            // Uma aparência com o termo exato FOI encontrada.
             if (ExactMatch) {
               const embedExato = new EmbedBuilder()
                 .setTitle(
@@ -247,186 +236,119 @@ module.exports = class aparencia extends Command {
                 )
                 .setColor("#8f0808")
                 .addFields(
-                  {
-                    name: "**APARÊNCIA**",
-                    value: ExactMatch.aparencia ?? "—",
-                  },
-                  {
-                    name: "**UNIVERSO**",
-                    value: ExactMatch.universo ?? "—",
-                  },
-                  {
-                    name: "**PERSONAGEM**",
-                    value: ExactMatch.personagem ?? "—",
-                  },
-                  {
-                    name: "**JOGADOR**",
-                    value: ExactMatch.jogador ?? "—",
-                  }
-                );
-              await msgNavegacao
-                .edit({ embeds: [embedExato], components: [] })
-                .catch(() => {});
-
-              // CENÁRIO 2: Nenhuma correspondência exata, MAS HÁ resultados similares.
-            } else { // sem aparência com termo exato, mas similares -> oferece registro
-                await handleRegistro(
-                    'aparência',
-                    target,
-                    msgNavegacao,
-                    message,
-                    sChannel,
-                    this.client,
-                    sheets,
-                    false,
-                    resultados 
-                );
-            } 
-          });
-
-          coletorAparencia.on("end", (collected, reason) => {
-            clearInterval(intervalo);
-
-            if (reason === "time" && collected.size === 0) {
-              contador.edit({ content: "Tempo esgotado." }).catch(() => {});
-              msgNavegacao.delete().catch(() => {});
-            } //!IF TEMPO ESGOTADO
-
-            msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
-          }); //!COLETORAPARENCIA.END
-          /* #endregion */
-
-          break;
-        case "verso":
-          await i.update({ components: [] }).catch(() => {});
-
-          const embedVerso = new EmbedBuilder()
-            .setColor("#212416")
-            .setTitle(
-              "<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **"
-            )
-            .setDescription(
-              "Envie no chat o nome do verso que deseja pesquisar."
-            )
-            .setFooter({ text: "envie apenas o nome do verso." });
-
-          await msgNavegacao
-            .edit({ embeds: [embedVerso], components: [] })
-            .catch(() => {});
-
-          /* #region contador */
-          ({ intervalo, contador } = await iniciarContador(
-            tempoRestante,
-            sujeito,
-            msgAlvo,
-            message
-          ));
-          /* #endregion */
-
-          const coletorVerso = msgNavegacao.channel.createMessageCollector({
-            filter: (m) => m.author.id === message.author.id,
-            time: 15000,
-            max: 1,
-          });
-
-          coletorVerso.on("collect", async (m) => {
-            const verseName = await pararContador(
-              m.content,
-              intervalo,
-              contador
-            );
-
-            target = await normalizeText(verseName);
-
-            let resultados = [];
-            let exactMatch = resultados.find(
-              (r) => normalizeText(r.verseName) = target
-            );
-
-            /* #region BUSCA VERSO NA PLANILHA */
-            try {
-              const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-                range: "UNIVERSO!A:C",
-              });
-              const rows = res.data.values || [];
-
-              for (let r = 1; r < rows.length; r++) {
-                const row = rows[r];
-                if (!row) continue;
-                const [universo, uso, jogador] = row;
-                if (!universo) continue;
-
-                const uniNorm = await normalizeText(universo);
-
-                if (uniNorm.length < 2) continue;
-
-                const data = { universo, uso, jogador };
-
-                if (uniNorm === target) {
-                  exactMatch = data;
-                  break;
-                }
-
-                // aceitar igualdade e correspondência parcial com limites (evita "N" casando)
-                if (
-                  (uniNorm.length >= 3 && uniNorm.includes(target)) ||
-                  (target.length >= 3 && target.includes(uniNorm))
-                ) {
-                  resultados.push(data);
-                }
-              } //for
-            } catch (err) {
-              console.error(err);
-              return await message.channel.send(
-                "Erro ao acessar a planilha de versos."
-              );
-            }
-            /* #endregion */
-
-            if (exactMatch) {
-              const embedExato = new EmbedBuilder()
-                .setTitle(
-                  `<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **`
-                )
-                .setDescription(
-                  `<:PepeHands:1407563136197984357> | Verso em uso!`
-                )
-                .setColor("#8f0808")
-                .addFields(
-                  { name: "**VERSO**", value: exactMatch.universo ?? "—" },
-                  {
-                    name: "**USO (%)**",
-                    value: String(exactMatch.uso ?? "—"),
-                  },
-                  { name: "**JOGADOR**", value: exactMatch.jogador ?? "—" }
+                  { name: "**APARÊNCIA**", value: ExactMatch.aparencia ?? "—" },
+                  { name: "**UNIVERSO**", value: ExactMatch.universo ?? "—" },
+                  { name: "**PERSONAGEM**", value: ExactMatch.personagem ?? "—" },
+                  { name: "**JOGADOR**", value: ExactMatch.jogador ?? "—" }
                 );
               await msgNavegacao
                 .edit({ embeds: [embedExato], components: [] })
                 .catch(() => {});
             } else {
-                await handleRegistro(
-                    'verso',
-                    target,
-                    msgNavegacao,
-                    message,
-                    sChannel,
-                    this.client,
-                    sheets,
-                    false,
-                    resultados 
-                ); 
+                if (resultados.length === 0) {
+                    await handleRegistro('aparência', target, msgNavegacao, message, sChannel, this.client, sheets, true, []);
+                    return;
+                }
+
+                let page = 0;
+                const EmbedPagesAparencia = resultados.map((r, idx) => 
+                    new EmbedBuilder()
+                        .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
+                        .setColor("#212416")
+                        .setDescription(`<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`)
+                        .addFields(
+                            { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
+                            { name: "**UNIVERSO**", value: r.universo ?? "—" },
+                            { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
+                            { name: "**JOGADOR**", value: r.jogador ?? "—" }
+                        )
+                        .setFooter({ text: `Página ${idx + 1}/${resultados.length}` })
+                );
+
+                const navRow = async (idx) => {
+                    const author = message.author;
+                    const member = message.member;
+                    const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: message.guild.id });
+                    const components = [
+                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0),
+                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1),
+                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Danger)
+                    ];
+
+                    const currentResult = resultados[idx];
+                    if (currentResult && userDb) {
+                        const jogadorPlanilha = currentResult.jogador;
+                        const jogadorDB = userDb.jogador;
+
+                        // --- DEBUG LOG ---
+                        console.log(`[DEBUG] Verificando dono (prefixo):`);
+                        console.log(` - Planilha: '${jogadorPlanilha}' -> Normalizado: '${await normalizeText(jogadorPlanilha)}'`);
+                        console.log(` - Banco de Dados: '${jogadorDB}' -> Normalizado: '${await normalizeText(jogadorDB)}'`);
+                        // --- FIM DEBUG ---
+
+                        const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
+                        const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+                        if (isOwner || isAdmin) {
+                            const rowIndex = currentResult.rowIndex;
+                            components.push(
+                                new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger) // Corrigido para Danger
+                            );
+                        }
+                    }
+                    return new ActionRowBuilder().addComponents(components);
+                };
+
+                await msgNavegacao.edit({
+                    embeds: [EmbedPagesAparencia[page]],
+                    components: [await navRow(page)],
+                });
+
+                const navCollector = msgNavegacao.createMessageComponentCollector({
+                    filter: (ii) => ii.user.id === message.author.id,
+                    time: 60000,
+                    idle: 30000
+                });
+
+                navCollector.on("collect", async (ii) => {
+                    switch (ii.customId) {
+                        case 'prev_ap_similar':
+                            page = Math.max(0, page - 1);
+                            break;
+                        case 'next_ap_similar':
+                            page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
+                            break;
+                        case 'close_ap_similar':
+                            navCollector.stop("closed");
+                            return;
+                    }
+                    await msgNavegacao.edit({
+                        embeds: [EmbedPagesAparencia[page]],
+                        components: [await navRow(page)],
+                    }).catch(() => {});
+                });
+
+                navCollector.on("end", async (collected, reason) => {
+                    if (reason === "closed") {
+                        await msgNavegacao.delete().catch(() => {});
+                        message.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
+                    } else {
+                        await msgNavegacao.edit({ components: [] }).catch(() => {});
+                    }
+                });
             } 
           });
 
-          coletorVerso.on("end", (collected, reason) => {
+          coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
               contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              msgNavegacao.delete().catch(() => {});
             }
-            // limpa o embed de resultado do fluxo de versos ao terminar
             msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
           });
+
           break;
         default:
           return;
@@ -441,8 +363,8 @@ module.exports = class aparencia extends Command {
 
     async function normalizeText(s) {
       return String(s || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+        .normalize("NFD") // Separa os acentos das letras
+        .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
         .replace(/[^\w\s-]/g, "")
         .replace(/\s+/g, " ")
         .trim()
@@ -538,6 +460,7 @@ module.exports = class aparencia extends Command {
                     universo,
                     personagem,
                     jogador,
+                    rowIndex: rowIndex + 1, // Adiciona o número da linha (planilhas são base 1)
                   });
                 }
               }
@@ -569,17 +492,99 @@ module.exports = class aparencia extends Command {
                 .edit({ embeds: [embedExato], components: [] })
                 .catch(() => {});
             } else {
-                await handleRegistro(
-                    'aparência',
-                    target,
-                    msgNavegacao,
-                    i, // Passa a interação para o handleRegistro
-                    sChannel,
-                    this.client,
-                    sheets,
-                    false,
-                    resultados 
+                if (resultados.length === 0) {
+                    await handleRegistro('aparência', target, msgNavegacao, i, sChannel, this.client, sheets, true, []);
+                    return;
+                }
+
+                let page = 0;
+                const EmbedPagesAparencia = resultados.map((r, idx) => 
+                    new EmbedBuilder()
+                        .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
+                        .setColor("#212416")
+                        .setDescription(`<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`)
+                        .addFields(
+                            { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
+                            { name: "**UNIVERSO**", value: r.universo ?? "—" },
+                            { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
+                            { name: "**JOGADOR**", value: r.jogador ?? "—" }
+                        )
+                        .setFooter({ text: `Página ${idx + 1}/${resultados.length}` })
                 );
+
+                const navRow = async (idx) => {
+                    const author = i.user;
+                    const member = i.member;
+                    const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: i.guild.id });
+                    const components = [
+                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0),
+                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1),
+                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Danger)
+                    ];
+
+                    const currentResult = resultados[idx];
+                    if (currentResult && userDb) {
+                        const jogadorPlanilha = currentResult.jogador;
+                        const jogadorDB = userDb.jogador;
+
+                        // --- DEBUG LOG ---
+                        console.log(`[DEBUG] Verificando dono (slash):`);
+                        console.log(` - Planilha: '${jogadorPlanilha}' -> Normalizado: '${await normalizeText(jogadorPlanilha)}'`);
+                        console.log(` - Banco de Dados: '${jogadorDB}' -> Normalizado: '${await normalizeText(jogadorDB)}'`);
+                        // --- FIM DEBUG ---
+
+                        const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
+                        const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+                        if (isOwner || isAdmin) {
+                            const rowIndex = currentResult.rowIndex;
+                            components.push(
+                                new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
+                            );
+                        }
+                    }
+
+                    return new ActionRowBuilder().addComponents(components);
+                };
+
+                await msgNavegacao.edit({
+                    embeds: [EmbedPagesAparencia[page]],
+                    components: [await navRow(page)],
+                });
+
+                const navCollector = msgNavegacao.createMessageComponentCollector({
+                    filter: (ii) => ii.user.id === i.user.id,
+                    time: 60000,
+                    idle: 30000
+                });
+
+                navCollector.on("collect", async (ii) => {
+                    switch (ii.customId) {
+                        case 'prev_ap_similar':
+                            page = Math.max(0, page - 1);
+                            break;
+                        case 'next_ap_similar':
+                            page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
+                            break;
+                        case 'close_ap_similar':
+                            navCollector.stop("closed");
+                            return;
+                    }
+                    await msgNavegacao.edit({
+                        embeds: [EmbedPagesAparencia[page]],
+                        components: [await navRow(page)],
+                    }).catch(() => {});
+                });
+
+                navCollector.on("end", async (collected, reason) => {
+                    if (reason === "closed") {
+                        await msgNavegacao.delete().catch(() => {});
+                        i.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
+                    } else {
+                        await msgNavegacao.edit({ components: [] }).catch(() => {});
+                    }
+                });
             } 
           });
 
@@ -595,7 +600,7 @@ module.exports = class aparencia extends Command {
           break;
         case "verso":
           await i.update({
-            embeds: [new EmbedBuilder().setColor("#212416").setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **").setDescription("Envie no chat o nome do verso que deseja pesquisar.").setFooter({ text: "envie apenas o nome do verso." })],
+            embeds: [new EmbedBuilder().setColor("#212416").setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **").setDescription("Envie no chat o nome do verso que deseja pesquisar.").setFooter({ text: "envie apenas o nome do verso." })], // Corrigido para fechar o array
             components: []
           }).catch(() => {});
 

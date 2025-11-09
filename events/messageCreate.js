@@ -131,134 +131,95 @@ module.exports = class MessageReceive {
 		*/
     /* #endregion */
 
-    const userDb = await this.client.database.userData.findOneAndUpdate(
-      { _id: `${message.author.globalName} ${message.guild.name}` },
-      { 
-        $set: { uName: message.author.username, uGlobalName: message.author.globalName },
-        $setOnInsert: {
-          uid: message.author.id,
-          uServer: message.guild.id,
-          monitor: "desativado",
-          jogador: message.guild.id === "731974689798488185" 
-            ? "nrpg" 
-            : (message.author.globalName || "nrpg"),
-          _id: `${message.author.globalName} ${message.guild.name}`
-        }
-      },
-      { upsert: true, new: true }
-    );
+    // Busca o usuário para verificar se ele já existe.
+    let userDb = await this.client.database.userData.findOne({ uid: message.author.id, uServer: message.guild.id });
 
-      if (userDb.monitor == "ativado" && userDb.uServer == message.guild.id) {
-        // se o monitoramento do usuario estiver ativo
-        if (!message.guild.channels.cache.get(`${userDb.monitorChannelId}`)) {
-          //se não tiver canal de monitoramento
-          userDb.monitor = "desativado";
-          userDb.save();
-        } else {
-          //se tiver canal de monitoramento
-          let embedMonitor = new EmbedBuilder()
-            .setTitle(
-              `<:nani:572425789178642472> | **Nova mensagem de ${message.author.username}** | <:nani:572425789178642472>`
-            )
-            .setDescription(message.content)
-            .addFields({ name: `**Canal:**`, value: message.channel })
-            .setTimestamp();
+    // Se o usuário não existe, cria o registro e inicia o processo de associação.
+    if (!userDb) {
+        // Previne múltiplas tentativas de registro simultâneas para o mesmo usuário.
+        if (registeringUsers.has(message.author.id)) return;
 
-          message.guild.channels.cache
-            .get(`${userDb.monitorChannelId}`)
-            .send({ embeds: [embedMonitor] });
-        } //else
-      } //if se monitorar
+        try {
+            registeringUsers.add(message.author.id);
 
-      const embedRegistroPlayer = new EmbedBuilder()
-        .setColor("#13d510")
-        .setTitle("<a:pingugun:1408888581929439402> | QUEM É VOCÊ?")
-        .setDescription(
-          `Olá, ${message.author.username}! Você não está associado a nenhum jogador do Atrevimento RPG em meus dados! Poderia, por favor, dizer o seu primeiro nome para que eu possa conhece-lo? Isso irá facilitar sua experiência, já que poderei associar você à uma ficha e ao sistema de aparências automaticamente, além de outras funcionalidades!`
-        )
-        .setThumbnail(message.author.avatarURL())
-        .setAuthor({
-          name: `Olá, ${message.author.username} !`,
-          iconURL: message.author.avatarURL(),
-        })
-        .setFooter({
-          text: "Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!",
-        })
-        .setTimestamp();
+            // Cria o novo usuário no banco de dados.
+            userDb = await this.client.database.userData.create({
+                uid: message.author.id,
+                uServer: message.guild.id,
+                uName: message.author.username,
+                monitor: "desativado",
+                jogador: "nrpg" // Define como "não registrado"
+            });
 
-      if (!userDb) {
-        await this.client.database.userData.findOne({
-          uid: message.author.id,
-          uServer: message.guild.id,
-        })
-        return
-        
-      }
+            // Inicia o processo de registro via DM apenas para o servidor específico.
+            if (message.guild.id === "731974689798488185") {
+                const embedRegistroPlayer = new EmbedBuilder()
+                    .setColor("#13d510")
+                    .setTitle("<a:pingugun:1408888581929439402> | QUEM É VOCÊ?")
+                    .setDescription(`Olá, ${message.author.username}! Notei que é sua primeira vez por aqui (ou pelo menos para mim). Para que eu possa te ajudar melhor com as funcionalidades de RPG, poderia me dizer qual o seu nome de jogador?`)
+                    .setThumbnail(message.author.avatarURL())
+                    .setFooter({ text: "Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!" })
+                    .setTimestamp();
 
-      if (
-        message.guild.id === "731974689798488185" &&
-        userDb.jogador === "nrpg" &&
-        !registeringUsers.has(message.author.id) 
-      ) {
-        registeringUsers.add(message.author.id);
+                const dmChannel = await message.author.createDM().catch(() => null);
+                if (!dmChannel) return;
 
-        const msgDm = await this.client.users.send(message.author.id, {
-          embeds: [embedRegistroPlayer],
-        }).catch(() => {
+                const msgDm = await dmChannel.send({ embeds: [embedRegistroPlayer] }).catch(() => null);
+                if (!msgDm) return;
+
+                const collector = dmChannel.createMessageCollector({
+                    filter: (m) => m.author.id === message.author.id,
+                    max: 1,
+                    time: 600000, // 10 minutos
+                });
+
+                collector.on('collect', async (collectedMessage) => {
+                    const jogador = collectedMessage.content.trim().split(/\s+/)[0];
+
+                    await this.client.database.userData.updateOne(
+                        { uid: message.author.id, uServer: message.guild.id },
+                        { $set: { jogador: jogador } }
+                    );
+
+                    console.log(`RPG - SISTEMA DE REGISTRO | usuário ${message.author.username} associado ao jogador ${jogador}`);
+                    await msgDm.reply({ content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador **${jogador}**. Se desejar alterar, use o comando \`/associar\` no servidor.` }).catch(console.error);
+                });
+
+                collector.on('end', (collected, reason) => {
+                    if (reason === 'time') {
+                        dmChannel.send("Tempo esgotado. O registro foi cancelado. Envie uma mensagem no servidor novamente para tentar de novo.").catch(() => {});
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Erro no processo de registro de novo usuário:", error);
+        } finally {
             registeringUsers.delete(message.author.id);
-            return null;
-        });
+        }
+    } else {
+        // Se o usuário já existe, apenas atualiza o nome de usuário se necessário.
+        if (userDb.uName !== message.author.username) {
+            userDb.uName = message.author.username;
+            await userDb.save();
+        }
 
-        if (!msgDm) return; 
-
-        let tempoRestante = 600;
-        let sujeito = "apresentar-se";
-        let msgAlvo = msgDm;
-        let { intervalo, contador } = await iniciarContador(
-          tempoRestante,
-          sujeito,
-          msgAlvo,
-          message
-        );
-
-        const coletorDM = await msgDm.channel.createMessageCollector({
-          filter: (m) => m.author.id === message.author.id,
-          time: 600000,
-          max: 1,
-        });
-
-        coletorDM.on("collect", async (m) => {
-		  	let nomeArray = m.content.trim().split(/\s+/); 
-			if(nomeArray.length > 1) { 
-				msgDm.reply({content: 'Diga apenas seu nome! Sem sobrenome ou coisa adicional, apenas uma palavra!'})
-				coletorDM.resetTimer()
-				return
-			}
-			const jogador = await pararContador(nomeArray[0], intervalo, contador);
-
-          userDb.jogador = `${jogador}`;
-          userDb.save();
-          console.log(
-            `RPG - SISTEMA DE REGISTRO | usuário ${message.author.username} associado ao jogador ${jogador}`
-          );
-
-          await msgDm.reply({
-            content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador ${jogador}. Se deseja alterar, entre em contato com um dos admods para tanto.`,
-          });
-        });
-
-        coletorDM.on("end", (collected, reason) => {
-          registeringUsers.delete(message.author.id); // Remove o usuário do set ao final do coletor
-          if (reason === "time" && collected.size === 0) {
-            //message.reply({
-              //content:
-                //"Você não interagiu a tempo. O registro foi cancelado. Envie uma mensagem novamente no servidor e eu irei entrar em contato ou peça a um administrador para te registar.",
-            //});
-            msgDm.channel.send("Tempo esgotado. O registro foi cancelado. Envie uma mensagem no servidor novamente para tentar de novo.").catch(() => {});
-            return
-          }
-        });
-      } // if (message.guild.id === '731974689798488185'...)
+        // Lógica de monitoramento para usuários existentes.
+        if (userDb.monitor === "ativado" && userDb.uServer === message.guild.id) {
+            const monitorChannel = message.guild.channels.cache.get(userDb.monitorChannelId);
+            if (monitorChannel) {
+                let embedMonitor = new EmbedBuilder()
+                    .setTitle(`<:nani:572425789178642472> | **Nova mensagem de ${message.author.username}**`)
+                    .setDescription(message.content || "*Mensagem sem texto (possivelmente um anexo)*")
+                    .addFields({ name: `**Canal:**`, value: `${message.channel}` })
+                    .setTimestamp();
+                monitorChannel.send({ embeds: [embedMonitor] });
+            } else {
+                // Desativa o monitor se o canal não for encontrado.
+                userDb.monitor = "desativado";
+                await userDb.save();
+            }
+        }
+    }
 
     let prefix = server ? server.prefix : "g!";
 

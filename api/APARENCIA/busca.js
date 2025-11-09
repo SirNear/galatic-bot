@@ -79,6 +79,7 @@ async function buscarAparencia(configAparencia) {
                     configAparencia.colunas.forEach((col, idx) => {
                         item[col] = row[idx] || "—"; // atribui valor da célula ou "—" se estiver vazia
                     });
+                    item.rowIndex = rowIndex + 1; // Adiciona o número da linha ao resultado
     
                     resultados.push(item);
                 }
@@ -181,6 +182,7 @@ function criaEmbedResultados(resultados, configEmbed){
 
         if (resultados.length >= 1) {
             const exactMatchFound = resultados.some(r => normalizeText(r.aparencia) === target);
+            let EmbedPagesAparencia = [];
             let page = 0;
 
             if (!exactMatchFound) {
@@ -197,12 +199,11 @@ function criaEmbedResultados(resultados, configEmbed){
 
 
             resultados.forEach((r, idx) => {
-                const offset = !exactMatchFound ? 1 : 0;
-                const targetIndex = idx + offset;
-
-                EmbedPagesAparencia[targetIndex]
+                const embed = new EmbedBuilder()
+                    .setTitle(configEmbed.titulo)
+                    .setColor(configEmbed.cores.corTexto)
                     .setDescription(
-                        `<:patrickconcern:1407564230256758855> | Resultado ${idx + 1}`
+                        `<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`
                     )
                     .addFields(
                         { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
@@ -210,19 +211,18 @@ function criaEmbedResultados(resultados, configEmbed){
                         { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
                         { name: "**JOGADOR**", value: r.jogador ?? "—" }
                     )
-                    .setFooter({
-                        text: `Página ${targetIndex + 1}/${EmbedPagesAparencia.length
-                            } - ⏩ = proxima página | ⏪ = página anterior | ❌ = cancelar busca`,
-                    });
+                EmbedPagesAparencia.push(embed);
             });
 
-            const navRow = (idx) => {
+            EmbedPagesAparencia.forEach((embed, idx) => embed.setFooter({ text: `Página ${idx + 1}/${EmbedPagesAparencia.length}` }));
+
+            const navRow = async (idx) => {
                 const components = [
                     new ButtonBuilder()
                         .setCustomId("prev_ap")
                         .setLabel("⏪")
                         .setStyle(ButtonStyle.Primary)
-                        .setDisabled(idx === 0),
+                        .setDisabled(idx === (!exactMatchFound ? 1 : 0)),
                     new ButtonBuilder()
                         .setCustomId("next_ap")
                         .setLabel("⏩")
@@ -233,6 +233,41 @@ function criaEmbedResultados(resultados, configEmbed){
                         .setLabel("❌")
                         .setStyle(ButtonStyle.Danger)
                 ];
+
+                const currentResult = resultados[idx];
+                let userDb = await this.client.database.userData.findById(`${message.author.globalName} ${message.guild.name}`);
+                if(!userDb ) console.log(`${err}`)
+                if(!currentResult ) console.log(`${err}`)
+                if (currentResult && userDb) {
+                    // Log para debug
+                    console.log('Comparando jogadores:');
+                    console.log('Aparência:', currentResult.jogador, '→', jogadorAparencia);
+                    console.log('Usuário:', userDb.jogador, '→', jogadorUsuario);
+
+                    const jogadorAparencia = await normalizeText(currentResult.jogador);
+                    const jogadorUsuario = await normalizeText(userDb.jogador);
+                    
+                    // Comparação exata após normalização
+                    const isOwner = jogadorAparencia == jogadorUsuario;
+                    const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+                    console.log('É dono?', isOwner);
+                    console.log('É admin?', isAdmin);
+
+                    if (isOwner || isAdmin) {
+                        const rowIndex = currentResult.rowIndex;
+                        components.push(
+                            new ButtonBuilder()
+                                .setCustomId(`edit_appearance_${rowIndex}`)
+                                .setEmoji('✏️')
+                                .setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder()
+                                .setCustomId(`delete_appearance_${rowIndex}`)
+                                .setEmoji('🗑️')
+                                .setStyle(ButtonStyle.Danger)
+                        );
+                    }
+                }
 
                 if (idx === 0 && !exactMatchFound) {
                     return new ActionRowBuilder().addComponents(
@@ -247,23 +282,25 @@ function criaEmbedResultados(resultados, configEmbed){
                     );
                 }
 
-                return new ActionRowBuilder().addComponents(...components);
+                return new ActionRowBuilder().addComponents(components);
             };
 
             await msgNavegacao
                 .edit({
                     embeds: [EmbedPagesAparencia[page]],
-                    components: [navRow(page)],
+                    components: [await navRow(page)],
                 })
                 .catch(() => { });
 
             const navCollector = msgNavegacao.createMessageComponentCollector({
                 filter: (ii) => ii.user.id === message.author.id,
                 time: 60000,
+                idle: 30000
             });
 
             navCollector.on("collect", async (ii) => {
                 switch (ii.customId) {
+                    // ... (cases for sim_ap, nao_ap, etc)
                     case 'sim_ap':
 
                         const formularioRegisto = new ModalBuilder()
@@ -357,22 +394,22 @@ function criaEmbedResultados(resultados, configEmbed){
                     case 'nao_ap':
                         page = 1;
                         await msgNavegacao.edit({
-                            embeds: [EmbedPagesAparencia[page]],
-                            components: [navRow(page)],
+                            embeds: [EmbedPagesAparencia[page]], // A página de registro é a 0
+                            components: [await navRow(page)],
                         }).catch(() => { });
                         break;
                     case 'prev_ap':
-                        page = Math.max(0, page - 1);
+                        page = Math.max((!exactMatchFound ? 1 : 0), page - 1);
                         await msgNavegacao.edit({
                             embeds: [EmbedPagesAparencia[page]],
-                            components: [navRow(page)],
+                            components: [await navRow(page)],
                         }).catch(() => { });
                         break;
                     case 'next_ap':
                         page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
                         await msgNavegacao.edit({
                             embeds: [EmbedPagesAparencia[page]],
-                            components: [navRow(page)],
+                            components: [await navRow(page)],
                         }).catch(() => { });
                         break;
                     case 'close_ap':
@@ -406,4 +443,3 @@ function criaEmbedResultados(resultados, configEmbed){
 
     break;
 }
-

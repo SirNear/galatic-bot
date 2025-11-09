@@ -13,7 +13,8 @@ module.exports = class GalaticClient extends Client {
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.GuildMembers,
             GatewayIntentBits.GuildMessageReactions,
-            GatewayIntentBits.MessageContent
+            GatewayIntentBits.MessageContent,
+            GatewayIntentBits.DirectMessages
         ],
         partials: [
             Partials.Message,
