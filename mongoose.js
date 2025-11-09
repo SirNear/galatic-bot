@@ -142,6 +142,8 @@ const pendingQuestSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+
+
 // Garante que um usuário não pode ter duas fichas com o mesmo nome no mesmo servidor.
 fichaSchema.index({ userId: 1, guildId: 1, nome: 1 }, { unique: true });
 
@@ -178,5 +180,10 @@ module.exports.Quest = Quest;
 
 let PendingQuest = mongoose.model("PendingQuest", pendingQuestSchema);
 module.exports.PendingQuest = PendingQuest;
+
+// O arquivo do modelo deve estar na pasta /mongoose
+// Corrigindo o caminho para o local correto
+let Lore = require("./events/Lore.js"); 
+module.exports.Lore = Lore;
 
 module.exports.connect = connectToDatabase;
