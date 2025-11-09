@@ -275,9 +275,6 @@ async function handleRegistro(
         );
         /* #endregion */
 
-        // Adiciona o terceiro campo apenas se for para 'aparência'
-        // campos = config.labelCampo{numero 1-3} - ver nas configs
-
         /* #region  LABEL APARÊNCIA */
         if (config.labelCampo3) {
           // se for aparência, tem o labelCampo3 = personagem
@@ -328,8 +325,6 @@ async function handleRegistro(
               argJogador: userDb?.jogador,
             };
 
-            // LÓGICA VERSO DAQUI PRA BAIXO
-            //verifica se a pessoa colocou % ou não e se não, insere
             if (
               tipo === "verso" &&
               (args.argUso !== null || args.argUso !== 0)
@@ -341,7 +336,7 @@ async function handleRegistro(
                   usoValue = `${parsedUso}%`;
                 }
               }
-              args.argUso = usoValue; // Atualiza o valor de uso formatado
+              args.argUso = usoValue; 
             }
 
             /* #region ACHJAR LINHA VAZIA PARA REGISTRAR*/
@@ -388,7 +383,6 @@ async function handleRegistro(
             });
             /* #endregion */
 
-            // verifica se o uso registrado pelo usuario é maior que 0, então obriga a inserir aparências
             if (tipo === "verso" && parseFloat(args.argUso) > 0) {
               /* #region  FORMULARIO DE APARENCIAS JA USADAS */
               let title = `Aparências usadas: ${args.argNome}`;

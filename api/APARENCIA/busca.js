@@ -47,7 +47,7 @@ async function buscarAparencia(configAparencia) {
             contador
         );
 
-        const target = normalizeText(nomeAparencia); //normalizar m.content
+        const target = normalizeText(nomeAparencia); 
         let resultados = [];
         /* #region  BUSCA RESULTADOS NA PLANILHA */
 
@@ -239,15 +239,10 @@ function criaEmbedResultados(resultados, configEmbed){
                 if(!userDb ) console.log(`${err}`)
                 if(!currentResult ) console.log(`${err}`)
                 if (currentResult && userDb) {
-                    // Log para debug
-                    console.log('Comparando jogadores:');
-                    console.log('Aparência:', currentResult.jogador, '→', jogadorAparencia);
-                    console.log('Usuário:', userDb.jogador, '→', jogadorUsuario);
 
                     const jogadorAparencia = await normalizeText(currentResult.jogador);
                     const jogadorUsuario = await normalizeText(userDb.jogador);
                     
-                    // Comparação exata após normalização
                     const isOwner = jogadorAparencia == jogadorUsuario;
                     const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
 
@@ -300,7 +295,6 @@ function criaEmbedResultados(resultados, configEmbed){
 
             navCollector.on("collect", async (ii) => {
                 switch (ii.customId) {
-                    // ... (cases for sim_ap, nao_ap, etc)
                     case 'sim_ap':
 
                         const formularioRegisto = new ModalBuilder()
@@ -360,7 +354,7 @@ function criaEmbedResultados(resultados, configEmbed){
                                 keyFile: keyFilePath,
                                 scopes: [
                                     "https://www.googleapis.com/auth/spreadsheets",
-                                ], // Escopo para ler e escrever
+                                ],
                             });
                             let sheetsUp = google.sheets({
                                 version: "v4",
@@ -394,7 +388,7 @@ function criaEmbedResultados(resultados, configEmbed){
                     case 'nao_ap':
                         page = 1;
                         await msgNavegacao.edit({
-                            embeds: [EmbedPagesAparencia[page]], // A página de registro é a 0
+                            embeds: [EmbedPagesAparencia[page]], 
                             components: [await navRow(page)],
                         }).catch(() => { });
                         break;

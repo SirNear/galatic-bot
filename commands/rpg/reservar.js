@@ -45,8 +45,6 @@ module.exports = class reservar extends Command {
 
         console.log(`Cancelando e tentando apagar ${deletable.length} mensagens.`);
         
-        // Tenta apagar as mensagens em massa (mais eficiente)
-        // Filtra para remover qualquer item que não seja uma mensagem válida
         const mensagensValidas = deletable.filter(m => m && m.deletable);
         
         if (mensagensValidas.length > 0) {

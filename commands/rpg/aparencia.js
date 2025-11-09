@@ -280,12 +280,6 @@ module.exports = class aparencia extends Command {
                         const jogadorPlanilha = currentResult.jogador;
                         const jogadorDB = userDb.jogador;
 
-                        // --- DEBUG LOG ---
-                        console.log(`[DEBUG] Verificando dono (prefixo):`);
-                        console.log(` - Planilha: '${jogadorPlanilha}' -> Normalizado: '${await normalizeText(jogadorPlanilha)}'`);
-                        console.log(` - Banco de Dados: '${jogadorDB}' -> Normalizado: '${await normalizeText(jogadorDB)}'`);
-                        // --- FIM DEBUG ---
-
                         const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
                         const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
 
