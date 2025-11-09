@@ -117,11 +117,6 @@ module.exports = class reservar extends Command {
             deletable.push(m)
           let aparencia = await pararContador(m.content, intervalo, contador);
 
-          embedRAparencia.addFields({
-            name: "**NOME DA APARÊNCIA**",
-            value: aparencia,
-            inline: true,
-          });
           embedRAparencia.setDescription(
             "Envie o **nome do universo** a qual essa aparência pertence"
           );
