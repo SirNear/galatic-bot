@@ -96,47 +96,82 @@ module.exports = class lore extends Command {
       .setColor('#0099ff')
       .setFooter({ text: 'Você tem 2 minutos para reagir.' });
     
-    await interaction.reply({ embeds: [embed], flags: 64 });
+    const replyMessage = await interaction.reply({ embeds: [embed], fetchReply: true });
 
     const reactionFilter = (reaction, user) => user.id === interaction.user.id && reaction.message.channel.id === interaction.channelId;
+    
+    let startTimeout, endTimeout;
+
     const startCollector = async (reaction, user) => {
         if (!reactionFilter(reaction, user)) return;
 
         if (reaction.emoji.name === '👍') {
+            clearTimeout(startTimeout); // Limpa o timeout de início
             const loreInicio = reaction.message;
             this.client.removeListener('messageReactionAdd', startCollector); 
 
             embed.setDescription('Ótimo! Agora reaja com 👎 na **última** mensagem do seu RP.');
-            await interaction.editReply({ embeds: [embed] });
+            await replyMessage.edit({ embeds: [embed] });
 
             const endCollector = async (endReaction, endUser) => {
                 if (!reactionFilter(endReaction, endUser)) return;
 
                 if (endReaction.emoji.name === '👎' && endReaction.message.id !== loreInicio.id) {
+                    clearTimeout(endTimeout); // Limpa o timeout de fim
                     const loreFim = endReaction.message;
                     this.client.removeListener('messageReactionAdd', endCollector);
 
                     if (loreInicio.createdTimestamp > loreFim.createdTimestamp) {
-                        await interaction.followUp({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.', flags: 64 });
+                        await replyMessage.channel.send({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.' });
                         return;
                     }
 
-                    await interaction.editReply({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [] });
+                    await replyMessage.edit({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: [] });
 
                     try {
                         const messages = await this.fetchMessagesBetween(interaction.channel, loreInicio.id, loreFim.id);
-                        const formattedText = messages
-                            .filter(msg => msg.content.trim() !== '')
-                            .map(msg => msg.content)
-                            .join("\n\n");
+                        
+                        let finalPages = [];
+                        let textBlock = [];
 
-                        // Ajuste para a nova estrutura de página
-                        const pages = this.paginateText(formattedText).map(content => ({
-                            content: content
-                        }));
+                        const processAndPaginateTextBlock = (imageUrl = null) => {
+                            if (textBlock.length > 0) {
+                                const fullText = textBlock.join('\n\n');
+                                const textPages = this.paginateText(fullText);
+                                textPages.forEach(pageContent => {
+                                    finalPages.push({
+                                        content: pageContent,
+                                        imageUrl: imageUrl
+                                    });
+                                });
+                                textBlock = [];
+                            }
+                        };
+
+                        for (let i = 0; i < messages.length; i++) {
+                            const msg = messages[i];
+                            const hasText = msg.content && msg.content.trim() !== '';
+
+                            if (hasText) {
+                                textBlock.push(msg.content);
+                            }
+
+                            const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'));
+
+                            // Se a mensagem atual tem uma imagem, ou se é a última mensagem do loop,
+                            // processamos o bloco de texto acumulado até agora.
+                            if (imageAttachment || i === messages.length - 1) {
+                                processAndPaginateTextBlock(imageAttachment?.url ?? null);
+                            }
+                        }
+
+                        const pages = finalPages.map(page => {
+                            // Garante que o conteúdo nunca seja nulo para evitar erros
+                            return { content: page.content || ' ', imageUrl: page.imageUrl || null };
+                        });
 
                         if (pages.length === 0) {
-                            await interaction.editReply({ content: 'Nenhuma mensagem encontrada no intervalo selecionado.' });
+                            await replyMessage.edit({ content: 'Nenhuma mensagem encontrada no intervalo selecionado.' });
                             return;
                         }
 
@@ -145,7 +180,8 @@ module.exports = class lore extends Command {
                         const generateEmbed = (pageIndex) => {
                             return new EmbedBuilder()
                                 .setTitle(`<a:spinnyman:1433853169884205106> | Lore Organizada`)
-                                .setDescription(pages[pageIndex].content)
+                                .setDescription(pages[pageIndex].content.substring(0, 4096))
+                                .setImage(pages[pageIndex].imageUrl)
                                 .setColor('#0099ff')
                                 .setFooter({ text: `Página ${pageIndex + 1} de ${pages.length}` });
                         };
@@ -165,7 +201,7 @@ module.exports = class lore extends Command {
                             );
                         };
 
-                        const loreMessage = await interaction.editReply({
+                        const loreMessage = await replyMessage.edit({
                             embeds: [generateEmbed(currentPage)],
                             components: pages.length > 1 ? [getButtons(currentPage)] : [],
                         });
@@ -183,7 +219,7 @@ module.exports = class lore extends Command {
                                     .setEmoji('❌')
                             );
 
-                        await interaction.editReply({
+                        await replyMessage.edit({
                             embeds: [generateEmbed(currentPage)],
                             components: pages.length > 1 ? [getButtons(currentPage), confirmButton] : [confirmButton]
                         });
@@ -203,7 +239,8 @@ module.exports = class lore extends Command {
                                     await i.update({ embeds: [generateEmbed(currentPage)], components: [getButtons(currentPage), confirmButton] });
                                 } else if (i.customId === 'confirm_lore') {
                                     this.client.fichaStates.set(interaction.user.id, {
-                                        pages: pages
+                                        pages: pages,
+                                        rawMessages: messages // Armazena as mensagens originais
                                     });
 
                                     const modal = new ModalBuilder()
@@ -236,7 +273,7 @@ module.exports = class lore extends Command {
                             });
 
                         allComponentsCollector.on('end', (collected, reason) => {
-                                if (collected.size === 0) loreMessage.edit({ content: 'Tempo para confirmação esgotado.', embeds: [], components: [] }).catch(() => {});
+                                if (reason === 'time') replyMessage.edit({ content: 'Tempo para confirmação esgotado.', embeds: [], components: [] }).catch(() => {});
                         });
                     } catch (err) {
                         console.error("Erro ao buscar ou paginar a lore:", err);
@@ -246,17 +283,17 @@ module.exports = class lore extends Command {
             }; 
             this.client.on('messageReactionAdd', endCollector);
 
-            setTimeout(() => {
+            endTimeout = setTimeout(() => {
                 this.client.removeListener('messageReactionAdd', endCollector);
-                interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [] }).catch(() => {});
+                replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [] }).catch(() => {});
             }, 120000); 
         }
     }; 
     this.client.on('messageReactionAdd', startCollector);
-
-    setTimeout(() => {
+    
+    startTimeout = setTimeout(() => {
         this.client.removeListener('messageReactionAdd', startCollector);
-        interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', embeds: [] }).catch(() => {});
+        replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', embeds: [] }).catch(() => {});
     }, 120000); 
   }
 };

@@ -6,10 +6,13 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    InteractionType,
+    InteractionType,    
+    AttachmentBuilder,
     ComponentType
 } = require('discord.js');
 const { google } = require("googleapis");
+const { messagesToTxt } = require('../api/messagesToTxt.js');
+const Lore = require('./Lore.js'); // Importa o modelo da Lore
 
 module.exports = class {
     constructor(client) {
@@ -34,11 +37,11 @@ module.exports = class {
                 if (interaction.customId.startsWith('lore_manage_')) {
                     const parts = interaction.customId.split('_');
                     const manageAction = parts[2];
-                    const messageId = parts[3];
+                    const messageId = parts[3]; // Para lore_manage_ACTION_MESSAGE_ID
                     const lore = await this.client.database.Lore.findOne({ messageId: messageId });
 
                     if (!lore || interaction.user.id !== lore.createdBy) {
-                        return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', ephemeral: true });
+                        return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', flags: 64 });
                     }
 
                     if (manageAction === 'edit-title') {
@@ -53,6 +56,9 @@ module.exports = class {
                             .setRequired(true);
                         modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
                         await interaction.showModal(modal);
+
+                        return; 
+
                     } else if (manageAction === 'delete-lore') {
                         const confirmRow = new ActionRowBuilder().addComponents(
                             new ButtonBuilder().setCustomId(`lore_delete_confirm_${messageId}`).setLabel('Sim, EXCLUIR TUDO!').setStyle(ButtonStyle.Danger),
@@ -61,7 +67,7 @@ module.exports = class {
                         await interaction.reply({
                             content: `⚠️ **ATENÇÃO!** Você tem certeza que deseja excluir **TODA** a lore **"${lore.title}"**? Esta ação é irreversível e apagará todos os capítulos e páginas.`,
                             components: [confirmRow],
-                            ephemeral: true
+                            flags: 64
                         });
                     }
                     return;
@@ -94,41 +100,64 @@ module.exports = class {
                 }
 
 
+                    // ======================= INÍCIO DA LÓGICA DE PAGINAÇÃO E NAVEGAÇÃO DA LORE =======================
                     if (interaction.customId.startsWith('lore_')) { 
+                    const [prefix, action, type, ...rest] = interaction.customId.split('_');
                     const parts = interaction.customId.split('_');
 
-                    const action = parts[1];
-                    let messageId;
-                    if (action === 'read') { 
-                        messageId = parts[2];
-                    } else if (action === 'add' && parts[2] === 'chapter') { 
-                        messageId = parts[3];
-                    } else { 
-                        messageId = parts[3]; 
-                    }
-                    const lore = await this.client.database.Lore.findOne({ messageId: messageId });
-
-
-                    if (!lore) {
-                        return interaction.reply({ content: '❌ Esta lore parece estar desatualizada ou corrompida.', ephemeral: true });
-                    }
-
+                    let messageId; // Variável para armazenar o ID da mensagem principal da lore
                     let chapterIndex = parseInt(parts[4] || '0', 10);
                     let pageIndex = parseInt(parts[5] || '0', 10);
+                    // Índice para a paginação da descrição de uma única página, caso ela seja muito longa.
+                    let descPageIndex = parseInt(parts[6] || '0', 10);
+
+                    // Lógica aprimorada para extrair o messageId com base na estrutura do customId
+                    if (action === 'read') { // Ex: lore_read_MESSAGE_ID
+                        messageId = parts[2];
+                    } else if (action === 'add' && type === 'chapter') { // Ex: lore_add_chapter_MESSAGE_ID
+                        messageId = parts[3];
+                    } else if (action === 'add-image' || action === 'edit_page' || action === 'delete_chapter') { // Ex: lore_add-image_MESSAGE_ID_CHAP_PAGE
+                        messageId = parts[2];
+                        // Reajusta os índices para estas ações, pois o messageId está em parts[2]
+                        chapterIndex = parseInt(parts[3] || '0', 10);
+                        pageIndex = parseInt(parts[4] || '0', 10);
+                    } else { // Para todas as outras ações de navegação (prev/next chapter/page/desc)
+                             // Ex: lore_prev_chapter_MESSAGE_ID_CHAP_PAGE_DESC
+                        messageId = parts[3];
+                    }
+                    const lore = await this.client.database.Lore.findOne({ messageId: messageId }).lean();
+
+                    if (!lore) {
+                        return interaction.reply({ content: '❌ Esta lore parece estar desatualizada ou corrompida.', flags: 64 });
+                    }
+
                     switch (action) {
                         case 'prev':
                             if (parts[2] === 'page' && pageIndex > 0) {
                                 pageIndex--;
-                            } else if (parts[2] === 'chapter' && chapterIndex > 0) {
+                                descPageIndex = 0; // Reset desc page index when changing pages
+                            } else if (parts[2] === 'chapter' && chapterIndex > 0) { // Navega para o capítulo anterior.
                                 chapterIndex--;
                                 pageIndex = 0;
+                                descPageIndex = 0; // Reseta todos os índices.
+                            }
+                            // Navega para a parte anterior da descrição da página atual.
+                            if (parts[2] === 'desc') {
+                                if (descPageIndex > 0) descPageIndex--;
                             }
                             break;
                         case 'next':
                             if (parts[2] === 'page' && pageIndex < lore.chapters[chapterIndex].pages.length - 1) { 
-                            } else if (parts[2] === 'chapter' && chapterIndex < lore.chapters.length - 1) {
+                                pageIndex++;
+                                descPageIndex = 0; // Reseta a paginação da descrição ao trocar de página.
+                            } else if (parts[2] === 'chapter' && chapterIndex < lore.chapters.length - 1) { // Navega para o próximo capítulo.
                                 chapterIndex++;
                                 pageIndex = 0;
+                                descPageIndex = 0; // Reseta todos os índices.
+                            }
+                            // Navega para a próxima parte da descrição da página atual.
+                            if (parts[2] === 'desc') {
+                                descPageIndex++;
                             }
                             break;
                         case 'edit':
@@ -144,7 +173,7 @@ module.exports = class {
                                     .setRequired(true);
                                 editModal.addComponents(new ActionRowBuilder().addComponents(pageContentInput));
                                 await interaction.showModal(editModal);
-                                return;
+                                return; // Retorna para evitar que a interação seja atualizada antes do modal
                             }
                             break;
                         case 'delete':
@@ -156,7 +185,7 @@ module.exports = class {
                                 await interaction.reply({
                                     content: `Tem certeza que deseja excluir o capítulo **"${lore.chapters[chapterIndex].name}"**? Esta ação não pode ser desfeita.`,
                                     components: [confirmRow],
-                                    ephemeral: true
+                                    flags: 64
                                 });
                                 return; 
                             }
@@ -175,10 +204,10 @@ module.exports = class {
                                 imageModal.addComponents(new ActionRowBuilder().addComponents(imageUrlInput));
                                 await interaction.showModal(imageModal);
                             }
-                            return;
+                            return; // Retorna para evitar que a interação seja atualizada antes do modal
                         case 'add': 
                             if (parts[1] === 'add' && parts[2] === 'chapter' && interaction.user.id !== lore.createdBy) {
-                                return interaction.reply({ content: '❌ Você não tem permissão para adicionar capítulos a esta lore.', ephemeral: true });
+                                return interaction.reply({ content: '❌ Você não tem permissão para adicionar capítulos a esta lore.', flags: 64 });
                             }
                             const modal = new ModalBuilder()
                                 .setCustomId(`add_chapter_modal_${lore.messageId}`)
@@ -190,7 +219,7 @@ module.exports = class {
                                 .setPlaceholder('Ex: Capítulo 2: A Vingança')
                                 .setRequired(true);
                             modal.addComponents(new ActionRowBuilder().addComponents(chapterNameInput));
-                            await interaction.showModal(modal);
+                            await interaction.showModal(modal); // Retorna para evitar que a interação seja atualizada antes do modal
                             return; 
                         case 'read':
                             break;
@@ -198,30 +227,156 @@ module.exports = class {
                             return; 
                     }
 
-                    const generateEphemeralEmbed = (loreDoc, chapIdx, pIdx) => {
-                        const chapter = loreDoc.chapters[chapIdx];
-                        return new EmbedBuilder()
-                            .setTitle(loreDoc.title)
-                            .setColor('#0099ff')
-                            .setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() }) 
-                            .setDescription(chapter.pages[pIdx].content)
-                            .setImage(chapter.pages[pIdx].imageUrl || null)
-                            .setFooter({ text: `${chapter.name} - Parte ${pIdx + 1} de ${chapter.pages.length}` })
-                            .setTimestamp();
+                    // ======================= FUNÇÃO HELPER DE PAGINAÇÃO DE TEXTO =======================
+                    // Esta função divide um texto longo em partes menores (páginas) que cabem nos limites do Discord (4096 caracteres para embeds).
+                    // Ela tenta quebrar o texto em pontos lógicos (parágrafos, linhas, espaços) para não cortar palavras ou frases no meio.
+                    const splitText = (text, maxLength = 4096) => {
+                        const parts = [];
+                        let currentChunk = text;
+                        while (currentChunk.length > 0) {
+                            if (currentChunk.length <= maxLength) {
+                                parts.push(currentChunk);
+                                break;
+                            }
+                            let splitIndex = currentChunk.lastIndexOf('\n\n', maxLength);
+                            if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf('\n', maxLength);
+                            if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf(' ', maxLength);
+                            if (splitIndex === -1) splitIndex = maxLength;
+                            parts.push(currentChunk.substring(0, splitIndex));
+                            currentChunk = currentChunk.substring(splitIndex).trim();
+                        }
+                        return parts;
+                    };
+                    // ======================= FIM DA FUNÇÃO HELPER DE PAGINAÇÃO DE TEXTO =======================
+
+                    const validateImageUrl = async (url) => {
+                        try {
+                            const response = await fetch(url);
+                            return response.ok && response.headers.get('content-type')?.startsWith('image/');
+                        } catch {
+                            return false;
+                        }
                     };
 
-                    const getEphemeralButtons = (loreDoc, chapIdx, pIdx) => {
+                    // ======================= GERAÇÃO DE EMBED COM SUPORTE À PAGINAÇÃO DE DESCRIÇÃO =======================
+                    // Esta função cria o embed que será exibido para o usuário.
+                    // Ela utiliza a função `splitText` para dividir o conteúdo da página (`page.content`) se ele for muito longo.
+                    // O `descPIdx` (índice da página de descrição) é usado para exibir a parte correta do texto.
+                    const generateEphemeralEmbed = async (loreDoc, chapIdx, pIdx, descPIdx) => {
+                        try {
+                            let files = []; // Array para armazenar os arquivos a serem anexados.
+                            const chapter = loreDoc.chapters[chapIdx];
+                            const page = chapter.pages[pIdx];
+
+                            // Garante que temos um conteúdo válido
+                            if (!page || !page.content) {
+                                return new EmbedBuilder()
+                                    .setColor('Red')
+                                    .setTitle('❌ Erro')
+                                    .setDescription('Página não encontrada ou sem conteúdo.')
+                                    .setTimestamp();
+                            }
+
+                            // A PAGINAÇÃO OCORRE AQUI: O texto da página é dividido em `descriptionParts`.
+                            const descriptionParts = splitText(page.content);
+                            
+                            // Seleciona a parte correta da descrição para exibir.
+                            let currentDescription = 'Sem conteúdo disponível.';
+                            
+                            if (descriptionParts && descriptionParts.length > 0) {
+                                if (descPIdx < descriptionParts.length) {
+                                    currentDescription = descriptionParts[descPIdx];
+                                } else {
+                                    currentDescription = descriptionParts[0];
+                                }
+                            }
+
+                            // Garante que a descrição nunca seja undefined ou vazia
+                            if (!currentDescription || currentDescription.trim() === '') {
+                                currentDescription = 'Sem conteúdo disponível.';
+                            }
+
+                            const footerParts = [`${chapter.name} - Página ${pIdx + 1} de ${chapter.pages.length}`];
+                            // Se a descrição foi dividida, adiciona a informação de "Parte X de Y" no rodapé.
+                            if (descriptionParts.length > 1) {
+                                footerParts.push(`Parte ${descPIdx + 1} de ${descriptionParts.length}`);
+                            }
+
+                            const embed = new EmbedBuilder()
+                                .setTitle(loreDoc.title || 'Lore')
+                                .setColor('#0099ff')
+                                .setAuthor({ 
+                                    name: `Lore por ${interaction.user.username}`, 
+                                    iconURL: interaction.user.displayAvatarURL() 
+                                })
+                                .setDescription(currentDescription || ' ') // Ensure description is never null/undefined/empty string
+                                .setFooter({ text: footerParts.join(' | ') })
+                                .setTimestamp();
+
+                            // Verifica e adiciona a imagem se existir e for válida
+                            // --- Lógica de processamento de imagem ---
+                            if (page?.imageUrl) {
+                                const isValidImage = await validateImageUrl(page.imageUrl);
+                                if (isValidImage) {
+                                    try {
+                                        // Faz o download da imagem para um buffer
+                                        const response = await fetch(page.imageUrl); // Certifique-se de que `fetch` está disponível (importado)
+                                        const imageBuffer = Buffer.from(await response.arrayBuffer());
+                                        const attachment = new AttachmentBuilder(imageBuffer, { name: 'lore_image.png' });
+                                        files.push(attachment);
+                                        // Define a imagem no embed para usar o anexo local
+                                        embed.setImage('attachment://lore_image.png');
+                                    } catch (fetchError) {
+                                        console.error(`Falha ao baixar a imagem da URL: ${page.imageUrl}`, fetchError);
+                                    }
+                                }
+                            }
+                            // --- Fim da lógica de processamento de imagem ---
+
+                            return { embed, files }; // Retorna o embed e os arquivos
+
+                        } catch (error) {
+                            console.error('Erro ao gerar embed:', error);
+                            // Retorna um embed de erro com descrição válida
+                            const errorEmbed = new EmbedBuilder()
+                                .setColor('Red')
+                                .setTitle('❌ Erro ao carregar página')
+                                .setDescription('Ocorreu um erro ao carregar esta página da lore.')
+                                .setTimestamp();
+                            return { embed: errorEmbed, files: [] }; // Retorna o embed de erro e um array vazio de arquivos
+                        }
+                    };
+                    // ======================= FIM DA GERAÇÃO DE EMBED PAGINADA =======================
+
+
+                    // ======================= GERAÇÃO DE BOTÕES COM SUPORTE À PAGINAÇÃO DE DESCRIÇÃO =======================
+                    // Esta função cria os botões de navegação.
+                    // Se a descrição de uma página foi dividida em várias partes (`totalDescPages > 1`), ela adiciona botões específicos ("◀ Descrição" e "Descrição ▶") para navegar entre essas partes.
+                    const getEphemeralButtons = (loreDoc, chapIdx, pIdx, descPIdx) => {
                         const totalChapters = loreDoc.chapters.length;
-                        const totalPagesInChapter = loreDoc.chapters[chapIdx].pages.length;                        const chapterNavRow = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder().setCustomId(`lore_prev_chapter_${messageId}_${chapIdx}_${pIdx}`).setLabel('<< Cap. Anterior').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx === 0),
-                            new ButtonBuilder().setCustomId(`lore_next_chapter_${messageId}_${chapIdx}_${pIdx}`).setLabel('Cap. Próximo >>').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx >= totalChapters - 1)
+                        const totalPagesInChapter = loreDoc.chapters[chapIdx].pages.length;
+                        const descriptionParts = splitText(loreDoc.chapters[chapIdx].pages[pIdx].content);
+                        const totalDescPages = descriptionParts.length;
+
+                        const chapterNavRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`lore_prev_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('<< Cap. Anterior').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx === 0),
+                            new ButtonBuilder().setCustomId(`lore_next_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Cap. Próximo >>').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx >= totalChapters - 1)
                         );
                         const pageNavRow = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder().setCustomId(`lore_prev_page_${messageId}_${chapIdx}_${pIdx}`).setLabel('◀️').setStyle(ButtonStyle.Primary).setDisabled(pIdx === 0),
-                            new ButtonBuilder().setCustomId(`lore_next_page_${messageId}_${chapIdx}_${pIdx}`).setLabel('▶️').setStyle(ButtonStyle.Primary).setDisabled(pIdx >= totalPagesInChapter - 1)
+                            new ButtonBuilder().setCustomId(`lore_prev_page_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('◀️ Página').setStyle(ButtonStyle.Primary).setDisabled(pIdx === 0),
+                            new ButtonBuilder().setCustomId(`lore_next_page_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Página ▶️').setStyle(ButtonStyle.Primary).setDisabled(pIdx >= totalPagesInChapter - 1)
                         );
 
                         const components = [chapterNavRow, pageNavRow];
+
+                        // AQUI SÃO ADICIONADOS OS BOTÕES DE PAGINAÇÃO DA DESCRIÇÃO
+                        if (totalDescPages > 1) {
+                            const descNavRow = new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId(`lore_prev_desc_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('◀ Descrição').setStyle(ButtonStyle.Secondary).setDisabled(descPIdx === 0),
+                                new ButtonBuilder().setCustomId(`lore_next_desc_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Descrição ▶').setStyle(ButtonStyle.Secondary).setDisabled(descPIdx >= totalDescPages - 1)
+                            );
+                            components.push(descNavRow);
+                        }
 
                         if (interaction.user.id === loreDoc.createdBy) {
                             const ownerActionsRow = new ActionRowBuilder().addComponents(
@@ -234,20 +389,26 @@ module.exports = class {
                         }
                         return components;
                     };
+                    // ======================= FIM DA GERAÇÃO DE BOTÕES DE PAGINAÇÃO =======================
 
+                    const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
                     const responseOptions = {
-                        embeds: [generateEphemeralEmbed(lore, chapterIndex, pageIndex)],
-                        components: getEphemeralButtons(lore, chapterIndex, pageIndex),
-                        flags: 64 
+                        embeds: [embed],
+                        files: files, // Adiciona os arquivos à resposta
+                        components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex),
+                        flags: 64
                     };
 
+                    // Garante que estamos usando o método correto para responder
                     if (action === 'read') {
                         await interaction.reply(responseOptions);
                     } else {
+                        // Se a interação já foi respondida, usa update
                         await interaction.update(responseOptions);
                     }
                     return; 
                 }
+                // ======================= FIM DA LÓGICA DE PAGINAÇÃO E NAVEGAÇÃO DA LORE =======================
 
                 if (interaction.customId.startsWith('delete_chapter_')) {
                     if (interaction.customId.startsWith('delete_chapter_confirm_')) {
@@ -295,7 +456,7 @@ module.exports = class {
 
                     if (isNaN(rowIndex)) {
                         console.error("Erro: rowIndex inválido ao processar aparência. CustomID:", interaction.customId);
-                        return interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação (ID de linha inválido).', ephemeral: true });
+                        return interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação (ID de linha inválido).', flags: 64 });
                     }
 
                     const res = await sheets.spreadsheets.values.get({
@@ -305,7 +466,7 @@ module.exports = class {
 
                     const rowData = res.data.values ? res.data.values[0] : null;
                     if (!rowData) {
-                        return interaction.reply({ content: '❌ Não foi possível encontrar os dados desta aparência. Pode ter sido movida ou excluída.', ephemeral: true });
+                        return interaction.reply({ content: '❌ Não foi possível encontrar os dados desta aparência. Pode ter sido movida ou excluída.', flags: 64 });
                     }
 
                     const [aparencia, universo, personagem, jogador] = rowData;
@@ -334,7 +495,7 @@ module.exports = class {
                         await interaction.reply({
                             content: `Tem certeza que deseja liberar a aparência **${aparencia}** do universo **${universo}**? Esta ação não pode ser desfeita.`,
                             components: [confirmRow],
-                            ephemeral: true
+                            flags: 64
                         });
                     }
                     return;
@@ -392,6 +553,9 @@ module.exports = class {
 
             } else if (interaction.isModalSubmit()) {
 
+                // ======================= INÍCIO DA CRIAÇÃO DE CAPÍTULO E PAGINAÇÃO DE CONTEÚDO =======================
+                // Este bloco é acionado quando o usuário envia o modal para adicionar um novo capítulo.
+                // O processo envolve coletar mensagens e paginá-las.
                 if (interaction.customId.startsWith('add_chapter_modal_')) {
                     const messageId = interaction.customId.split('_')[3];
                     const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
@@ -400,6 +564,8 @@ module.exports = class {
 
                     const reactionFilter = (reaction, user) => user.id === interaction.user.id && reaction.message.channel.id === interaction.channelId;
 
+                    // ======================= COLETA DE MENSAGENS PARA O NOVO CAPÍTULO =======================
+                    // O bot aguarda o usuário reagir com ➕ na primeira mensagem e ➖ na última.
                     const startCollectorFn = async (startReaction, user) => {
                         if (!reactionFilter(startReaction, user) || startReaction.emoji.name !== '➕') return;
                         this.client.removeListener('messageReactionAdd', startCollectorFn);
@@ -420,21 +586,112 @@ module.exports = class {
 
                             try {
                                 const loreCommand = this.client.commands.get('lore');
-                                const newMessages = await loreCommand.fetchMessagesBetween(interaction.channel, newStartMessage.id, newEndMessage.id);
-                                const newContent = newMessages.filter(msg => msg.content.trim() !== '').map(msg => msg.content).join('\n\n');
-                                const newPages = loreCommand.paginateText(newContent);
-                                const newPagesAsObjects = newPages.map(content => ({
-                                    content: content,
-                                    imageUrl: null
-                                }));
-                                const loreDB = await this.client.database.Lore.findOne({ messageId: messageId });
-                                if (!loreDB) return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
+                                if (!loreCommand) {
+                                    return interaction.editReply({ content: '❌ Erro interno: O comando base da lore não foi encontrado.' });
+                                }
 
-                                loreDB.chapters.push({ name: newChapterName, pages: newPagesAsObjects });
+                                const newMessages = await loreCommand.fetchMessagesBetween(interaction.channel, newStartMessage.id, newEndMessage.id);
+                                
+                                // ======================= PROCESSAMENTO E PAGINAÇÃO DAS MENSAGENS COLETADAS =======================
+                                // Esta lógica itera sobre as mensagens coletadas para criar as "páginas" do capítulo.
+                                // - `textBlock`: Acumula texto de mensagens consecutivas.
+                                // - `persistentImageUrl`: Associa uma imagem a todas as páginas de texto subsequentes.
+                                // - `processTextBlock()`: Pega o texto acumulado, usa `paginateText` para dividi-lo se for longo, e cria os objetos de página.
+                                let newPagesAsObjects = [];
+                                let textBlock = [];
+                                let persistentImageUrl = null;
+
+                                const processTextBlock = () => {
+                                    if (textBlock.length > 0) {
+                                        // AQUI OCORRE A PAGINAÇÃO DO TEXTO: `loreCommand.paginateText` (que usa uma lógica similar a `splitText`)
+                                        // divide o texto acumulado em `textPages` se ele exceder o limite.
+                                        const fullText = textBlock.join('\n\n');
+                                        const textPages = loreCommand.paginateText(fullText);
+                                        textPages.forEach(pageContent => {
+                                            newPagesAsObjects.push({
+                                                content: pageContent,
+                                                imageUrl: persistentImageUrl
+                                            });
+                                        });
+                                        textBlock = [];
+                                        persistentImageUrl = null;
+                                    }
+                                };
+
+                                // Itera sobre cada mensagem para construir os blocos de texto e associar imagens.
+                                for (const msg of newMessages) {
+                                    const hasText = msg.content && msg.content.trim() !== '';
+                                    const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'))?.url;
+
+                                    if (imageAttachment) {
+                                        // 1. Processa qualquer texto acumulado ANTES desta imagem.
+                                        processTextBlock(); 
+                                        
+                                        // 2. Se a mensagem atual tem texto, cria uma página para ele COM a imagem.
+                                        if (hasText) {
+                                            textBlock.push(msg.content);
+                                            persistentImageUrl = imageAttachment;
+                                            processTextBlock(); // Processa imediatamente este bloco com texto e imagem.
+                                        } else {
+                                            // 3. Se a mensagem tem SÓ a imagem, define-a como persistente para o próximo texto.
+                                            persistentImageUrl = imageAttachment;
+                                        }
+                                    } else if (hasText) {
+                                        // 4. Se a mensagem tem só texto, acumula no bloco atual.
+                                        textBlock.push(msg.content);
+                                    }
+                                    // Se a mensagem não tem texto nem imagem (ex: embed), ela é ignorada.
+                                }
+                                processTextBlock(); // Processa o bloco final
+                                // ======================= FIM DO PROCESSAMENTO E PAGINAÇÃO =======================
+
+                                const loreDB = await this.client.database.Lore.findOne({ messageId: messageId });
+                                if (!loreDB) {
+                                    return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
+                                }
+
+                                // Adiciona o novo capítulo ao array de capítulos do documento
+                                loreDB.chapters.push({ name: newChapterName });
+                                const newChapterIndex = loreDB.chapters.length - 1;
+
+                                loreDB.chapters[newChapterIndex].pages = newPagesAsObjects;
                                 await loreDB.save();
 
-                                await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! A mensagem da lore será atualizada.' });
+                                await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
 
+                                // Início da Lógica de Backup e Exclusão para o novo capítulo
+                                const backupChannelId = '1437124928737509559';
+                                const backupChannel = await this.client.channels.fetch(backupChannelId).catch(() => null);
+                                if (!backupChannel) {
+                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
+                                }
+
+                                const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
+                                const attachments = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
+                                if (zipBuffer) {
+                                    attachments.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
+                                }
+
+                                const backupSent = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
+                                const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
+
+                                if (!backupSent || !dmSent) {
+                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.', flags: 64 });
+                                }
+
+                                const twoWeeksAgo = Date.now() - 1209600000;
+                                const recentMessages = newMessages.filter(m => m.createdTimestamp > twoWeeksAgo && m.deletable);
+                                const oldMessages = newMessages.filter(m => m.createdTimestamp <= twoWeeksAgo && m.deletable);
+
+                                if (recentMessages.length > 0) {
+                                    await interaction.channel.bulkDelete(recentMessages, true).catch(() => {});
+                                }
+                                for (const msg of oldMessages) {
+                                    await msg.delete().catch(() => {});
+                                }
+
+                                await interaction.followUp({ content: '✅ Backup concluído e mensagens originais do novo capítulo foram limpas.', flags: 64 });
+                                // Fim da lógica de backup
                             } catch (error) {
                                 console.error("Erro ao adicionar novo capítulo:", error);
                                 await interaction.editReply({ content: '❌ Ocorreu um erro ao adicionar o novo capítulo.' });
@@ -444,11 +701,12 @@ module.exports = class {
                     };
                     this.client.on('messageReactionAdd', startCollectorFn);
                     return;
+                    // ======================= FIM DA CRIAÇÃO DE CAPÍTULO E PAGINAÇÃO DE CONTEÚDO =======================
                 }
 
                 if (interaction.customId.startsWith('edit_chapter_modal_')) {
 
-                    return interaction.reply({ content: 'Esta função foi atualizada para "Editar Página". Por favor, tente novamente.', ephemeral: true });
+                    return interaction.reply({ content: 'Esta função foi atualizada para "Editar Página". Por favor, tente novamente.', flags: 64 });
                 }
 
                 if (interaction.customId.startsWith('edit_page_modal_')) {
@@ -460,7 +718,7 @@ module.exports = class {
 
                     const lore = await this.client.database.Lore.findOne({ messageId: messageId });
                     if (!lore || interaction.user.id !== lore.createdBy) {
-                        return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
+                        return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
                     }
 
                     lore.chapters[chapterIndex].pages[pageIndex].content = newPageContent;
@@ -480,18 +738,59 @@ module.exports = class {
                     const pageIndex = parseInt(parts[5], 10);
                     const imageUrl = interaction.fields.getTextInputValue('image_url_input');
 
-                    const lore = await this.client.database.Lore.findOne({ messageId: messageId });
-                    if (!lore || interaction.user.id !== lore.createdBy) {
-                        return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
+                    // Validação da URL
+                    if (!imageUrl.startsWith('http')) {
+                        return interaction.reply({ 
+                            content: '❌ URL inválida. A URL deve começar com http:// ou https://',
+                            flags: 64 
+                        });
                     }
 
-                    lore.chapters[chapterIndex].pages[pageIndex].imageUrl = imageUrl;
-                    await lore.save();
+                    try {
+                        const lore = await this.client.database.Lore.findOne({ messageId: messageId });
+                        if (!lore || interaction.user.id !== lore.createdBy) {
+                            return interaction.reply({ 
+                                content: '❌ Você não tem permissão ou a lore não foi encontrada.',
+                                flags: 64 
+                            });
+                        }
 
-                    const currentEmbed = interaction.message.embeds[0];
-                    const updatedEmbed = EmbedBuilder.from(currentEmbed).setImage(imageUrl);
+                        // Garante que o caminho existe
+                        if (!lore.chapters[chapterIndex].pages[pageIndex]) {
+                            return interaction.reply({
+                                content: '❌ Página não encontrada na lore.',
+                                flags: 64
+                            });
+                        }
 
-                    await interaction.update({ embeds: [updatedEmbed] });
+                        // Atualiza a imageUrl
+                        lore.chapters[chapterIndex].pages[pageIndex].imageUrl = imageUrl;
+                        await lore.save();
+
+                        // Atualiza o embed com a nova imagem
+                        const currentEmbed = interaction.message.embeds[0];
+                        const updatedEmbed = EmbedBuilder.from(currentEmbed)
+                            .setImage(imageUrl);
+
+                        await interaction.update({ 
+                            embeds: [updatedEmbed],
+                            content: '✅ Imagem adicionada com sucesso!' 
+                        });
+
+                        console.log('Imagem salva:', {
+                            messageId,
+                            chapterIndex,
+                            pageIndex,
+                            imageUrl
+                        });
+
+                    } catch (err) {
+                        console.error('Erro ao salvar imagem:', err);
+                        await interaction.reply({ 
+                            content: '❌ Erro ao salvar a imagem. Tente novamente.',
+                            flags: 64 
+                        });
+                    }
                     return;
                 }
 
@@ -505,15 +804,20 @@ module.exports = class {
                     const updatedEmbed = EmbedBuilder.from(loreMessage.embeds[0]).setTitle(newTitle);
                     await loreMessage.edit({ embeds: [updatedEmbed] });
 
-                    await interaction.reply({ content: `✅ O título da lore foi atualizado com sucesso!`, ephemeral: true });
-                    return;
+                    await interaction.reply({ content: `✅ O título da lore foi atualizado com sucesso!`, flags: 64 });
+                    return; // Retorna para evitar que a interação seja atualizada antes do modal
                 }
 
 
                 if (interaction.customId === 'lore_modal_config') {
                     try {
+                        // Adia a resposta do modal IMEDIATAMENTE.
+                        // Isso garante que a interação seja reconhecida antes de qualquer processamento.
                         await interaction.deferReply({ flags: 64 });
 
+                        // Edita a resposta para dar feedback ao usuário enquanto o processamento ocorre.
+                        await interaction.editReply({ content: 'Salvando sua lore e preparando os backups... Isso pode levar um momento.' });
+                        
                         const title = interaction.fields.getTextInputValue('lore_title');
                         const chapter = interaction.fields.getTextInputValue('lore_chapter');
 
@@ -546,11 +850,16 @@ module.exports = class {
                             embeds: [generateEmbed(currentPage)]
                         });
 
-                        const publicButtons = new ActionRowBuilder().addComponents(
+                        const publicButtons = new ActionRowBuilder();
+                        publicButtons.addComponents(
                             new ButtonBuilder()
                                 .setCustomId(`lore_read_${loreMessage.id}`)
                                 .setLabel('📖 Ler Lore')
-                                .setStyle(ButtonStyle.Success),
+                                .setStyle(ButtonStyle.Success)
+                        );
+
+                        // Adiciona botões de gerenciamento se o usuário for o criador
+                        publicButtons.addComponents(
                             new ButtonBuilder()
                                 .setCustomId(`lore_manage_edit-title_${loreMessage.id}`)
                                 .setLabel('Editar Título').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
@@ -578,14 +887,68 @@ module.exports = class {
                         });
 
                         this.client.fichaStates.delete(interaction.user.id);
-                        await interaction.editReply({ content: `✅ Sua lore foi salva com sucesso neste canal!` });
+                        await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi salva com sucesso neste canal!`, flags: 64 });
+                        
+                        // Início da Lógica de Backup e Exclusão
+                        try {
+                            const backupChannelId = '1437124928737509559';
+                            const backupChannel = await this.client.channels.fetch(backupChannelId).catch(() => null);
+                            if (!backupChannel) {
+                                console.error(`Canal de backup ${backupChannelId} não encontrado.`);
+                                await interaction.followUp({ content: '⚠️ A lore foi salva, mas não foi possível encontrar o canal de backup. As mensagens originais não foram excluídas.', flags: 64 });
+                                return;
+                            }
+
+                            const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}.txt`, `Backup para ${title}`);
+                            
+                            const attachments = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
+                            if (zipBuffer) {
+                                attachments.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
+                            }
+
+                            // Envia para o canal de backup e para a DM
+                            const backupSent = await backupChannel.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: attachments }).catch(() => null);
+                            const dmSent = await interaction.user.send({ content: `Backup da sua lore **${title}**.`, files: attachments }).catch(dmError => console.error(`Erro ao enviar DM de backup para ${interaction.user.tag}:`, dmError));
+
+                            // Verifica se os backups foram enviados corretamente
+                            if (!backupSent || !dmSent) {
+                                await interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro ao enviar os backups (Verifique se suas DMs estão abertas). As mensagens originais **não foram excluídas**.', flags: 64 });
+                                return;
+                            }
+
+                            // Exclusão das mensagens
+                            await interaction.followUp({ content: ' backups enviados. Iniciando exclusão das mensagens originais...', flags: 64 });
+
+                            const twoWeeksAgo = Date.now() - 1209600000; // 14 dias em milissegundos
+                            const recentMessages = loreState.rawMessages.filter(m => m.createdTimestamp > twoWeeksAgo && m.deletable);
+                            const oldMessages = loreState.rawMessages.filter(m => m.createdTimestamp <= twoWeeksAgo && m.deletable);
+
+                            if (recentMessages.length > 0) {
+                                await interaction.channel.bulkDelete(recentMessages, true).catch(err => {
+                                    console.error("Erro no bulkDelete, tentando individualmente:", err);
+                                    for (const msg of recentMessages) {
+                                        msg.delete().catch(() => {});
+                                    }
+                                });
+                            }
+
+                            for (const msg of oldMessages) {
+                                await msg.delete().catch(() => {});
+                            }
+
+                            await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas do canal.', flags: 64 });
+
+                        } catch (backupError) {
+                            console.error("Erro no processo de backup/exclusão da lore:", backupError);
+                            await interaction.followUp({ content: '⚠️ A lore foi salva, mas um erro inesperado ocorreu durante o backup. As mensagens originais **não foram excluídas**.', flags: 64 });
+                        }
                     } catch (error) {
                         console.error("Erro ao processar o modal da lore:", error);
                     }
                 }
 
                 if (interaction.customId.startsWith('modal_edit_appearance_')) {
-                    await interaction.deferReply({ ephemeral: true });
+                    await interaction.deferReply({ flags: 64 });
     
                     const rowIndex = parseInt(interaction.customId.split('_')[3], 10);
                     const novoNome = interaction.fields.getTextInputValue('edit_ap_nome');
