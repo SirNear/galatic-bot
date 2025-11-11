@@ -98,7 +98,7 @@ module.exports = class lore extends Command {
     
     const replyMessage = await interaction.reply({ embeds: [embed], fetchReply: true });
 
-    const reactionFilter = (reaction, user) => user.id === interaction.user.id && reaction.message.channel.id === interaction.channelId;
+    const reactionFilter = (reaction, user) => user.id === interaction.user.id;
     
     let startTimeout, endTimeout;
 
@@ -129,7 +129,7 @@ module.exports = class lore extends Command {
                     await replyMessage.edit({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: [] });
 
                     try {
-                        const messages = await this.fetchMessagesBetween(interaction.channel, loreInicio.id, loreFim.id);
+                        const messages = await this.fetchMessagesBetween(loreInicio.channel, loreInicio.id, loreFim.id);
                         
                         let finalPages = [];
                         let textBlock = [];
@@ -203,6 +203,7 @@ module.exports = class lore extends Command {
 
                         const loreMessage = await replyMessage.edit({
                             embeds: [generateEmbed(currentPage)],
+                            flags: 64,
                             components: pages.length > 1 ? [getButtons(currentPage)] : [],
                         });
 
