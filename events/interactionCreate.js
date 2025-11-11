@@ -13,6 +13,7 @@ const {
 } = require('discord.js'); // Adicionado fetch
 const fetch = require('node-fetch');
 const { google } = require("googleapis");
+const { paginateText } = require('../commands/rpg/lore.js');
 const { messagesToTxt } = require('../api/messagesToTxt.js');
 const Lore = require('./Lore.js'); // Importa o modelo da Lore
 
@@ -656,17 +657,17 @@ module.exports = class {
                     const messageId = interaction.customId.split('_')[3];
                     const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
 
-                    const replyMessage = await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, flags: 64, fetchReply: true });
-
+                    await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, flags: 64 });
+ 
                     const reactionFilter = (reaction, user) => user.id === interaction.user.id;
-
+ 
                     // ======================= COLETA DE MENSAGENS PARA O NOVO CAPÍTULO =======================
                     const startCollectorFn = async (startReaction, user) => {
                         if (!reactionFilter(startReaction, user) || startReaction.emoji.name !== '➕') return;
                         this.client.removeListener('messageReactionAdd', startCollectorFn);
                         const newStartMessage = startReaction.message;
                         
-                        await replyMessage.edit({ content: 'Ótimo! Agora reaja com ➖ na **última** mensagem do novo capítulo.' });
+                        await interaction.editReply({ content: 'Ótimo! Agora reaja com ➖ na **última** mensagem do novo capítulo.' });
 
                         const endCollectorFn = async (endReaction, endUser) => {
                             if (!reactionFilter(endReaction, endUser) || endReaction.emoji.name !== '➖') return;
@@ -674,15 +675,15 @@ module.exports = class {
                             const newEndMessage = endReaction.message;
 
                             if (newStartMessage.createdTimestamp > newEndMessage.createdTimestamp) {
-                                return replyMessage.edit({ content: '❌ A mensagem de início do capítulo deve ser anterior à de fim. Operação cancelada.' });
+                                return interaction.editReply({ content: '❌ A mensagem de início do capítulo deve ser anterior à de fim. Operação cancelada.' });
                             }
 
-                            await replyMessage.edit({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
+                            await interaction.editReply({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
 
                             try {
                                 const loreCommand = this.client.commands.get('lore');
                                 if (!loreCommand) {
-                                    return interaction.editReply({ content: '❌ Erro interno: O comando base da lore não foi encontrado.' });
+                                    return interaction.followUp({ content: '❌ Erro interno: O comando base da lore não foi encontrado.', ephemeral: true });
                                 }
 
                                 const newMessages = await loreCommand.fetchMessagesBetween(newStartMessage.channel, newStartMessage.id, newEndMessage.id);
@@ -697,7 +698,7 @@ module.exports = class {
                                     if (textBlock.length > 0) {
                                 
                                         const fullText = textBlock.join('\n\n');
-                                        const textPages = loreCommand.paginateText(fullText);
+                                        const textPages = paginateText(fullText);
                                         textPages.forEach(pageContent => {
                                             newPagesAsObjects.push({
                                                 content: pageContent,
@@ -732,7 +733,7 @@ module.exports = class {
 
                                 const loreDB = await this.client.database.Lore.findOne({ messageId: messageId });
                                 if (!loreDB) {
-                                    return replyMessage.edit({ content: '❌ Lore original não encontrada. Operação cancelada.' });
+                                    return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
                                 }
 
                                 loreDB.chapters.push({ name: newChapterName });
@@ -740,13 +741,13 @@ module.exports = class {
 
                                 loreDB.chapters[newChapterIndex].pages = newPagesAsObjects;
                                 await loreDB.save();
-
-                                await replyMessage.edit({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
+ 
+                                await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
 
                                 const backupChannelId = '1437124928737509559';
                                 const backupChannel = await this.client.channels.fetch(backupChannelId).catch(() => null);
                                 if (!backupChannel) {
-                                    return replyMessage.reply({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.' });
+                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', ephemeral: true });
                                 }
 
                                 const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
@@ -759,7 +760,7 @@ module.exports = class {
                                 const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
 
                                 if (!backupSent || !dmSent) {
-                                    return replyMessage.reply({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.' });
+                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.', ephemeral: true });
                                 }
 
                                 const twoWeeksAgo = Date.now() - 1209600000;
@@ -773,11 +774,11 @@ module.exports = class {
                                     await msg.delete().catch(() => {});
                                 }
 
-                                await replyMessage.reply({ content: '✅ Backup concluído e mensagens originais do novo capítulo foram limpas.' });
+                                await interaction.followUp({ content: '✅ Backup concluído e mensagens originais do novo capítulo foram limpas.', ephemeral: true });
                                 // Fim da lógica de backup
                             } catch (error) {
                                 console.error("Erro ao adicionar novo capítulo:", error);
-                                await replyMessage.edit({ content: '❌ Ocorreu um erro ao adicionar o novo capítulo.' });
+                                await interaction.editReply({ content: '❌ Ocorreu um erro ao adicionar o novo capítulo.' });
                             }
                         };
                         this.client.on('messageReactionAdd', endCollectorFn);
@@ -1070,7 +1071,7 @@ module.exports = class {
                                 return;
                             }
 
-                            const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}.txt`, `Backup para ${title}`);
+                            const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
                             
                             const attachments = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
                             if (zipBuffer) {

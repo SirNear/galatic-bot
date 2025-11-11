@@ -7,8 +7,6 @@ async function messagesToTxt(messages, filename = 'log.txt', consoleMessage = 'G
         throw new Error("O array de mensagens não pode estar vazio.");
     }
     
-    console.log(`[${consoleMessage}] Iniciando processo para ${messages.length} mensagens.`);
-
     const imageAttachments = [];
     let imageCounter = 1;
 
@@ -38,13 +36,10 @@ async function messagesToTxt(messages, filename = 'log.txt', consoleMessage = 'G
         })
         .join("\n\n---\n\n"); // Separa cada mensagem para melhor legibilidade
 
-    console.log(`[${consoleMessage}] Convertendo texto formatado para buffer...`);
     const txtBuffer = Buffer.from(formattedText, 'utf-8');
-    console.log(`[${consoleMessage}] Processo de criação do .txt concluído para o arquivo "${filename}".`);
 
     let zipBuffer = null;
     if (imageAttachments.length > 0) {
-        console.log(`[${consoleMessage}] Encontradas ${imageAttachments.length} imagens. Iniciando compactação...`);
         zipBuffer = await zipImages(imageAttachments, `ZIP para ${filename}`);
     }
 

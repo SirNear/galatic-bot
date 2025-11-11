@@ -59,7 +59,8 @@ module.exports = class GalaticClient extends Client {
 		const event = this.events.events.includes(eventName)
 		if (!event) return false
 
-		const dir = `./events/${eventName}.js`
+		const finalEventName = eventName === 'ready' ? 'clientReady' : eventName;
+		const dir = `./events/${finalEventName}.js`
 		const status = this.events.remove(eventName)
 		if (!status) return status
 		delete require.cache[require.resolve(`${dir}`)]

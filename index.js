@@ -19,7 +19,7 @@ const client = new Client({
     await client.loadEvents();
     await client.loadCommands();
 
-    client.once('ready', async () => {
+    client.once('clientReady', async () => {
         console.log(`Bot logado como ${client.user.tag}!`);
         await client.registerSlashCommands();
         await client.loadQuestCollectors();
