@@ -234,16 +234,24 @@ module.exports = class {
                         case 'edit':
                             if (parts[2] === 'page' && interaction.user.id === lore.createdBy) {
                                 const editModal = new ModalBuilder()
-                                    .setCustomId(`edit_page_modal_${messageId}_${chapterIndex}_${pageIndex}`)
-                                    .setTitle('Editar Conteúdo da Página');
+                                    .setCustomId(`edit_page_modal_${messageId}_${chapterIndex}_${pageIndex}`) // Mantém o ID para compatibilidade
+                                    .setTitle('Editar Capítulo e Página');
 
+                                const chapterTitleInput = new TextInputBuilder()
+                                    .setCustomId('chapter_title_input')
+                                    .setLabel("Título do Capítulo")
+                                    .setStyle(TextInputStyle.Short)
+                                    .setValue(lore.chapters[chapterIndex].name)
+                                    .setRequired(true);
+                                
                                 const pageContentInput = new TextInputBuilder()
                                     .setCustomId('page_content_input')
                                     .setLabel("Conteúdo da página")
                                     .setStyle(TextInputStyle.Paragraph) 
                                     .setValue(lore.chapters[chapterIndex].pages[pageIndex].content) 
                                     .setRequired(true);
-
+                                
+                                editModal.addComponents(new ActionRowBuilder().addComponents(chapterTitleInput));
                                 editModal.addComponents(new ActionRowBuilder().addComponents(pageContentInput));
                                 await interaction.showModal(editModal);
                                 return; 
@@ -648,7 +656,7 @@ module.exports = class {
                     const messageId = interaction.customId.split('_')[3];
                     const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
 
-                    await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, flags: 64 });
+                    const replyMessage = await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, flags: 64, fetchReply: true });
 
                     const reactionFilter = (reaction, user) => user.id === interaction.user.id;
 
@@ -657,8 +665,8 @@ module.exports = class {
                         if (!reactionFilter(startReaction, user) || startReaction.emoji.name !== '➕') return;
                         this.client.removeListener('messageReactionAdd', startCollectorFn);
                         const newStartMessage = startReaction.message;
-
-                        await interaction.editReply({ content: 'Ótimo! Agora reaja com ➖ na **última** mensagem do novo capítulo.' });
+                        
+                        await replyMessage.edit({ content: 'Ótimo! Agora reaja com ➖ na **última** mensagem do novo capítulo.' });
 
                         const endCollectorFn = async (endReaction, endUser) => {
                             if (!reactionFilter(endReaction, endUser) || endReaction.emoji.name !== '➖') return;
@@ -666,10 +674,10 @@ module.exports = class {
                             const newEndMessage = endReaction.message;
 
                             if (newStartMessage.createdTimestamp > newEndMessage.createdTimestamp) {
-                                return interaction.followUp({ content: '❌ A mensagem de início do capítulo deve ser anterior à de fim. Operação cancelada.', flags: 64 });
+                                return replyMessage.edit({ content: '❌ A mensagem de início do capítulo deve ser anterior à de fim. Operação cancelada.' });
                             }
 
-                            await interaction.editReply({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
+                            await replyMessage.edit({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
 
                             try {
                                 const loreCommand = this.client.commands.get('lore');
@@ -724,7 +732,7 @@ module.exports = class {
 
                                 const loreDB = await this.client.database.Lore.findOne({ messageId: messageId });
                                 if (!loreDB) {
-                                    return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
+                                    return replyMessage.edit({ content: '❌ Lore original não encontrada. Operação cancelada.' });
                                 }
 
                                 loreDB.chapters.push({ name: newChapterName });
@@ -733,12 +741,12 @@ module.exports = class {
                                 loreDB.chapters[newChapterIndex].pages = newPagesAsObjects;
                                 await loreDB.save();
 
-                                await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
+                                await replyMessage.edit({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
 
                                 const backupChannelId = '1437124928737509559';
                                 const backupChannel = await this.client.channels.fetch(backupChannelId).catch(() => null);
                                 if (!backupChannel) {
-                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
+                                    return replyMessage.reply({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.' });
                                 }
 
                                 const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
@@ -751,7 +759,7 @@ module.exports = class {
                                 const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
 
                                 if (!backupSent || !dmSent) {
-                                    return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.', flags: 64 });
+                                    return replyMessage.reply({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.' });
                                 }
 
                                 const twoWeeksAgo = Date.now() - 1209600000;
@@ -765,11 +773,11 @@ module.exports = class {
                                     await msg.delete().catch(() => {});
                                 }
 
-                                await interaction.followUp({ content: '✅ Backup concluído e mensagens originais do novo capítulo foram limpas.', flags: 64 });
+                                await replyMessage.reply({ content: '✅ Backup concluído e mensagens originais do novo capítulo foram limpas.' });
                                 // Fim da lógica de backup
                             } catch (error) {
                                 console.error("Erro ao adicionar novo capítulo:", error);
-                                await interaction.editReply({ content: '❌ Ocorreu um erro ao adicionar o novo capítulo.' });
+                                await replyMessage.edit({ content: '❌ Ocorreu um erro ao adicionar o novo capítulo.' });
                             }
                         };
                         this.client.on('messageReactionAdd', endCollectorFn);
@@ -807,7 +815,6 @@ module.exports = class {
                 
                             const backupText = await response.text();
                 
-                            // Extrai apenas o conteúdo da mensagem, ignorando o timestamp e o autor
                             const contentOnly = backupText.split('\n')
                                 .map(line => {
                                     const match = line.match(/^\[.*?\] .*?: (.*)$/);
@@ -820,16 +827,14 @@ module.exports = class {
                                 return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
                             }
                 
-                            // Pagina o texto extraído
                             const loreCommand = this.client.commands.get('lore');
                             const textPages = require('../commands/rpg/lore.js').paginateText(contentOnly);
                 
                             const newPagesAsObjects = textPages.map(pageContent => ({
                                 content: pageContent,
-                                imageUrl: null // A restauração de imagem não é suportada neste fluxo
+                                imageUrl: null
                             }));
                 
-                            // Adiciona o novo capítulo à lore
                             lore.chapters.push({
                                 name: newChapterName,
                                 pages: newPagesAsObjects
@@ -865,18 +870,25 @@ module.exports = class {
                     const chapterIndex = parseInt(parts[4], 10);
                     const pageIndex = parseInt(parts[5], 10);
                     const newPageContent = interaction.fields.getTextInputValue('page_content_input');
+                    const newChapterTitle = interaction.fields.getTextInputValue('chapter_title_input');
 
                     const lore = await this.client.database.Lore.findOne({ messageId: messageId });
                     if (!lore || interaction.user.id !== lore.createdBy) {
                         return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
                     }
 
+                    // Atualiza o conteúdo da página e o nome do capítulo
                     lore.chapters[chapterIndex].pages[pageIndex].content = newPageContent;
+                    lore.chapters[chapterIndex].name = newChapterTitle;
                     await lore.save();
 
                     const currentEmbed = interaction.message.embeds[0];
-                    const updatedEmbed = EmbedBuilder.from(currentEmbed).setDescription(newPageContent);
+                    const footerText = `${newChapterTitle} - Página ${pageIndex + 1} de ${lore.chapters[chapterIndex].pages.length}`;
 
+                    const updatedEmbed = EmbedBuilder.from(currentEmbed)
+                        .setDescription(newPageContent)
+                        .setFooter({ text: footerText });
+                    
                     await interaction.update({ embeds: [updatedEmbed] });
                     return;
                 }
@@ -1169,9 +1181,7 @@ module.exports = class {
                         return this.run(interaction);
                     }
                 }
-            }
-
-
+            } 
         } catch (err) {
             console.error('Erro global ao processar interação:', err);
             if (interaction.replied || interaction.deferred) return;
