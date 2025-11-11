@@ -10,7 +10,8 @@ const {
     AttachmentBuilder,
     ComponentType,
     StringSelectMenuBuilder
-} = require('discord.js');
+} = require('discord.js'); // Adicionado fetch
+const fetch = require('node-fetch');
 const { google } = require("googleapis");
 const { messagesToTxt } = require('../api/messagesToTxt.js');
 const Lore = require('./Lore.js'); // Importa o modelo da Lore
@@ -120,7 +121,8 @@ module.exports = class {
                     } else if (action === 'add-image' || action === 'edit_page' || action === 'delete_chapter') { 
                         messageId = parts[2];
                         chapterIndex = parseInt(parts[3] || '0', 10);
-                        pageIndex = parseInt(parts[4] || '0', 10);
+                    } else if (action === 'add' && type === 'backup') { // Ex: lore_add_backup_MESSAGE_ID
+                        messageId = parts[3];
                     } else if (action === 'move-chapter') { 
                         messageId = parts[3];
                         chapterIndex = parseInt(parts[4] || '0', 10);
@@ -277,10 +279,10 @@ module.exports = class {
                             }
                             return; 
                         case 'add': 
-                            if (parts[1] === 'add' && parts[2] === 'chapter' && interaction.user.id !== lore.createdBy) {
+                            if (type === 'chapter' && interaction.user.id !== lore.createdBy) {
                                 return interaction.reply({ content: '❌ Você não tem permissão para adicionar capítulos a esta lore.', flags: 64 });
                             }
-                            const modal = new ModalBuilder()
+                            let modal = new ModalBuilder()
                                 .setCustomId(`add_chapter_modal_${lore.messageId}`)
                                 .setTitle('Adicionar Novo Capítulo');
                             const chapterNameInput = new TextInputBuilder()
@@ -290,6 +292,12 @@ module.exports = class {
                                 .setPlaceholder('Ex: Capítulo 2: A Vingança')
                                 .setRequired(true);
                             modal.addComponents(new ActionRowBuilder().addComponents(chapterNameInput));
+
+                            if (type === 'backup') {
+                                modal.setCustomId(`lore_add_backup_modal_${messageId}`);
+                                modal.setTitle('Adicionar Capítulo de Backup');
+                            }
+
                             await interaction.showModal(modal); 
                             return; 
                         case 'read':
@@ -438,6 +446,7 @@ module.exports = class {
                                 new ButtonBuilder().setCustomId(`lore_add_chapter_${messageId}`).setLabel('Adicionar Capítulo').setStyle(ButtonStyle.Success).setEmoji('➕'),
                                 new ButtonBuilder().setCustomId(`lore_edit_page_${messageId}_${chapIdx}_${pIdx}`).setLabel('Editar Texto').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
                                 new ButtonBuilder().setCustomId(`lore_add-image_${messageId}_${chapIdx}_${pIdx}`).setLabel('Imagem').setStyle(ButtonStyle.Secondary).setEmoji('🌄'),
+                                new ButtonBuilder().setCustomId(`lore_add_backup_${messageId}`).setLabel('Adicionar de Backup').setStyle(ButtonStyle.Secondary).setEmoji('📥'),
                                 new ButtonBuilder().setCustomId(`lore_delete_chapter_${messageId}_${chapIdx}_${pIdx}`).setLabel('Excluir Capítulo').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(totalChapters <= 1)
                             );
                             components.unshift(ownerActionsRow);
@@ -770,6 +779,81 @@ module.exports = class {
                     // ======================= FIM DA CRIAÇÃO DE CAPÍTULO E PAGINAÇÃO DE CONTEÚDO =======================
                 }
 
+                if (interaction.customId.startsWith('lore_add_backup_modal_')) {
+                    const messageId = interaction.customId.split('_')[4];
+                    const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
+                
+                    const lore = await this.client.database.Lore.findOne({ messageId: messageId });
+                    if (!lore || interaction.user.id !== lore.createdBy) {
+                        return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
+                    }
+                
+                    await interaction.reply({ 
+                        content: `✅ Capítulo nomeado como **"${newChapterName}"**. Agora, por favor, envie o arquivo de backup \`.txt\` correspondente. Você tem 5 minutos.`, 
+                        flags: 64 
+                    });
+                
+                    const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0 && m.attachments.first().name.endsWith('.txt');
+                    const collector = interaction.channel.createMessageCollector({ filter, time: 300000, max: 1 });
+                
+                    collector.on('collect', async msg => {
+                        const attachment = msg.attachments.first();
+                        
+                        try {
+                            await interaction.editReply({ content: '📥 Arquivo recebido. Processando o backup...' });
+                
+                            const response = await fetch(attachment.url);
+                            if (!response.ok) throw new Error('Falha ao baixar o arquivo de backup.');
+                
+                            const backupText = await response.text();
+                
+                            // Extrai apenas o conteúdo da mensagem, ignorando o timestamp e o autor
+                            const contentOnly = backupText.split('\n')
+                                .map(line => {
+                                    const match = line.match(/^\[.*?\] .*?: (.*)$/);
+                                    return match ? match[1] : null;
+                                })
+                                .filter(content => content !== null)
+                                .join('\n\n');
+                
+                            if (!contentOnly.trim()) {
+                                return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
+                            }
+                
+                            // Pagina o texto extraído
+                            const loreCommand = this.client.commands.get('lore');
+                            const textPages = require('../commands/rpg/lore.js').paginateText(contentOnly);
+                
+                            const newPagesAsObjects = textPages.map(pageContent => ({
+                                content: pageContent,
+                                imageUrl: null // A restauração de imagem não é suportada neste fluxo
+                            }));
+                
+                            // Adiciona o novo capítulo à lore
+                            lore.chapters.push({
+                                name: newChapterName,
+                                pages: newPagesAsObjects
+                            });
+                
+                            await lore.save();
+                
+                            await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, flags: 64 });
+                            await msg.delete().catch(() => {}); // Deleta a mensagem com o anexo
+                
+                        } catch (error) {
+                            console.error("Erro ao processar backup de lore:", error);
+                            await interaction.followUp({ content: '❌ Ocorreu um erro ao processar o arquivo de backup.', flags: 64 });
+                        }
+                    });
+                
+                    collector.on('end', (collected, reason) => {
+                        if (reason === 'time') {
+                            interaction.followUp({ content: '⏰ Tempo esgotado. A operação para adicionar capítulo via backup foi cancelada.', flags: 64 }).catch(() => {});
+                        }
+                    });
+                    return;
+                }
+
                 if (interaction.customId.startsWith('edit_chapter_modal_')) {
 
                     return interaction.reply({ content: 'Esta função foi atualizada para "Editar Página". Por favor, tente novamente.', flags: 64 });
@@ -869,6 +953,22 @@ module.exports = class {
                     await interaction.reply({ content: `✅ O título da lore foi atualizado com sucesso!`, flags: 64 });
                     return; 
                     
+                }
+
+                if (interaction.customId.startsWith('lore_add_backup_')) {
+                    const messageId = interaction.customId.split('_')[3];
+                    const lore = await this.client.database.Lore.findOne({ messageId: messageId });
+                    if (!lore || interaction.user.id !== lore.createdBy) {
+                        return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', flags: 64 });
+                    }
+
+                    const modal = new ModalBuilder()
+                        .setCustomId(`lore_add_backup_modal_${messageId}`)
+                        .setTitle('Adicionar Capítulo de Backup');
+                    const nameInput = new TextInputBuilder().setCustomId('chapter_name_input').setLabel("Nome do Novo Capítulo").setStyle(TextInputStyle.Short).setRequired(true);
+                    modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+                    await interaction.showModal(modal);
+                    return;
                 }
 
 

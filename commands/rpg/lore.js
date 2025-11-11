@@ -14,6 +14,26 @@ const Command = require('../../structures/Command');
 const moment = require('moment');
 moment.locale("pt-br");
 
+function paginateText(text, maxLength = 4000) {
+    const parts = [];
+    if (!text) return parts;
+
+    let currentChunk = text;
+    while (currentChunk.length > 0) {
+        if (currentChunk.length <= maxLength) {
+            parts.push(currentChunk);
+            break;
+        }
+
+        let splitIndex = currentChunk.lastIndexOf('\n\n', maxLength);
+        if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf('\n', maxLength);
+        if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf(' ', maxLength);
+        if (splitIndex === -1) splitIndex = maxLength;
+        parts.push(currentChunk.substring(0, splitIndex));
+        currentChunk = currentChunk.substring(splitIndex).trim();
+    }
+    return parts;}
+
 module.exports = class lore extends Command {
   constructor(client) {
     super(client, {
@@ -61,32 +81,6 @@ module.exports = class lore extends Command {
     const startMessage = await channel.messages.fetch(startId);
     allMessages.push(startMessage);
     return allMessages.reverse();
-  }
-
-  paginateText(text, maxLength = 4000) {
-    const pages = [];
-    if (!text) return pages;
-
-    let remainingText = text;
-    while (remainingText.length > 0) {
-        if (remainingText.length <= maxLength) {
-            pages.push(remainingText);
-            break;
-        } 
-
-        let splitIndex = remainingText.lastIndexOf('\n\n', maxLength);
-        if (splitIndex === -1) {
-            splitIndex = remainingText.lastIndexOf('.', maxLength);
-        }
-        if (splitIndex === -1) {
-            splitIndex = remainingText.lastIndexOf(' ', maxLength);
-        }
-        if (splitIndex === -1) splitIndex = maxLength;
-
-        pages.push(remainingText.substring(0, splitIndex + 1));
-        remainingText = remainingText.substring(splitIndex + 1).trim();
-    }
-    return pages;
   }
 
   async execute(interaction) {
@@ -137,7 +131,7 @@ module.exports = class lore extends Command {
                         const processAndPaginateTextBlock = (imageUrl = null) => {
                             if (textBlock.length > 0) {
                                 const fullText = textBlock.join('\n\n');
-                                const textPages = this.paginateText(fullText);
+                                const textPages = paginateText(fullText);
                                 textPages.forEach(pageContent => {
                                     finalPages.push({
                                         content: pageContent,
@@ -298,3 +292,5 @@ module.exports = class lore extends Command {
     }, 120000); 
   }
 };
+
+module.exports.paginateText = paginateText;
