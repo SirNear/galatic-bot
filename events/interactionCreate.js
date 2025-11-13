@@ -112,6 +112,7 @@ module.exports = class {
                     let chapterIndex = parseInt(parts[4] || '0', 10);
                     let pageIndex = parseInt(parts[5] || '0', 10);
                     let descPageIndex = parseInt(parts[6] || '0', 10);
+                    let imagePageIndex = parseInt(parts[5] || '0', 10); // Novo: índice para a imagem
 
                     if (action === 'read') { 
                         messageId = parts[2];
@@ -119,9 +120,10 @@ module.exports = class {
                         messageId = parts[2];
                     } else if (action === 'add' && type === 'chapter') { 
                         messageId = parts[3];
-                    } else if (action === 'add-image' || action === 'edit_page' || action === 'delete_chapter') { 
+                    } else if (action === 'add-image' || action === 'edit' || action === 'delete') { 
                         messageId = parts[2];
-                        chapterIndex = parseInt(parts[3] || '0', 10);
+                        chapterIndex = parseInt(parts[3] || '0', 10); // Ex: lore_add-image_MSGID_CHAPIDX_PAGEIDX
+                        pageIndex = parseInt(parts[4] || '0', 10);
                     } else if (action === 'add' && type === 'backup') { // Ex: lore_add_backup_MESSAGE_ID
                         messageId = parts[3];
                     } else if (action === 'move-chapter') { 
@@ -144,6 +146,7 @@ module.exports = class {
                             } else if (parts[2] === 'chapter' && chapterIndex > 0) {
                                 chapterIndex--;
                                 pageIndex = 0;
+                                imagePageIndex = 0;
                                 descPageIndex = 0;
                             }
                             if (parts[2] === 'desc') {
@@ -157,6 +160,7 @@ module.exports = class {
                             } else if (parts[2] === 'chapter' && chapterIndex < lore.chapters.length - 1) { 
                                 chapterIndex++;
                                 pageIndex = 0;
+                                imagePageIndex = 0;
                                 descPageIndex = 0; 
                             }
                             if (parts[2] === 'desc') {
@@ -275,7 +279,7 @@ module.exports = class {
                         case 'add-image':
                             if (interaction.user.id === lore.createdBy) {
                                 const imageModal = new ModalBuilder()
-                                    .setCustomId(`add_image_modal_${messageId}_${chapterIndex}_${pageIndex}`)
+                                    .setCustomId(`add_image_modal_${messageId}_${chapterIndex}_${pageIndex}`) // Agora com os índices corretos
                                     .setTitle('Adicionar Imagem à Página');
                                 const imageUrlInput = new TextInputBuilder()
                                     .setCustomId('image_url_input')
@@ -349,7 +353,7 @@ module.exports = class {
                     const generateEphemeralEmbed = async (loreDoc, chapIdx, pIdx, descPIdx) => {
                         try {
                             let files = []; 
-                            const chapter = loreDoc.chapters[chapIdx];
+                            const chapter = loreDoc.chapters[chapIdx]; // pIdx é o índice da página de texto
                             const page = chapter.pages[pIdx];
 
                             if (!page || !page.content) {
@@ -392,17 +396,18 @@ module.exports = class {
                                 .setFooter({ text: footerParts.join(' | ') })
                                 .setTimestamp();
 
-                            if (page?.imageUrl) {
-                                const isValidImage = await validateImageUrl(page.imageUrl);
+                            const imagePage = chapter.pages[pIdx]; // A imagem pertence à página de texto atual
+                            if (imagePage?.imageUrl) {
+                                const isValidImage = await validateImageUrl(imagePage.imageUrl);
                                 if (isValidImage) {
                                     try {
-                                        const response = await fetch(page.imageUrl);
+                                        const response = await fetch(imagePage.imageUrl);
                                         const imageBuffer = Buffer.from(await response.arrayBuffer());
                                         const attachment = new AttachmentBuilder(imageBuffer, { name: 'lore_image.png' });
                                         files.push(attachment);
                                         embed.setImage('attachment://lore_image.png');
                                     } catch (fetchError) {
-                                        console.error(`Falha ao baixar a imagem da URL: ${page.imageUrl}`, fetchError);
+                                        console.error(`Falha ao baixar a imagem da URL: ${imagePage.imageUrl}`, fetchError);
                                     }
                                 }
                             }
@@ -896,9 +901,9 @@ module.exports = class {
 
                 if (interaction.customId.startsWith('add_image_modal_')) {
                     const parts = interaction.customId.split('_');
-                    const messageId = parts[3];
-                    const chapterIndex = parseInt(parts[4], 10);
-                    const pageIndex = parseInt(parts[5], 10);
+                    const messageId = parts[3]; // Ex: add_image_modal_MESSAGEID_CHAPIDX_PAGEIDX
+                    const chapterIndex = parseInt(parts[4], 10); // Índice do capítulo
+                    const pageIndex = parseInt(parts[5], 10); // Índice da página
                     const imageUrl = interaction.fields.getTextInputValue('image_url_input');
 
                     if (!imageUrl.startsWith('http')) {
@@ -934,13 +939,6 @@ module.exports = class {
                         await interaction.update({ 
                             embeds: [updatedEmbed],
                             content: '✅ Imagem adicionada com sucesso!' 
-                        });
-
-                        console.log('Imagem salva:', {
-                            messageId,
-                            chapterIndex,
-                            pageIndex,
-                            imageUrl
                         });
 
                     } catch (err) {
