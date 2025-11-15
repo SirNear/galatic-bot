@@ -181,7 +181,7 @@ module.exports = class GalaticClient extends Client {
         try {
             const eventFiles = await readdir(eventsPath);
             let count = 0;
-            for (const file of eventFiles.filter(f => f.endsWith('.js'))) {
+            for (const file of eventFiles.filter(f => f.endsWith('.js') && !f.includes('Interaction.js'))) {
                 try {
                     const eventName = file.split('.')[0];
                     const eventClass = require(`.${path.sep}events${path.sep}${file}`);

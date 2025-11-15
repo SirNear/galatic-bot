@@ -142,6 +142,26 @@ const pendingQuestSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+const lojaSchema = new mongoose.Schema({
+    messageId: { type: String, required: false, unique: true, sparse: true }, // Não é obrigatório na criação, mas único se existir
+    nome: { type: String, required: true },
+    createdBy: { type: String, required: true },
+    canalId: { type: String, required: true },
+    descricao: { type: String, required: true },
+    status: { type: String, enum: ['pendente', 'aprovada', 'rejeitada'], default: 'pendente' },
+    categorias: [{
+        nome: { type: String, required: true },
+        itens: [{
+            nome: { type: String, required: true },
+            descricao: { type: String, required: true },
+            preco: { type: Number, required: true }
+        }]
+    }]
+})
+
+let LojaModel = mongoose.model("Loja", lojaSchema);
+module.exports.LojaModel = LojaModel;
+
 
 
 // Garante que um usuário não pode ter duas fichas com o mesmo nome no mesmo servidor.
@@ -181,9 +201,28 @@ module.exports.Quest = Quest;
 let PendingQuest = mongoose.model("PendingQuest", pendingQuestSchema);
 module.exports.PendingQuest = PendingQuest;
 
-// O arquivo do modelo deve estar na pasta /mongoose
-// Corrigindo o caminho para o local correto
-let Lore = require("./events/Lore.js"); 
+const PageSchema = new mongoose.Schema({
+    content: { type: String, required: true },
+    imageUrl: { type: String, required: false },
+});
+
+const ChapterSchema = new mongoose.Schema({
+    name: { type: String, required: true }, // Ex: "Capítulo 1: O Início"
+    pages: [PageSchema],
+});
+
+const LoreSchema = new mongoose.Schema({
+    messageId: { type: String, required: true, unique: true },
+    channelId: { type: String, required: true },
+    guildId: { type: String, required: true },
+    createdBy: { type: String, required: true },
+    title: { type: String, required: true },
+    chapters: [ChapterSchema],
+}, {
+    timestamps: true
+});
+
+let Lore = mongoose.model('Lore', LoreSchema);
 module.exports.Lore = Lore;
 
 module.exports.connect = connectToDatabase;
