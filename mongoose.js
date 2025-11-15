@@ -59,12 +59,29 @@ let uD = new mongoose.Schema({
   uServer: {type: String , required: true},
   monitor: {type: String, default: 'Desativado'},
   monitorChannelId: {type: String},
-  punishNumber: {type: String}
-
+  punishNumber: {type: String},
+  aparencias: [{
+    nome: { type: String },
+    universo: { type: String },
+    imagem: { type: String },
+    personagem: { type: String }
+  }],
+  moeda: {
+    type: Map,
+    of: Number,
+    default: { 'atrevicoins': 0 }
+  }
 })
 
 uD.index({ uid: 1, uServer: 1 });
 
+const moedaConfigSchema = new mongoose.Schema({
+    guildId: { type: String, required: true },
+    nome: { type: String, required: true },
+    emoji: { type: String, required: false },
+    creatorId: { type: String, required: true }
+});
+moedaConfigSchema.index({ guildId: 1, nome: 1 }, { unique: true });
 
 let pokemonFicha = new mongoose.Schema({
 	_id: {type: String},
@@ -125,10 +142,9 @@ const questSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     messageId: { type: String, required: false },
     channelId: { type: String, required: false },
-    forumChannelId: { type: String, required: false }, // ID do canal do fórum da quest
+    forumChannelId: { type: String, required: false }, 
 });
 
-// Schema para quests pendentes de aprovação
 const pendingQuestSchema = new mongoose.Schema({
     creatorId: { type: String, required: true },
     nome: { type: String, required: true },
@@ -143,7 +159,7 @@ const pendingQuestSchema = new mongoose.Schema({
 });
 
 const lojaSchema = new mongoose.Schema({
-    messageId: { type: String, required: false, unique: true, sparse: true }, // Não é obrigatório na criação, mas único se existir
+    messageId: { type: String, required: false, unique: true, sparse: true }, 
     nome: { type: String, required: true },
     createdBy: { type: String, required: true },
     canalId: { type: String, required: true },
@@ -154,13 +170,17 @@ const lojaSchema = new mongoose.Schema({
         itens: [{
             nome: { type: String, required: true },
             descricao: { type: String, required: true },
-            preco: { type: Number, required: true }
+            preco: { type: Number, required: true },
+            moeda: { type: String, required: true }
         }]
     }]
 })
 
 let LojaModel = mongoose.model("Loja", lojaSchema);
 module.exports.LojaModel = LojaModel;
+
+let MoedaConfig = mongoose.model("MoedaConfig", moedaConfigSchema);
+module.exports.MoedaConfig = MoedaConfig;
 
 
 
