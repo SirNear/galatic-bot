@@ -2,6 +2,9 @@ const Client = require('./GalaticClient')
 const { GatewayIntentBits } = require('discord.js')
 const config = require('./config')
 const { connect } = require('./mongoose');
+const Logger = require('./events/Logger');
+
+new Logger(config.webhookLogURL);
 
 const client = new Client({
     intents: [
@@ -25,6 +28,6 @@ const client = new Client({
         await client.loadQuestCollectors();
     });
 
-    // 4. Fazer login no Discord
     await client.login(config.token);
+    
 })();
