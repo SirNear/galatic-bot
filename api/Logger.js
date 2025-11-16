@@ -56,15 +56,15 @@ class Logger {
         const { cor } = this.niveisLog[nivelMaisAlto];
 
         const embedLog = new EmbedBuilder()
-            .setTitle('Relatório de Atividades do Bot')
+            .setTitle('CONSOLE LOG')
             .setDescription(descricaoEmbed)
             .setColor(cor)
             .setTimestamp();
 
         try {
             await this.clienteWebhook.send({
-                username: 'Bot Logger',
-                avatarURL: 'https://i.imgur.com/z32K4sC.png',
+                username: 'Galatic Bot - LOG',
+                avatarURL: this.client.avatarURL(),
                 embeds: [embedLog],
             });
         } catch (erro) {
