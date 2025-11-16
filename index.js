@@ -4,7 +4,7 @@ const config = require('./config')
 const { connect } = require('./mongoose');
 const Logger = require('./api/Logger');
 
-new Logger(config.webhookURL);
+const logger = new Logger(config.webhookURL);
 
 const client = new Client({
     intents: [
@@ -24,6 +24,7 @@ const client = new Client({
 
     client.once('clientReady', async () => {
         console.log(`Bot logado como ${client.user.tag}!`);
+        logger.defAva(client.user.displayAvatarURL());
         await client.registerSlashCommands();
         await client.loadQuestCollectors();
     });

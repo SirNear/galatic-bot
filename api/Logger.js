@@ -1,11 +1,12 @@
 const { EmbedBuilder, WebhookClient } = require('discord.js');
 
 class Logger {
-    constructor(urlWebhook) {
-        this.clienteWebhook = urlWebhook ? new WebhookClient({ url: urlWebhook }) : null;
-        this.filaLog = [];
-        this.emExecucao = false;
-        this.niveisLog = {
+    constructor(urlWeb) {
+        this.cliWeb = urlWeb ? new WebhookClient({ url: urlWeb }) : null;
+        this.filLog = [];
+        this.emExe = false;
+        this.avaBot = null;
+        this.nivLog = {
             LOG: { cor: 0x5865F2, icone: 'ℹ️' },
             WARN: { cor: 0xFEE75C, icone: '⚠️' },
             ERROR: { cor: 0xED4245, icone: '❌' },
@@ -18,14 +19,14 @@ class Logger {
     }
 
     sobrescreverConsole() {
-        for (const nivel of Object.keys(this.niveisLog)) {
-            const metodoOriginal = console[nivel.toLowerCase()] || console.log;
+        for (const nivel of Object.keys(this.nivLog)) {
+            const metOri = console[nivel.toLowerCase()] || console.log;
             console[nivel.toLowerCase()] = (...argumentos) => {
-                metodoOriginal.apply(console, argumentos);
-                const mensagemFormatada = argumentos.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg, null, 2)).join(' ');
+                metOri.apply(console, argumentos);
+                const msgFor = argumentos.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg, null, 2)).join(' ');
                 this.adicionarFila({
                     nivel: nivel,
-                    mensagem: mensagemFormatada,
+                    mensagem: msgFor,
                     timestamp: new Date()
                 });
             };
@@ -33,45 +34,49 @@ class Logger {
     }
 
     adicionarFila(entradaLog) {
-        this.filaLog.push(entradaLog);
+        this.filLog.push(entradaLog);
+    }
+
+    defAva(url) {
+        this.avaBot = url;
     }
 
     async enviarFilaLog() {
-        if (!this.clienteWebhook || this.filaLog.length === 0 || this.emExecucao) {
+        if (!this.cliWeb || this.filLog.length === 0 || this.emExe) {
             return;
         }
 
-        this.emExecucao = true;
-        const logsParaEnviar = this.filaLog.splice(0, 10);
-        const descricaoEmbed = logsParaEnviar
+        this.emExe = true;
+        const logParEnv = this.filLog.splice(0, 10);
+        const desEmb = logParEnv
             .map(log => {
-                const { icone } = this.niveisLog[log.nivel];
-                const tempoFormatado = log.timestamp.toLocaleTimeString('pt-BR');
-                return `${icone} [${tempoFormatado}] ${log.mensagem}`;
+                const { icone } = this.nivLog[log.nivel];
+                const temFor = log.timestamp.toLocaleTimeString('pt-BR');
+                return `${icone} [${temFor}] ${log.mensagem}`;
             })
             .join('\n')
             .substring(0, 4096);
 
-        const nivelMaisAlto = this.determinarNivelAlto(logsParaEnviar);
-        const { cor } = this.niveisLog[nivelMaisAlto];
+        const nivMaiAlt = this.determinarNivelAlto(logParEnv);
+        const { cor } = this.nivLog[nivMaiAlt];
 
-        const embedLog = new EmbedBuilder()
+        const embLog = new EmbedBuilder()
             .setTitle('CONSOLE LOG')
-            .setDescription(descricaoEmbed)
+            .setDescription(desEmb)
             .setColor(cor)
             .setTimestamp();
 
         try {
-            await this.clienteWebhook.send({
+            await this.cliWeb.send({
                 username: 'Galatic Bot - LOG',
-                avatarURL: this.client.avatarURL(),
-                embeds: [embedLog],
+                avatarURL: this.avaBot,
+                embeds: [embLog],
             });
         } catch (erro) {
             console.error('Falha ao enviar log para o Discord:', erro);
-            this.filaLog.unshift(...logsParaEnviar);
+            this.filLog.unshift(...logParEnv);
         } finally {
-            this.emExecucao = false;
+            this.emExe = false;
         }
     }
 
