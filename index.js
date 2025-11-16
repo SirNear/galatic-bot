@@ -4,7 +4,7 @@ const config = require('./config')
 const { connect } = require('./mongoose');
 const Logger = require('./api/Logger');
 
-new Logger(config.webhookLogURL);
+new Logger(config.webhookURL);
 
 const client = new Client({
     intents: [
