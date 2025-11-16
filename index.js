@@ -2,7 +2,7 @@ const Client = require('./GalaticClient')
 const { GatewayIntentBits } = require('discord.js')
 const config = require('./config')
 const { connect } = require('./mongoose');
-const Logger = require('./events/Logger');
+const Logger = require('./api/Logger');
 
 new Logger(config.webhookLogURL);
 
