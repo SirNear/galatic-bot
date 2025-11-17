@@ -90,7 +90,7 @@ module.exports = class lore extends Command {
       .setColor('#0099ff')
       .setFooter({ text: 'Você tem 2 minutos para reagir.' });
     
-    const replyMessage = await interaction.reply({ embeds: [embed], fetchReply: true });
+    const replyMessage = await interaction.reply({ embeds: [embed], fetchReply: true, ephemeral: true});
 
     const reactionFilter = (reaction, user) => user.id === interaction.user.id;
     
@@ -116,11 +116,11 @@ module.exports = class lore extends Command {
                     this.client.removeListener('messageReactionAdd', endCollector);
 
                     if (loreInicio.createdTimestamp > loreFim.createdTimestamp) {
-                        await replyMessage.channel.send({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.' });
+                        await replyMessage.channel.send({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.', ephemeral: true });
                         return;
                     }
 
-                    await replyMessage.edit({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: [] });
+                    await replyMessage.edit({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: [], ephemeral: true});
 
                     try {
                         const messages = await this.fetchMessagesBetween(loreInicio.channel, loreInicio.id, loreFim.id);
@@ -216,7 +216,8 @@ module.exports = class lore extends Command {
 
                         await replyMessage.edit({
                             embeds: [generateEmbed(currentPage)],
-                            components: pages.length > 1 ? [getButtons(currentPage), confirmButton] : [confirmButton]
+                            components: pages.length > 1 ? [getButtons(currentPage), confirmButton] : [confirmButton],
+                            flags: 64
                         });
 
                         const allComponentsCollector = loreMessage.createMessageComponentCollector({
@@ -280,7 +281,7 @@ module.exports = class lore extends Command {
 
             endTimeout = setTimeout(() => {
                 this.client.removeListener('messageReactionAdd', endCollector);
-                replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [] }).catch(() => {});
+                replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [], ephemeral: true }).catch(() => {});
             }, 120000); 
         }
     }; 
@@ -288,7 +289,7 @@ module.exports = class lore extends Command {
     
     startTimeout = setTimeout(() => {
         this.client.removeListener('messageReactionAdd', startCollector);
-        replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', embeds: [] }).catch(() => {});
+        replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', ephemeral: true, embeds: [] }).catch(() => {});
     }, 120000); 
   }
 };

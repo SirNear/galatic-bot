@@ -22,7 +22,7 @@ async function handleLoreInteraction(interaction, client) {
             const lore = await client.database.Lore.findOne({ messageId: messageId });
 
             if (!lore || interaction.user.id !== lore.createdBy) {
-                return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', flags: 64 });
+                return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', ephemeral: true });
             }
 
             if (manageAction === 'edit-title') {
@@ -45,7 +45,7 @@ async function handleLoreInteraction(interaction, client) {
                 await interaction.reply({
                     content: `⚠️ **ATENÇÃO!** Você tem certeza que deseja excluir **TODA** a lore **"${lore.title}"**? Esta ação é irreversível e apagará todos os capítulos e páginas.`,
                     components: [confirmRow],
-                    flags: 64
+                    ephemeral: true
                 });
             }
             return;
@@ -108,7 +108,7 @@ async function handleLoreInteraction(interaction, client) {
             }
 
             const lore = await client.database.Lore.findOne({ messageId: messageId }).lean();
-            if (!lore) return interaction.reply({ content: '❌ Esta lore parece estar desatualizada ou corrompida.', flags: 64 });
+            if (!lore) return interaction.reply({ content: '❌ Esta lore parece estar desatualizada ou corrompida.', ephemeral: true });
 
             switch (action) {
                 case 'prev':
@@ -129,11 +129,11 @@ async function handleLoreInteraction(interaction, client) {
                         value: idx.toString(),
                     }));
                     const selectMenu = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`lore_select_chapter_${messageId}`).setPlaceholder(isCreator ? 'Selecione um capítulo para gerenciar' : 'Selecione um capítulo para ler').addOptions(chapterOptions));
-                    const embedChaptList = new EmbedBuilder().setTitle(`📚 Lista de Capítulos - ${lore.title}`).setDescription(lore.chapters.map((chap, idx) => `**${idx + 1}.** ${chap.name}`).join('\n')).setFooter({ text: 'Selecione um capítulo no menu abaixo.' }).setColor('#2b2d31');
-                    return interaction.reply({ embeds: [embedChaptList], components: [selectMenu], flags: 64 });
+                    const embListCap = new EmbedBuilder().setTitle(`📚 Lista de Capítulos - ${lore.title}`).setDescription(lore.chapters.map((chap, idx) => `**${idx + 1}.** ${chap.name}`).join('\n')).setFooter({ text: 'Selecione um capítulo no menu abaixo.' }).setColor('#2b2d31');
+                    return interaction.reply({ embeds: [embListCap], components: [selectMenu], ephemeral: true });
                 }
                 case 'move-chapter': {
-                    if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', flags: 64 });
+                    if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', ephemeral: true });
                     const direction = type;
                     if (direction === 'up' && chapterIndex > 0) { [lore.chapters[chapterIndex], lore.chapters[chapterIndex - 1]] = [lore.chapters[chapterIndex - 1], lore.chapters[chapterIndex]]; chapterIndex--; }
                     else if (direction === 'down' && chapterIndex < lore.chapters.length - 1) { [lore.chapters[chapterIndex], lore.chapters[chapterIndex + 1]] = [lore.chapters[chapterIndex + 1], lore.chapters[chapterIndex]]; chapterIndex++; }
@@ -164,7 +164,7 @@ async function handleLoreInteraction(interaction, client) {
                             new ButtonBuilder().setCustomId(`delete_chapter_confirm_${messageId}_${chapterIndex}`).setLabel('Sim, excluir!').setStyle(ButtonStyle.Danger),
                             new ButtonBuilder().setCustomId('delete_chapter_cancel').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
                         );
-                        return interaction.reply({ content: `Tem certeza que deseja excluir o capítulo **"${lore.chapters[chapterIndex].name}"**? Esta ação não pode ser desfeita.`, components: [confirmRow], flags: 64 });
+                        return interaction.reply({ content: `Tem certeza que deseja excluir o capítulo **"${lore.chapters[chapterIndex].name}"**? Esta ação não pode ser desfeita.`, components: [confirmRow], ephemeral: true });
                     }
                     break;
                 }
@@ -178,7 +178,7 @@ async function handleLoreInteraction(interaction, client) {
                     break;
                 }
                 case 'add': {
-                    if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para adicionar a esta lore.', flags: 64 });
+                    if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para adicionar a esta lore.', ephemeral: true });
                     let modal = new ModalBuilder().setTitle('Adicionar Novo Capítulo');
                     const chapterNameInput = new TextInputBuilder().setCustomId('chapter_name_input').setLabel("Nome do Novo Capítulo").setStyle(TextInputStyle.Short).setPlaceholder('Ex: Capítulo 2: A Vingança').setRequired(true);
                     modal.addComponents(new ActionRowBuilder().addComponents(chapterNameInput));
@@ -278,7 +278,7 @@ async function handleLoreInteraction(interaction, client) {
             };
 
             const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
-            const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex), flags: 64 };
+            const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex), ephemeral: true };
 
             if (action === 'read') {
                 await interaction.reply(responseOptions);
@@ -301,7 +301,7 @@ async function handleLoreInteraction(interaction, client) {
                 lore.chapters.splice(chapterIndex, 1);
                 await lore.save();
 
-                await interaction.update({ content: `✅ O capítulo **"${chapterName}"** foi excluído com sucesso. Você pode fechar esta mensagem.`, components: [] });
+                await interaction.update({ content: `✅ O capítulo **"${chapterName}"** foi excluído com sucesso. Você pode fechar esta mensagem.`, components: []});
             } else if (interaction.customId === 'delete_chapter_cancel') {
                 await interaction.update({ content: 'Operação de exclusão cancelada.', components: [] });
             }
@@ -314,7 +314,7 @@ async function handleLoreInteraction(interaction, client) {
             const messageId = interaction.customId.split('_')[3];
             const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
 
-            await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, flags: 64 });
+            await interaction.reply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.`, ephemeral: true });
 
             const reactionFilter = (reaction, user) => user.id === interaction.user.id;
 
@@ -423,9 +423,9 @@ async function handleLoreInteraction(interaction, client) {
             const messageId = interaction.customId.split('_')[4];
             const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
             const lore = await client.database.Lore.findOne({ messageId: messageId });
-            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
+            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
 
-            await interaction.reply({ content: `✅ Capítulo nomeado como **"${newChapterName}"**. Agora, por favor, envie o arquivo de backup \`.txt\` correspondente. Você tem 5 minutos.`, flags: 64 });
+            await interaction.reply({ content: `✅ Capítulo nomeado como **"${newChapterName}"**. Agora, por favor, envie o arquivo de backup \`.txt\` correspondente. Você tem 5 minutos.`, ephemeral: true });
 
             const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0 && m.attachments.first().name.endsWith('.txt');
             const collector = interaction.channel.createMessageCollector({ filter, time: 300000, max: 1 });
@@ -437,19 +437,19 @@ async function handleLoreInteraction(interaction, client) {
                     const response = await fetch(attachment.url);
                     if (!response.ok) throw new Error('Falha ao baixar o arquivo de backup.');
                     const backupText = await response.text();
-                    const contentOnly = backupText.split('\n').map(line => line.match(/^\[.*?\] .*?: (.*)$/)?.[1]).filter(Boolean).join('\n\n');
-                    if (!contentOnly.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
+                    const contApenas = backupText.split('\n').map(line => line.match(/^\[.*?\] .*?: (.*)$/)?.[1]).filter(Boolean).join('\n\n');
+                    if (!contApenas.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', ephemeral: true });
 
                     const { paginateText } = require('../commands/rpg/lore.js');
-                    const textPages = paginateText(contentOnly);
+                    const textPages = paginateText(contApenas);
                     const newPagesAsObjects = textPages.map(pageContent => ({ content: pageContent, imageUrl: null }));
                     lore.chapters.push({ name: newChapterName, pages: newPagesAsObjects });
                     await lore.save();
-                    await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, flags: 64 });
+                    await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, ephemeral: true });
                     await msg.delete().catch(() => {});
                 } catch (error) {
                     console.error("Erro ao processar backup de lore:", error);
-                    await interaction.followUp({ content: '❌ Ocorreu um erro ao processar o arquivo de backup.', flags: 64 });
+                    await interaction.followUp({ content: '❌ Ocorreu um erro ao processar o arquivo de backup.', ephemeral: true });
                 }
             });
             collector.on('end', (collected, reason) => { if (reason === 'time') interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada.', flags: 64 }).catch(() => {}); });
@@ -464,7 +464,7 @@ async function handleLoreInteraction(interaction, client) {
             const newChapterTitle = interaction.fields.getTextInputValue('chapter_title_input');
 
             const lore = await client.database.Lore.findOne({ messageId: messageId });
-            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
+            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
 
             lore.chapters[chapterIndex].pages[pageIndex].content = newPageContent;
             lore.chapters[chapterIndex].name = newChapterTitle;
@@ -484,11 +484,11 @@ async function handleLoreInteraction(interaction, client) {
             const pageIndex = parseInt(parts[5], 10);
             const imageUrl = interaction.fields.getTextInputValue('image_url_input');
 
-            if (!imageUrl.startsWith('http')) return interaction.reply({ content: '❌ URL inválida. A URL deve começar com http:// ou https://', flags: 64 });
+            if (!imageUrl.startsWith('http')) return interaction.reply({ content: '❌ URL inválida. A URL deve começar com http:// ou https://', ephemeral: true });
 
             const lore = await client.database.Lore.findOne({ messageId: messageId });
-            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
-            if (!lore.chapters[chapterIndex]?.pages[pageIndex]) return interaction.reply({ content: '❌ Página não encontrada na lore.', flags: 64 });
+            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
+            if (!lore.chapters[chapterIndex]?.pages[pageIndex]) return interaction.reply({ content: '❌ Página não encontrada na lore.', ephemeral: true });
 
             lore.chapters[chapterIndex].pages[pageIndex].imageUrl = imageUrl;
             await lore.save();
@@ -504,12 +504,12 @@ async function handleLoreInteraction(interaction, client) {
             const loreMessage = await interaction.channel.messages.fetch(messageId);
             const updatedEmbed = EmbedBuilder.from(loreMessage.embeds[0]).setTitle(newTitle);
             await loreMessage.edit({ embeds: [updatedEmbed] });
-            await interaction.reply({ content: `✅ O título da lore foi atualizado com sucesso!`, flags: 64 });
+            await interaction.reply({ content: `✅ O título da lore foi atualizado com sucesso!`, ephemeral: true });
         }
 
         if (interaction.customId === 'lore_modal_config') {
             try {
-                await interaction.deferReply({ flags: 64 });
+                await interaction.deferReply({ ephemeral: true });
                 await interaction.editReply({ content: 'Salvando sua lore e preparando os backups... Isso pode levar um momento.' });
 
                 const title = interaction.fields.getTextInputValue('lore_title');
@@ -529,11 +529,11 @@ async function handleLoreInteraction(interaction, client) {
 
                 await client.database.Lore.create({ messageId: loreMessage.id, channelId: loreMessage.channel.id, guildId: loreMessage.guild.id, createdBy: interaction.user.id, title: title, chapters: [{ name: chapter, pages: pages }] });
                 client.fichaStates.delete(interaction.user.id);
-                await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi salva com sucesso!`, flags: 64 });
+                await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi salva com sucesso!`, ephemeral: true });
 
                 // Lógica de Backup
                 const backupChannelId = '1437124928737509559';
-                const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null);
+                const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null); //
                 if (!backupChannel) return interaction.followUp({ content: '⚠️ A lore foi salva, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
 
                 const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
@@ -543,15 +543,15 @@ async function handleLoreInteraction(interaction, client) {
                 const backupSent = await backupChannel.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: attachments }).catch(() => null);
                 const dmSent = await interaction.user.send({ content: `Backup da sua lore **${title}**.`, files: attachments }).catch(() => {});
 
-                if (!backupSent || !dmSent) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro ao enviar os backups. As mensagens originais **não foram excluídas**.', flags: 64 });
+                if (!backupSent || !dmSent) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro ao enviar os backups. As mensagens originais **não foram excluídas**.', ephemeral: true });
 
-                await interaction.followUp({ content: 'Backups enviados. Iniciando exclusão das mensagens originais...', flags: 64 });
+                await interaction.followUp({ content: 'Backups enviados. Iniciando exclusão das mensagens originais...', ephemeral: true });
                 const twoWeeksAgo = Date.now() - 1209600000;
                 const recentMessages = loreState.rawMessages.filter(m => m.createdTimestamp > twoWeeksAgo && m.deletable);
                 const oldMessages = loreState.rawMessages.filter(m => m.createdTimestamp <= twoWeeksAgo && m.deletable);
                 if (recentMessages.length > 0) await interaction.channel.bulkDelete(recentMessages, true).catch(() => {});
                 for (const msg of oldMessages) await msg.delete().catch(() => {});
-                await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas.', flags: 64 });
+                await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas.', ephemeral: true });
 
             } catch (error) {
                 console.error("Erro ao processar o modal da lore:", error);
