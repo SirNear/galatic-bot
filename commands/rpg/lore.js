@@ -86,7 +86,7 @@ module.exports = class lore extends Command {
   async execute(interaction) {
     const embed = new EmbedBuilder()
       .setTitle('<a:spinnyman:1433853169884205106> | Organização de Lore')
-      .setDescription('Reaja com o emoji 👍 na **primeira** mensagem do seu RP.')
+      .setDescription('Reaja com o emoji 1️⃣ na **primeira** mensagem do seu RP.')
       .setColor('#0099ff')
       .setFooter({ text: 'Você tem 2 minutos para reagir.' });
     
@@ -99,18 +99,18 @@ module.exports = class lore extends Command {
     const startCollector = async (reaction, user) => {
         if (!reactionFilter(reaction, user)) return;
 
-        if (reaction.emoji.name === '👍') {
+        if (reaction.emoji.name === '1️⃣') {
             clearTimeout(startTimeout); // Limpa o timeout de início
             const loreInicio = reaction.message;
             this.client.removeListener('messageReactionAdd', startCollector); 
 
-            embed.setDescription('Ótimo! Agora reaja com 👎 na **última** mensagem do seu RP.');
+            embed.setDescription('Ótimo! Agora reaja com 2️⃣ na **última** mensagem do seu RP.');
             await replyMessage.edit({ embeds: [embed] });
 
             const endCollector = async (endReaction, endUser) => {
                 if (!reactionFilter(endReaction, endUser)) return;
 
-                if (endReaction.emoji.name === '👎' && endReaction.message.id !== loreInicio.id) {
+                if (endReaction.emoji.name === '2️⃣' && endReaction.message.id !== loreInicio.id) {
                     clearTimeout(endTimeout); // Limpa o timeout de fim
                     const loreFim = endReaction.message;
                     this.client.removeListener('messageReactionAdd', endCollector);
