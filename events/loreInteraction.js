@@ -341,7 +341,7 @@ async function handleLoreInteraction(interaction, client) {
                         if (!loreCommand) return interaction.followUp({ content: '❌ Erro interno: O comando base da lore não foi encontrado.', ephemeral: true });
 
                         const newMessages = await loreCommand.fetchMessagesBetween(newStartMessage.channel, newStartMessage.id, newEndMessage.id);
-                        const { paginateText } = require('../../commands/rpg/lore.js');
+                        const { paginateText } = require('../commands/rpg/lore.js');
 
                         let newPagesAsObjects = [];
                         let textBlock = [];
@@ -440,7 +440,7 @@ async function handleLoreInteraction(interaction, client) {
                     const contentOnly = backupText.split('\n').map(line => line.match(/^\[.*?\] .*?: (.*)$/)?.[1]).filter(Boolean).join('\n\n');
                     if (!contentOnly.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
 
-                    const { paginateText } = require('../../commands/rpg/lore.js');
+                    const { paginateText } = require('../commands/rpg/lore.js');
                     const textPages = paginateText(contentOnly);
                     const newPagesAsObjects = textPages.map(pageContent => ({ content: pageContent, imageUrl: null }));
                     lore.chapters.push({ name: newChapterName, pages: newPagesAsObjects });
@@ -470,7 +470,7 @@ async function handleLoreInteraction(interaction, client) {
             lore.chapters[chapterIndex].name = newChapterTitle;
             await lore.save();
 
-            const { paginateText } = require('../../commands/rpg/lore.js');
+            const { paginateText } = require('../commands/rpg/lore.js');
             const descriptionParts = paginateText(newPageContent);
             const footerText = `${newChapterTitle} - Página ${pageIndex + 1} de ${lore.chapters[chapterIndex].pages.length}${descriptionParts.length > 1 ? ' | Parte 1 de ' + descriptionParts.length : ''}`;
             const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setDescription(descriptionParts[0]).setFooter({ text: footerText });
