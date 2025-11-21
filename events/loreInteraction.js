@@ -86,9 +86,9 @@ async function handleLoreInteraction(interaction, client) {
             // Lógica de extração de IDs simplificada
             if (['prev', 'next'].includes(action)) {
                 messageId = parts[3];
-                chapterIndex = parseInt(parts[4] || '0', 10);
-                pageIndex = parseInt(parts[5] || '0', 10);
-                descPageIndex = parseInt(parts[6] || '0', 10);
+                chapterIndex = parseInt(parts[4] || '0', 10); // O índice do capítulo está em parts[4]
+                pageIndex = parseInt(parts[5] || '0', 10); // O índice da página está em parts[5]
+                descPageIndex = parseInt(parts[6] || '0', 10); // O índice da descrição está em parts[6]
             } else if (['read', 'chapters-list'].includes(action)) {
                 messageId = parts[2];
                 chapterIndex = parseInt(parts[3] || '0', 10);
@@ -98,14 +98,18 @@ async function handleLoreInteraction(interaction, client) {
                 messageId = parts[2]; // ID da mensagem é sempre o 3º elemento
                 if (action === 'add' && type === 'chapter') messageId = parts[3];
                 if (action === 'add' && type === 'backup') messageId = parts[3];
-                if (action === 'move-chapter') messageId = parts[3];
+                if (action === 'move-chapter' || (action === 'delete' && type === 'chapter')) messageId = parts[3];
                 if (['edit', 'delete', 'add-image'].includes(action) && type === 'page') messageId = parts[3];
 
                 if (action === 'edit' && type === 'page') {
                     chapterIndex = parseInt(parts[4] || '0', 10);
                     pageIndex = parseInt(parts[5] || '0', 10);
                 } else {
-                    chapterIndex = parseInt(parts[action === 'move-chapter' ? 4 : 3] || '0', 10);
+                    let idxPos = 3;
+                    if (action === 'move-chapter') idxPos = 4;
+                    if (action === 'delete' && type === 'chapter') idxPos = 4;
+
+                    chapterIndex = parseInt(parts[idxPos] || '0', 10);
                     pageIndex = parseInt(parts[4] || '0', 10);
                 }
                 descPageIndex = 0;
@@ -344,6 +348,10 @@ async function handleLoreInteraction(interaction, client) {
 
                     await interaction.editReply({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
 
+                    const backupChannelId = '1437124928737509559';
+                    const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null);
+                    if (!backupChannel) return interaction.followUp({ content: '⚠️ Ocorreu um erro crítico: o canal de backup não foi encontrado. A operação foi cancelada para evitar perda de dados.', ephemeral: true });
+
                     try {
                         const loreCommand = client.commands.get('lore');
                         if (!loreCommand) return interaction.followUp({ content: '❌ Erro interno: O comando base da lore não foi encontrado.', ephemeral: true });
@@ -353,41 +361,37 @@ async function handleLoreInteraction(interaction, client) {
 
                         let newPagesAsObjects = [];
                         let textBlock = [];
-                        let persistentImageUrl = null;
 
-                        const processTextBlock = () => {
+                        const processTextBlock = (imageUrl = null) => {
                             if (textBlock.length > 0) {
                                 const fullText = textBlock.join('\n\n');
                                 const textPages = paginateText(fullText);
-                                textPages.forEach(pageContent => {
-                                    newPagesAsObjects.push({ content: pageContent, imageUrl: persistentImageUrl });
+                                textPages.forEach((pageContent, index) => {
+                                    const imgUrl = (index === 0) ? imageUrl : null;
+                                    newPagesAsObjects.push({ content: pageContent, imageUrl: imgUrl });
                                 });
                                 textBlock = [];
-                                persistentImageUrl = null;
                             }
                         };
 
                         for (const msg of newMessages) {
                             const hasText = msg.content && msg.content.trim() !== '';
-                            const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'))?.url;
+                            const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'));
 
                             if (imageAttachment) {
                                 processTextBlock();
-                                if (hasText) {
-                                    textBlock.push(msg.content);
-                                    persistentImageUrl = imageAttachment;
-                                    processTextBlock();
-                                } else {
-                                    persistentImageUrl = imageAttachment;
-                                }
+                                const backupMsg = await backupChannel.send({ files: [imageAttachment] });
+                                const persistentImageUrl = backupMsg.attachments.first()?.url;
+
+                                if (hasText) textBlock.push(msg.content);
+                                processTextBlock(persistentImageUrl);
                             } else if (hasText) {
                                 textBlock.push(msg.content);
                             }
                         }
                         processTextBlock();
 
-                        const loreDB = await client.database.Lore.findOne({ messageId: messageId });
-                        if (!loreDB) return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
+                        const loreDB = await client.database.Lore.findOne({ messageId: messageId });                        if (!loreDB) return interaction.editReply({ content: '❌ Lore original não encontrada. Operação cancelada.' });
 
                         loreDB.chapters.push({ name: newChapterName, pages: newPagesAsObjects });
                         await loreDB.save();
@@ -395,16 +399,17 @@ async function handleLoreInteraction(interaction, client) {
                         await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
 
                         // Lógica de Backup e Limpeza
-                        const backupChannelId = '1437124928737509559';
-                        const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null);
-                        if (!backupChannel) return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', ephemeral: true });
 
                         const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
-                        const attachments = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
-                        if (zipBuffer) attachments.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
+                        
+                        const criarAnexos = () => {
+                            const anexos = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
+                            if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
+                            return anexos;
+                        };
 
-                        const backupSent = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
-                        const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: attachments }).catch(() => null);
+                        const backupSent = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: criarAnexos() }).catch(() => null);
+                        const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: criarAnexos() }).catch(() => null);
 
                         if (!backupSent || !dmSent) return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.', ephemeral: true });
 
