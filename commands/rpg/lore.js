@@ -88,10 +88,11 @@ module.exports = class lore extends Command {
       .setTitle('<a:spinnyman:1433853169884205106> | Organização de Lore')
       .setDescription('Reaja com o emoji 1️⃣ na **primeira** mensagem do seu RP.')
       .setColor('#0099ff')
-      .setFooter({ text: 'Você tem 2 minutos para reagir.' });
+      .setFooter({ text: 'Você tem 2 minutos para reagir.' });    
     
-    const replyMessage = await interaction.reply({ embeds: [embed], fetchReply: true, ephemeral: true});
-
+    await interaction.reply({ embeds: [embed], flags: 64 });
+    const replyMessage = await interaction.fetchReply();
+    
     const reactionFilter = (reaction, user) => user.id === interaction.user.id;
     
     let startTimeout, endTimeout;
@@ -105,7 +106,7 @@ module.exports = class lore extends Command {
             this.client.removeListener('messageReactionAdd', startCollector); 
 
             embed.setDescription('Ótimo! Agora reaja com 2️⃣ na **última** mensagem do seu RP.');
-            await replyMessage.edit({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
 
             const endCollector = async (endReaction, endUser) => {
                 if (!reactionFilter(endReaction, endUser)) return;
@@ -116,11 +117,11 @@ module.exports = class lore extends Command {
                     this.client.removeListener('messageReactionAdd', endCollector);
 
                     if (loreInicio.createdTimestamp > loreFim.createdTimestamp) {
-                        await replyMessage.channel.send({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.', ephemeral: true });
+                        await interaction.followUp({ content: '❌ A mensagem de início deve ser anterior à mensagem de fim. Operação cancelada.', flags: 64 });
                         return;
                     }
 
-                    await replyMessage.edit({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: [], ephemeral: true});
+                    await interaction.editReply({ content: 'Coletando e formatando as mensagens... Isso pode levar um momento.', embeds: [], components: []});
 
                     try {
                         const messages = await this.fetchMessagesBetween(loreInicio.channel, loreInicio.id, loreFim.id);
@@ -165,7 +166,7 @@ module.exports = class lore extends Command {
                         });
 
                         if (pages.length === 0) {
-                            await replyMessage.edit({ content: 'Nenhuma mensagem encontrada no intervalo selecionado.' });
+                            await interaction.editReply({ content: 'Nenhuma mensagem encontrada no intervalo selecionado.' });
                             return;
                         }
 
@@ -195,10 +196,10 @@ module.exports = class lore extends Command {
                             );
                         };
 
-                        const loreMessage = await replyMessage.edit({
+                        await interaction.editReply({
                             embeds: [generateEmbed(currentPage)],
-                            flags: 64,
                             components: pages.length > 1 ? [getButtons(currentPage)] : [],
+                            content: 'Pré-visualização da sua lore:'
                         });
 
                             const confirmButton = new ActionRowBuilder().addComponents(
@@ -214,12 +215,12 @@ module.exports = class lore extends Command {
                                     .setEmoji('❌')
                             );
 
-                        await replyMessage.edit({
+                        await interaction.editReply({
                             embeds: [generateEmbed(currentPage)],
                             components: pages.length > 1 ? [getButtons(currentPage), confirmButton] : [confirmButton],
-                            flags: 64
                         });
 
+                        const loreMessage = await interaction.fetchReply();
                         const allComponentsCollector = loreMessage.createMessageComponentCollector({
                             componentType: ComponentType.Button,
                             filter: i => i.user.id === interaction.user.id,
@@ -269,11 +270,11 @@ module.exports = class lore extends Command {
                             });
 
                         allComponentsCollector.on('end', (collected, reason) => {
-                                if (reason === 'time') replyMessage.edit({ content: 'Tempo para confirmação esgotado.', embeds: [], components: [] }).catch(() => {});
+                                if (reason === 'time') interaction.editReply({ content: 'Tempo para confirmação esgotado.', embeds: [], components: [] }).catch(() => {});
                         });
                     } catch (err) {
                         console.error("Erro ao buscar ou paginar a lore:", err);
-                        await interaction.followUp({ content: '❌ Ocorreu um erro ao processar sua lore. Verifique se eu tenho permissão para ler o histórico de mensagens neste canal.', flags: 64 });
+                        await interaction.followUp({ content: '❌ Ocorreu um erro ao processar sua lore. Verifique se eu tenho permissão para ler o histórico de mensagens neste canal.', ephemeral: true });
                     }
                 }
             }; 
@@ -281,7 +282,7 @@ module.exports = class lore extends Command {
 
             endTimeout = setTimeout(() => {
                 this.client.removeListener('messageReactionAdd', endCollector);
-                replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [], ephemeral: true }).catch(() => {});
+                interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem final. Operação cancelada.', embeds: [] }).catch(() => {});
             }, 120000); 
         }
     }; 
@@ -289,7 +290,7 @@ module.exports = class lore extends Command {
     
     startTimeout = setTimeout(() => {
         this.client.removeListener('messageReactionAdd', startCollector);
-        replyMessage.edit({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', ephemeral: true, embeds: [] }).catch(() => {});
+        interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', embeds: [] }).catch(() => {});
     }, 120000); 
   }
 };

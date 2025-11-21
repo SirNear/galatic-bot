@@ -7,7 +7,8 @@ const {
     ButtonBuilder,
     ButtonStyle,
     StringSelectMenuBuilder,
-    AttachmentBuilder
+    AttachmentBuilder,
+    ComponentType
 } = require('discord.js');
 const fetch = require('node-fetch');
 const { messagesToTxt } = require('../api/messagesToTxt.js');
@@ -94,14 +95,19 @@ async function handleLoreInteraction(interaction, client) {
                 pageIndex = parseInt(parts[4] || '0', 10);
                 descPageIndex = parseInt(parts[5] || '0', 10);
             } else if (['add', 'move-chapter', 'delete', 'edit', 'add-image'].includes(action)) {
-                messageId = parts.includes('chapter') || parts.includes('page') ? parts[3] : parts[2];
+                messageId = parts[2]; // ID da mensagem é sempre o 3º elemento
                 if (action === 'add' && type === 'chapter') messageId = parts[3];
                 if (action === 'add' && type === 'backup') messageId = parts[3];
                 if (action === 'move-chapter') messageId = parts[3];
-                if (['edit', 'delete', 'add-image'].includes(action)) messageId = parts[2];
+                if (['edit', 'delete', 'add-image'].includes(action) && type === 'page') messageId = parts[3];
 
-                chapterIndex = parseInt(parts[action === 'move-chapter' ? 4 : 3] || '0', 10);
-                pageIndex = parseInt(parts[4] || '0', 10);
+                if (action === 'edit' && type === 'page') {
+                    chapterIndex = parseInt(parts[4] || '0', 10);
+                    pageIndex = parseInt(parts[5] || '0', 10);
+                } else {
+                    chapterIndex = parseInt(parts[action === 'move-chapter' ? 4 : 3] || '0', 10);
+                    pageIndex = parseInt(parts[4] || '0', 10);
+                }
                 descPageIndex = 0;
             } else {
                  return; // Ação desconhecida
@@ -123,13 +129,15 @@ async function handleLoreInteraction(interaction, client) {
                     break;
                 case 'chapters-list': {
                     const isCreator = interaction.user.id === lore.createdBy;
-                    const chapterOptions = lore.chapters.map((chap, idx) => ({
+                    const validChapters = lore.chapters.filter(c => c && c.name);
+
+                    const chapterOptions = validChapters.map((chap, idx) => ({
                         label: chap.name.substring(0, 100),
                         description: `Capítulo ${idx + 1} com ${chap.pages.length} página(s).`,
                         value: idx.toString(),
                     }));
                     const selectMenu = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`lore_select_chapter_${messageId}`).setPlaceholder(isCreator ? 'Selecione um capítulo para gerenciar' : 'Selecione um capítulo para ler').addOptions(chapterOptions));
-                    const embListCap = new EmbedBuilder().setTitle(`📚 Lista de Capítulos - ${lore.title}`).setDescription(lore.chapters.map((chap, idx) => `**${idx + 1}.** ${chap.name}`).join('\n')).setFooter({ text: 'Selecione um capítulo no menu abaixo.' }).setColor('#2b2d31');
+                    const embListCap = new EmbedBuilder().setTitle(`📚 Lista de Capítulos - ${lore.title}`).setDescription(validChapters.map((chap, idx) => `**${idx + 1}.** ${chap.name}`).join('\n')).setFooter({ text: 'Selecione um capítulo no menu abaixo.' }).setColor('#2b2d31');
                     return interaction.reply({ embeds: [embListCap], components: [selectMenu], ephemeral: true });
                 }
                 case 'move-chapter': {
@@ -463,18 +471,33 @@ async function handleLoreInteraction(interaction, client) {
             const newPageContent = interaction.fields.getTextInputValue('page_content_input');
             const newChapterTitle = interaction.fields.getTextInputValue('chapter_title_input');
 
-            const lore = await client.database.Lore.findOne({ messageId: messageId });
-            if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
-
-            lore.chapters[chapterIndex].pages[pageIndex].content = newPageContent;
-            lore.chapters[chapterIndex].name = newChapterTitle;
-            await lore.save();
-
-            const { paginateText } = require('../commands/rpg/lore.js');
-            const descriptionParts = paginateText(newPageContent);
-            const footerText = `${newChapterTitle} - Página ${pageIndex + 1} de ${lore.chapters[chapterIndex].pages.length}${descriptionParts.length > 1 ? ' | Parte 1 de ' + descriptionParts.length : ''}`;
-            const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setDescription(descriptionParts[0]).setFooter({ text: footerText });
-            await interaction.update({ embeds: [updatedEmbed] });
+            try {
+                await interaction.deferUpdate();
+                const lore = await client.database.Lore.findOne({ messageId: messageId });
+                if (!lore || interaction.user.id !== lore.createdBy) return interaction.followUp({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', ephemeral: true });
+    
+                const loreCmd = require('../commands/rpg/lore.js');
+                const paginateText = loreCmd.paginateText;
+    
+                const originalPage = lore.chapters[chapterIndex].pages[pageIndex];
+                const newTextPages = paginateText(newPageContent).map(content => ({
+                    content: content,
+                    imageUrl: null 
+                }));
+    
+                if (newTextPages.length > 0 && originalPage.imageUrl) {
+                    newTextPages[0].imageUrl = originalPage.imageUrl;
+                }
+    
+                lore.chapters[chapterIndex].pages.splice(pageIndex, 1, ...newTextPages);
+                lore.chapters[chapterIndex].name = newChapterTitle;
+                await client.database.Lore.updateOne({ messageId: messageId }, { $set: { chapters: lore.chapters } });
+    
+                await interaction.followUp({ content: '✅ Página atualizada com sucesso! A lore foi repaginada para acomodar o novo texto. Por favor, navegue novamente para ver as alterações.', ephemeral: true });
+            } catch (error) {
+                console.error("Erro ao editar a página da lore:", error);
+                await interaction.followUp({ content: '❌ Ocorreu um erro ao salvar as alterações.', ephemeral: true });
+            }
         }
 
         if (interaction.customId.startsWith('add_image_modal_')) {
