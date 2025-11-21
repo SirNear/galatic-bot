@@ -51,19 +51,17 @@ module.exports = class Moeda extends Command {
 
         switch (sub) {
             case 'criar': {
-                if (!isAdmod) return interaction.reply({ content: '❌ Apenas AdMods podem criar novas moedas.', ephemeral: true });
-
                 const nome = interaction.options.getString('nome').toLowerCase();
                 const emoji = interaction.options.getString('emoji');
 
-                const moedaExistente = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nome });
-                if (moedaExistente) return interaction.reply({ content: `❌ A moeda "${nome}" já existe.`, ephemeral: true });
+                const moeExi = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nome });
+                if (moeExi) return interaction.reply({ content: `❌ A moeda "${nome}" já existe.`, ephemeral: true });
 
                 await this.client.database.MoedaConfig.create({
                     guildId: interaction.guild.id,
                     nome: nome,
                     emoji: emoji,
-                    creatorId: interaction.user.id
+                    criadorId: interaction.user.id
                 });
 
                 await this.client.database.userData.updateMany(
@@ -71,17 +69,20 @@ module.exports = class Moeda extends Command {
                     { $set: { [`moeda.${nome}`]: 0 } }
                 );
 
-                await interaction.reply({ content: `✅ A moeda ${emoji} **${nome}** foi criada e adicionada a todos os jogadores com saldo 0.` });
+                await interaction.reply({ content: `✅ A moeda ${emoji} **${nome}** foi criada por ${interaction.user} e adicionada a todos os jogadores com saldo 0.` });
                 return console.log(`SISTEMA DE MOEDAS | Moeda "${nome}" criada por ${interaction.user.tag} (${interaction.user.id})`);
             }
 
             case 'deletar': {
-                if (!isAdmod) return interaction.reply({ content: '❌ Apenas AdMods podem deletar moedas.', ephemeral: true });
-
                 const nome = interaction.options.getString('nome').toLowerCase();
-                const moeda = await this.client.database.MoedaConfig.findOneAndDelete({ guildId: interaction.guild.id, nome: nome });
+                const moeda = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nome });
 
                 if (!moeda) return interaction.reply({ content: `❌ A moeda "${nome}" não foi encontrada.`, ephemeral: true });
+
+                const temPer = isAdmod || moeda.criadorId === interaction.user.id;
+                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para deletar a moeda "${nome}". Apenas AdMods ou o criador (<@${moeda.criadorId}>) podem.`, ephemeral: true });
+
+                await this.client.database.MoedaConfig.deleteOne({ _id: moeda._id });
 
                 await this.client.database.userData.updateMany(
                     { uServer: interaction.guild.id },
@@ -90,7 +91,6 @@ module.exports = class Moeda extends Command {
 
                 await interaction.reply({ content: `✅ A moeda **${nome}** foi deletada do sistema e da carteira de todos os jogadores.` });
                 return console.log(`SISTEMA DE MOEDAS | Moeda "${nome}" deletada por ${interaction.user.tag} (${interaction.user.id})`);
-        
             }
 
             case 'dar':
@@ -101,24 +101,24 @@ module.exports = class Moeda extends Command {
 
                 if (sub === 'remover') quantidade *= -1;
 
-                const moedaConfig = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
-                if (!moedaConfig) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
+                const moeCon = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
+                if (!moeCon) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
 
-                const hasPermission = isAdmod || moedaConfig.creatorId === interaction.user.id;
-                if (!hasPermission) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moedaConfig.creatorId}>) podem.`, ephemeral: true });
+                const temPer = isAdmod || moeCon.criadorId === interaction.user.id;
+                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moeCon.criadorId}>) podem.`, ephemeral: true });
 
-                const jogadorDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: interaction.guild.id });
-                if (!jogadorDb) return interaction.reply({ content: `❌ O jogador ${targetUser} não está registrado no sistema.`, ephemeral: true });
+                const jogDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: interaction.guild.id });
+                if (!jogDb) return interaction.reply({ content: `❌ O jogador ${targetUser} não está registrado no sistema.`, ephemeral: true });
 
                 const path = `moeda.${nomeMoeda}`;
                 await this.client.database.userData.updateOne(
-                    { _id: jogadorDb._id },
+                    { _id: jogDb._id },
                     { $inc: { [path]: quantidade } }
                 );
 
-                const novoSaldo = (jogadorDb.moeda.get(nomeMoeda) || 0) + quantidade;
+                const novSal = (jogDb.moeda.get(nomeMoeda) || 0) + quantidade;
 
-                const actionText = sub === 'dar' ? 'recebeu' : 'teve removido';
+                const acaTex = sub === 'dar' ? 'recebeu' : 'teve removido';
                 const embed = new EmbedBuilder()
                     .setColor(sub === 'dar' ? color.green : color.red)
                     .setDescription(`${targetUser} ${actionText} **${Math.abs(quantidade)}** ${moedaConfig.emoji} ${nomeMoeda}.`)

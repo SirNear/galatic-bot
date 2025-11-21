@@ -150,7 +150,7 @@ module.exports = class loja extends Command {
         const nome = interaction.options.getString('nome');
         const canal = interaction.options.getChannel('canal');
         const descricao = interaction.options.getString('descricao');
-        const admodRole = '1438672389918556310';
+        const admodRole = '731974690125643869';
         const isAdmod = interaction.member.roles.cache.has(admodRole);
 
         try {
@@ -174,7 +174,7 @@ module.exports = class loja extends Command {
 
             return interaction.reply({ content: `✅ Loja criada com sucesso por um AdMod em ${canal.toString()}`, flags: MessageFlags.Ephemeral });
           } else {
-            const canalConfirma = await interaction.guild.channels.fetch('1408850402740404356');
+            const canalConfirma = await interaction.guild.channels.fetch('1441471406889111643');
             if (!canalConfirma) return interaction.reply({ content: '❌ Canal de aprovação não encontrado. Contate um desenvolvedor.', flags: MessageFlags.Ephemeral });
 
             const novaLojaPendente = new LojaModel({
