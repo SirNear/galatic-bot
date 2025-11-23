@@ -100,6 +100,37 @@ module.exports = class aparencia extends Command {
       (i) => i.id === "1409063037905670154"
     );
 
+    function calcularDistanciaLev(a, b) {
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+    
+      const matriz = [];
+    
+      for (let i = 0; i <= b.length; i++) {
+        matriz[i] = [i];
+      }
+    
+      for (let j = 0; j <= a.length; j++) {
+        matriz[0][j] = j;
+      }
+    
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matriz[i][j] = matriz[i - 1][j - 1];
+          } else {
+            matriz[i][j] = Math.min(
+              matriz[i - 1][j - 1] + 1,
+              matriz[i][j - 1] + 1,
+              matriz[i - 1][j] + 1
+            );
+          }
+        }
+      }
+    
+      return matriz[b.length][a.length];
+    }
+
     async function normalizeText(s) {
       return String(s || "")
         .normalize("NFD") // Separa os acentos das letras
@@ -202,19 +233,27 @@ module.exports = class aparencia extends Command {
                 if (!aparencia) continue;
                 const aparNorm = await normalizeText(aparencia);
                 if (aparNorm.length < 2) continue;
+                
+                let ehSimilar = false;
+                const palavrasApar = aparNorm.split(' ');
+                const limiar = Math.max(1, Math.floor(target.length / 4));
+                
+                for (const palavra of palavrasApar) {
+                    const distancia = calcularDistanciaLev(palavra, target);
+                    if (distancia <= limiar) {
+                        ehSimilar = true;
+                        break;
+                    }
+                }
 
-                if (
-                  aparNorm === target ||
-                  (aparNorm.length >= 3 && aparNorm.includes(target)) ||
-                  (target.length >= 3 && target.includes(aparNorm))
-                ) {
-                  resultados.push({
-                    aparencia,
-                    universo,
-                    personagem,
-                    jogador,
-                    rowIndex: rowIndex + 1, // Adiciona o número da linha (planilhas são base 1)
-                  });
+                if (aparNorm.includes(target) || ehSimilar) {
+                    resultados.push({
+                        aparencia,
+                        universo,
+                        personagem,
+                        jogador,
+                        rowIndex: rowIndex + 1,
+                    });
                 }
               }
             } catch (err) {
@@ -222,36 +261,8 @@ module.exports = class aparencia extends Command {
               return await message.channel.send("Erro ao acessar a planilha.");
             }
 
-            let ExactMatch = resultados.find(
-              (r) => normalizeText(r.aparencia) === target
-            );
-
-            if (ExactMatch) {
-              const embedExato = new EmbedBuilder()
-                .setTitle(
-                  `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
-                )
-                .setDescription(
-                  `<:PepeHands:1407563136197984357> | Aparência em uso!`
-                )
-                .setColor("#8f0808")
-                .addFields(
-                  { name: "**APARÊNCIA**", value: ExactMatch.aparencia ?? "—" },
-                  { name: "**UNIVERSO**", value: ExactMatch.universo ?? "—" },
-                  { name: "**PERSONAGEM**", value: ExactMatch.personagem ?? "—" },
-                  { name: "**JOGADOR**", value: ExactMatch.jogador ?? "—" }
-                );
-              await msgNavegacao
-                .edit({ embeds: [embedExato], components: [] })
-                .catch(() => {});
-            } else {
-                if (resultados.length === 0) {
-                    await handleRegistro('aparência', target, msgNavegacao, message, sChannel, this.client, sheets, true, []);
-                    return;
-                }
-
-                let page = 0;
-                const EmbedPagesAparencia = resultados.map((r, idx) => 
+            let pag = 0;
+            const EmbedPagesAparencia = resultados.map((r, idx) => 
                     new EmbedBuilder()
                         .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
                         .setColor("#212416")
@@ -264,15 +275,16 @@ module.exports = class aparencia extends Command {
                         )
                         .setFooter({ text: `Página ${idx + 1}/${resultados.length}` })
                 );
-
+            
                 const navRow = async (idx) => {
                     const author = message.author;
                     const member = message.member;
                     const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: message.guild.id });
                     const components = [
-                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0),
-                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1),
-                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Danger)
+                        new ButtonBuilder().setCustomId("reg_nova_ap").setEmoji("➕").setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesAparencia.length === 0),
+                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1 || EmbedPagesAparencia.length === 0),
+                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Secondary)
                     ];
 
                     const currentResult = resultados[idx];
@@ -291,13 +303,27 @@ module.exports = class aparencia extends Command {
                             );
                         }
                     }
-                    return new ActionRowBuilder().addComponents(components);
+
+                    const rows = [];
+                    for (let i = 0; i < components.length; i += 5) {
+                        rows.push(
+                            new ActionRowBuilder().addComponents(components.slice(i, i + 5))
+                        );
+                    }
+
+                    return rows;
                 };
 
+                if (resultados.length === 0) {
+                    EmbedPagesAparencia.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nA aparência **${target}** está livre para registro!\nClique no botão abaixo para registrá-la.`));
+                }
+
                 await msgNavegacao.edit({
-                    embeds: [EmbedPagesAparencia[page]],
-                    components: [await navRow(page)],
+                    embeds: [EmbedPagesAparencia[pag]],
+                    components: await navRow(pag),
                 });
+
+                let registroIniciado = false;
 
                 const navCollector = msgNavegacao.createMessageComponentCollector({
                     filter: (ii) => ii.user.id === message.author.id,
@@ -306,46 +332,56 @@ module.exports = class aparencia extends Command {
                 });
 
                 navCollector.on("collect", async (ii) => {
+                    if (registroIniciado) return;
+
                     switch (ii.customId) {
                         case 'prev_ap_similar':
-                            page = Math.max(0, page - 1);
+                            pag = Math.max(0, pag - 1);
                             break;
                         case 'next_ap_similar':
-                            page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
+                            pag = Math.min(EmbedPagesAparencia.length - 1, pag + 1);
                             break;
                         case 'close_ap_similar':
                             navCollector.stop("closed");
                             return;
+                        case 'reg_nova_ap':
+                            registroIniciado = true;
+                            navCollector.stop("register");
+                            await handleRegistro('aparência', target, msgNavegacao, message, sChannel, this.client, sheets, false, []);
+                            return;
+                        default:
+                            if (ii.customId.startsWith('edit_appearance_') || ii.customId.startsWith('delete_appearance_')) {
+                                return;
+                            }
+                            return;
                     }
-                    await msgNavegacao.edit({
-                        embeds: [EmbedPagesAparencia[page]],
-                        components: [await navRow(page)],
-                    }).catch(() => {});
+                    if (!registroIniciado) {
+                        await ii.update({
+                            embeds: [EmbedPagesAparencia[pag]],
+                            components: await navRow(pag),
+                        }).catch(() => {});
+                    }
                 });
 
                 navCollector.on("end", async (collected, reason) => {
                     if (reason === "closed") {
                         await msgNavegacao.delete().catch(() => {});
                         message.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
-                    } else {
+                    } else if (reason !== "register") {
                         await msgNavegacao.edit({ components: [] }).catch(() => {});
                     }
                 });
-            } 
           });
 
           coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
               contador.edit({ content: "Tempo esgotado." }).catch(() => {});
-              msgNavegacao.delete().catch(() => {});
+              msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
-            msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
           });
 
           break;
-        default:
-          return;
       }
     });
   }
@@ -354,6 +390,37 @@ module.exports = class aparencia extends Command {
     const sChannel = await interaction.guild.channels.cache.find(
       (i) => i.id === "1409063037905670154"
     );
+
+    function calcularDistanciaLev(a, b) {
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+    
+      const matriz = [];
+    
+      for (let i = 0; i <= b.length; i++) {
+        matriz[i] = [i];
+      }
+    
+      for (let j = 0; j <= a.length; j++) {
+        matriz[0][j] = j;
+      }
+    
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matriz[i][j] = matriz[i - 1][j - 1];
+          } else {
+            matriz[i][j] = Math.min(
+              matriz[i - 1][j - 1] + 1,
+              matriz[i][j - 1] + 1,
+              matriz[i - 1][j] + 1
+            );
+          }
+        }
+      }
+    
+      return matriz[b.length][a.length];
+    }
 
     async function normalizeText(s) {
       return String(s || "")
@@ -443,19 +510,27 @@ module.exports = class aparencia extends Command {
                 if (!aparencia) continue;
                 const aparNorm = await normalizeText(aparencia);
                 if (aparNorm.length < 2) continue;
+                
+                let ehSimilar = false;
+                const palavrasApar = aparNorm.split(' ');
+                const limiar = Math.max(1, Math.floor(target.length / 4));
+                
+                for (const palavra of palavrasApar) {
+                    const distancia = calcularDistanciaLev(palavra, target);
+                    if (distancia <= limiar) {
+                        ehSimilar = true;
+                        break;
+                    }
+                }
 
-                if (
-                  aparNorm === target ||
-                  (aparNorm.length >= 3 && aparNorm.includes(target)) ||
-                  (target.length >= 3 && target.includes(aparNorm))
-                ) {
-                  resultados.push({
-                    aparencia,
-                    universo,
-                    personagem,
-                    jogador,
-                    rowIndex: rowIndex + 1, // Adiciona o número da linha (planilhas são base 1)
-                  });
+                if (aparNorm.includes(target) || ehSimilar) {
+                    resultados.push({
+                        aparencia,
+                        universo,
+                        personagem,
+                        jogador,
+                        rowIndex: rowIndex + 1,
+                    });
                 }
               }
             } catch (err) {
@@ -463,36 +538,8 @@ module.exports = class aparencia extends Command {
               return await i.channel.send("Erro ao acessar a planilha.");
             }
 
-            let ExactMatch = resultados.find(
-              (r) => normalizeText(r.aparencia) === target
-            );
-
-            if (ExactMatch) {
-              const embedExato = new EmbedBuilder()
-                .setTitle(
-                  `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
-                )
-                .setDescription(
-                  `<:PepeHands:1407563136197984357> | Aparência em uso!`
-                )
-                .setColor("#8f0808")
-                .addFields(
-                  { name: "**APARÊNCIA**", value: ExactMatch.aparencia ?? "—" },
-                  { name: "**UNIVERSO**", value: ExactMatch.universo ?? "—" },
-                  { name: "**PERSONAGEM**", value: ExactMatch.personagem ?? "—" },
-                  { name: "**JOGADOR**", value: ExactMatch.jogador ?? "—" }
-                );
-              await msgNavegacao
-                .edit({ embeds: [embedExato], components: [] })
-                .catch(() => {});
-            } else {
-                if (resultados.length === 0) {
-                    await handleRegistro('aparência', target, msgNavegacao, i, sChannel, this.client, sheets, true, []);
-                    return;
-                }
-
-                let page = 0;
-                const EmbedPagesAparencia = resultados.map((r, idx) => 
+            let pag = 0;
+            const EmbedPagesAparencia = resultados.map((r, idx) => 
                     new EmbedBuilder()
                         .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
                         .setColor("#212416")
@@ -505,15 +552,16 @@ module.exports = class aparencia extends Command {
                         )
                         .setFooter({ text: `Página ${idx + 1}/${resultados.length}` })
                 );
-
+            
                 const navRow = async (idx) => {
                     const author = i.user;
                     const member = i.member;
                     const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: i.guild.id });
                     const components = [
-                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0),
-                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1),
-                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Danger)
+                        new ButtonBuilder().setCustomId("reg_nova_ap").setEmoji("➕").setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesAparencia.length === 0),
+                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1 || EmbedPagesAparencia.length === 0),
+                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Secondary)
                     ];
 
                     const currentResult = resultados[idx];
@@ -539,13 +587,26 @@ module.exports = class aparencia extends Command {
                         }
                     }
 
-                    return new ActionRowBuilder().addComponents(components);
+                    const rows = [];
+                    for (let i = 0; i < components.length; i += 5) {
+                        rows.push(
+                            new ActionRowBuilder().addComponents(components.slice(i, i + 5))
+                        );
+                    }
+
+                    return rows;
                 };
 
+                if (resultados.length === 0) {
+                    EmbedPagesAparencia.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nA aparência **${target}** está livre para registro!\nClique no botão abaixo para registrá-la.`));
+                }
+
                 await msgNavegacao.edit({
-                    embeds: [EmbedPagesAparencia[page]],
-                    components: [await navRow(page)],
+                    embeds: [EmbedPagesAparencia[pag]],
+                    components: await navRow(pag),
                 });
+
+                let registroIniciado = false;
 
                 const navCollector = msgNavegacao.createMessageComponentCollector({
                     filter: (ii) => ii.user.id === i.user.id,
@@ -554,49 +615,59 @@ module.exports = class aparencia extends Command {
                 });
 
                 navCollector.on("collect", async (ii) => {
+                    if (registroIniciado) return;
+
                     switch (ii.customId) {
                         case 'prev_ap_similar':
-                            page = Math.max(0, page - 1);
+                            pag = Math.max(0, pag - 1);
                             break;
                         case 'next_ap_similar':
-                            page = Math.min(EmbedPagesAparencia.length - 1, page + 1);
+                            pag = Math.min(EmbedPagesAparencia.length - 1, pag + 1);
                             break;
                         case 'close_ap_similar':
                             navCollector.stop("closed");
                             return;
+                        case 'reg_nova_ap':
+                            registroIniciado = true;
+                            navCollector.stop("register");
+                            await handleRegistro('aparência', target, msgNavegacao, i, sChannel, this.client, sheets, false, []);
+                            return;
+                        default:
+                            if (ii.customId.startsWith('edit_appearance_') || ii.customId.startsWith('delete_appearance_')) {
+                                return;
+                            }
+                            return;
                     }
-                    await msgNavegacao.edit({
-                        embeds: [EmbedPagesAparencia[page]],
-                        components: [await navRow(page)],
-                    }).catch(() => {});
+                    if (!registroIniciado) {
+                        await ii.update({
+                            embeds: [EmbedPagesAparencia[pag]],
+                            components: await navRow(pag),
+                        }).catch(() => {});
+                    }
                 });
 
                 navCollector.on("end", async (collected, reason) => {
                     if (reason === "closed") {
                         await msgNavegacao.delete().catch(() => {});
                         i.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
-                    } else {
+                    } else if (reason !== "register") {
                         await msgNavegacao.edit({ components: [] }).catch(() => {});
                     }
                 });
-            } 
           });
 
           coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
               contador.edit({ content: "Tempo esgotado." }).catch(() => {});
-              msgNavegacao.delete().catch(() => {});
+              msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
-            msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
           });
 
           break;
         case "verso":
-          await i.update({
-            embeds: [new EmbedBuilder().setColor("#212416").setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **").setDescription("Envie no chat o nome do verso que deseja pesquisar.").setFooter({ text: "envie apenas o nome do verso." })], // Corrigido para fechar o array
-            components: []
-          }).catch(() => {});
+          const embedVerso = new EmbedBuilder().setColor("#212416").setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **").setDescription("Envie no chat o nome do verso que deseja pesquisar.").setFooter({ text: "envie apenas o nome do verso." });
+          await i.update({ embeds: [embedVerso], components: [] }).catch(() => {});
 
           ({ intervalo, contador } = await iniciarContador(
             tempoRestante,
@@ -697,12 +768,10 @@ module.exports = class aparencia extends Command {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
               contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
-            msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
           });
           break;
-        default:
-          return;
       }
     });
   }
