@@ -61,7 +61,7 @@ module.exports = class Moeda extends Command {
                     guildId: interaction.guild.id,
                     nome: nome,
                     emoji: emoji,
-                    criadorId: interaction.user.id
+                    creatorId: interaction.user.id
                 });
 
                 await this.client.database.userData.updateMany(
@@ -79,8 +79,8 @@ module.exports = class Moeda extends Command {
 
                 if (!moeda) return interaction.reply({ content: `❌ A moeda "${nome}" não foi encontrada.`, ephemeral: true });
 
-                const temPer = isAdmod || moeda.criadorId === interaction.user.id;
-                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para deletar a moeda "${nome}". Apenas AdMods ou o criador (<@${moeda.criadorId}>) podem.`, ephemeral: true });
+                const temPer = isAdmod || moeda.creatorId === interaction.user.id;
+                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para deletar a moeda "${nome}". Apenas AdMods ou o criador (<@${moeda.creatorId}>) podem.`, ephemeral: true });
 
                 await this.client.database.MoedaConfig.deleteOne({ _id: moeda._id });
 
@@ -104,8 +104,8 @@ module.exports = class Moeda extends Command {
                 const moeCon = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
                 if (!moeCon) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
 
-                const temPer = isAdmod || moeCon.criadorId === interaction.user.id;
-                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moeCon.criadorId}>) podem.`, ephemeral: true });
+                const temPer = isAdmod || moeCon.creatorId === interaction.user.id;
+                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moeCon.creatorId}>) podem.`, ephemeral: true });
 
                 const jogDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: interaction.guild.id });
                 if (!jogDb) return interaction.reply({ content: `❌ O jogador ${targetUser} não está registrado no sistema.`, ephemeral: true });
