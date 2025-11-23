@@ -403,16 +403,50 @@ async function handleLoreInteraction(interaction, client) {
                         const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
                         
                         const criarAnexos = () => {
-                            const anexos = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
-                            if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
-                            return anexos;
+                            const anc = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
+                            if (zipBuffer) anc.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
+                            return anc;
                         };
+                        const anexos = criarAnexos();
 
-                        const backupSent = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: criarAnexos() }).catch(() => null);
-                        const dmSent = await interaction.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: criarAnexos() }).catch(() => null);
+                        const backupEnviado = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: anexos }).catch(() => null);
+                        if (!backupEnviado) return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro crítico ao enviar o backup para o servidor. As mensagens originais não foram excluídas para evitar perda de dados.', ephemeral: true });
 
-                        if (!backupSent || !dmSent) return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro ao enviar os backups. As mensagens originais não foram excluídas.', ephemeral: true });
+                        const linhaConfirmacao = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId('lore_dm_confirm_yes').setLabel('Sim, por favor').setStyle(ButtonStyle.Success),
+                            new ButtonBuilder().setCustomId('lore_dm_confirm_no').setLabel('Não, obrigado').setStyle(ButtonStyle.Secondary)
+                        );
+                        const msgConfirmacao = await interaction.followUp({ content: 'O backup principal foi salvo. Você deseja receber uma cópia do backup em suas mensagens diretas (DM)?', components: [linhaConfirmacao], ephemeral: true, fetchReply: true });
 
+                        const filtroColetor = i => i.user.id === interaction.user.id && i.customId.startsWith('lore_dm_confirm_');
+                        const coletor = msgConfirmacao.createMessageComponentCollector({ filter: filtroColetor, componentType: ComponentType.Button, time: 60000, max: 1 });
+
+                        coletor.on('collect', async i => {
+                            if (i.customId === 'lore_dm_confirm_yes') {
+                                await i.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: anexos }).catch(() => {
+                                    i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade.', components: [] });
+                                    return;
+                                });
+                                await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                            } else {
+                                await i.update({ content: 'Ok! O backup não será enviado por DM. Iniciando limpeza das mensagens originais...', components: [] });
+                            }
+                            const duasSemanasAtras = Date.now() - 1209600000;
+                            const msgsRecentes = newMessages.filter(m => m.createdTimestamp > duasSemanasAtras && m.deletable);
+                            const msgsAntigas = newMessages.filter(m => m.createdTimestamp <= duasSemanasAtras && m.deletable);
+                            if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => {});
+                            for (const msg of msgsAntigas) await msg.delete().catch(() => {});
+                            await interaction.followUp({ content: '✅ Mensagens originais do novo capítulo foram limpas.', ephemeral: true });
+                        });
+
+                        coletor.on('end', async (collected, reason) => {
+                            if (reason === 'time') {
+                                await msgConfirmacao.edit({ content: '⏰ Tempo esgotado. A limpeza das mensagens originais foi cancelada. Você pode excluí-las manualmente.', components: [] }).catch(() => {});
+                            }
+                        });
+                        
+                        return;
+                        
                         const twoWeeksAgo = Date.now() - 1209600000;
                         const recentMessages = newMessages.filter(m => m.createdTimestamp > twoWeeksAgo && m.deletable);
                         const oldMessages = newMessages.filter(m => m.createdTimestamp <= twoWeeksAgo && m.deletable);
@@ -565,21 +599,44 @@ async function handleLoreInteraction(interaction, client) {
                 if (!backupChannel) return interaction.followUp({ content: '⚠️ A lore foi salva, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
 
                 const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
-                const attachments = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
-                if (zipBuffer) attachments.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
+                const anexos = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
+                if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
 
-                const backupSent = await backupChannel.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: attachments }).catch(() => null);
-                const dmSent = await interaction.user.send({ content: `Backup da sua lore **${title}**.`, files: attachments }).catch(() => {});
+                const backupEnviado = await backupChannel.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: anexos }).catch(() => null);
+                if (!backupEnviado) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro crítico ao enviar o backup para o servidor. As mensagens originais não foram excluídas para evitar perda de dados.', ephemeral: true });
 
-                if (!backupSent || !dmSent) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro ao enviar os backups. As mensagens originais **não foram excluídas**.', ephemeral: true });
+                const linhaConfirmacao = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('lore_dm_confirm_yes').setLabel('Sim, por favor').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('lore_dm_confirm_no').setLabel('Não, obrigado').setStyle(ButtonStyle.Secondary)
+                );
+                const msgConfirmacao = await interaction.followUp({ content: 'O backup principal foi salvo. Você deseja receber uma cópia do backup em suas mensagens diretas (DM)?', components: [linhaConfirmacao], ephemeral: true, fetchReply: true });
 
-                await interaction.followUp({ content: 'Backups enviados. Iniciando exclusão das mensagens originais...', ephemeral: true });
-                const twoWeeksAgo = Date.now() - 1209600000;
-                const recentMessages = loreState.rawMessages.filter(m => m.createdTimestamp > twoWeeksAgo && m.deletable);
-                const oldMessages = loreState.rawMessages.filter(m => m.createdTimestamp <= twoWeeksAgo && m.deletable);
-                if (recentMessages.length > 0) await interaction.channel.bulkDelete(recentMessages, true).catch(() => {});
-                for (const msg of oldMessages) await msg.delete().catch(() => {});
-                await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas.', ephemeral: true });
+                const filtroColetor = i => i.user.id === interaction.user.id && i.customId.startsWith('lore_dm_confirm_');
+                const coletor = msgConfirmacao.createMessageComponentCollector({ filter: filtroColetor, componentType: ComponentType.Button, time: 60000, max: 1 });
+
+                coletor.on('collect', async i => {
+                    if (i.customId === 'lore_dm_confirm_yes') {
+                        await i.user.send({ content: `Backup da sua lore **${title}**.`, files: anexos }).catch(() => {
+                            i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade.', components: [] });
+                            return;
+                        });
+                        await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                    } else {
+                        await i.update({ content: 'Ok! O backup não será enviado por DM. Iniciando limpeza das mensagens originais...', components: [] });
+                    }
+                    const duasSemanasAtras = Date.now() - 1209600000;
+                    const msgsRecentes = loreState.rawMessages.filter(m => m.createdTimestamp > duasSemanasAtras && m.deletable);
+                    const msgsAntigas = loreState.rawMessages.filter(m => m.createdTimestamp <= duasSemanasAtras && m.deletable);
+                    if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => {});
+                    for (const msg of msgsAntigas) await msg.delete().catch(() => {});
+                    await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas.', ephemeral: true });
+                });
+
+                coletor.on('end', async (collected, reason) => {
+                    if (reason === 'time') {
+                        await msgConfirmacao.edit({ content: '⏰ Tempo esgotado. A limpeza das mensagens originais foi cancelada. Você pode excluí-las manualmente.', components: [] }).catch(() => {});
+                    }
+                });
 
             } catch (error) {
                 console.error("Erro ao processar o modal da lore:", error);
