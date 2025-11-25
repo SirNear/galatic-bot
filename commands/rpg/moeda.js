@@ -101,7 +101,7 @@ module.exports = class Moeda extends Command {
 
                 if (sub === 'remover') quantidade *= -1;
 
-                const moeCon = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
+                const moedaConfig = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
                 if (!moeCon) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
 
                 const temPer = isAdmod || moeCon.creatorId === interaction.user.id;
