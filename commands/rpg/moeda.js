@@ -102,10 +102,10 @@ module.exports = class Moeda extends Command {
                 if (sub === 'remover') quantidade *= -1;
 
                 const moedaConfig = await this.client.database.MoedaConfig.findOne({ guildId: interaction.guild.id, nome: nomeMoeda });
-                if (!moeCon) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
+                if (!moedaConfig) return interaction.reply({ content: `❌ A moeda "${nomeMoeda}" não existe.`, ephemeral: true });
 
-                const temPer = isAdmod || moeCon.creatorId === interaction.user.id;
-                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moeCon.creatorId}>) podem.`, ephemeral: true });
+                const temPer = isAdmod || moedaConfig.creatorId === interaction.user.id;
+                if (!temPer) return interaction.reply({ content: `❌ Você não tem permissão para gerenciar a moeda "${nomeMoeda}". Apenas AdMods ou o criador (<@${moedaConfig.creatorId}>) podem.`, ephemeral: true });
 
                 const jogDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: interaction.guild.id });
                 if (!jogDb) return interaction.reply({ content: `❌ O jogador ${targetUser} não está registrado no sistema.`, ephemeral: true });
