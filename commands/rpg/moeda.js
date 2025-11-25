@@ -121,7 +121,7 @@ module.exports = class Moeda extends Command {
                 const acaTex = sub === 'dar' ? 'recebeu' : 'teve removido';
                 const embed = new EmbedBuilder()
                     .setColor(sub === 'dar' ? color.green : color.red)
-                    .setDescription(`${targetUser} ${actionText} **${Math.abs(quantidade)}** ${moedaConfig.emoji} ${nomeMoeda}.`)
+                    .setDescription(`${targetUser} ${acaTex} **${Math.abs(quantidade)}** ${moedaConfig.emoji} ${nomeMoeda}.`)
                     .setFooter({ text: `Novo saldo: ${novoSaldo}` });
 
                 return interaction.reply({ embeds: [embed] });
