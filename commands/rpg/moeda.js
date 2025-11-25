@@ -116,7 +116,7 @@ module.exports = class Moeda extends Command {
                     { $inc: { [path]: quantidade } }
                 );
 
-                const novSal = (jogDb.moeda.get(nomeMoeda) || 0) + quantidade;
+                const novoSaldo = (jogDb.moeda.get(nomeMoeda) || 0) + quantidade;
 
                 const acaTex = sub === 'dar' ? 'recebeu' : 'teve removido';
                 const embed = new EmbedBuilder()
