@@ -52,7 +52,7 @@ let Puni = new mongoose.Schema({
 })
 
 let uD = new mongoose.Schema({
-  _id: {type: String}, 
+  _id: {type: String, required: true, unique: true}, 
   uid: {type: String , required: true},
   uName: {type: String},
   jogador: {type: String , default: 'nrpg'},

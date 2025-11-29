@@ -144,6 +144,7 @@ module.exports = class MessageReceive {
 
             // Cria o novo usuário no banco de dados.
             userDb = await this.client.database.userData.create({
+                _id: `${message.author.id}-${message.guild.id}`,
                 uid: message.author.id,
                 uServer: message.guild.id,
                 uName: message.author.username,
