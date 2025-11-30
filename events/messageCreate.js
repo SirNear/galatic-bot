@@ -131,28 +131,23 @@ module.exports = class MessageReceive {
 		*/
     /* #endregion */
 
-    // Busca o usuário para verificar se ele já existe.
     let userDb = await this.client.database.userData.findOne({ uid: message.author.id, uServer: message.guild.id });
 
-    // Se o usuário não existe, cria o registro e inicia o processo de associação.
     if (!userDb) {
-        // Previne múltiplas tentativas de registro simultâneas para o mesmo usuário.
         if (registeringUsers.has(message.author.id)) return;
 
         try {
             registeringUsers.add(message.author.id);
 
-            // Cria o novo usuário no banco de dados.
             userDb = await this.client.database.userData.create({
                 _id: `${message.author.id}-${message.guild.id}`,
                 uid: message.author.id,
                 uServer: message.guild.id,
                 uName: message.author.username,
                 monitor: "desativado",
-                jogador: "nrpg" // Define como "não registrado"
+                jogador: "nrpg" 
             });
 
-            // Inicia o processo de registro via DM apenas para o servidor específico.
             if (message.guild.id === "731974689798488185") {
                 const embedRegistroPlayer = new EmbedBuilder()
                     .setColor("#13d510")
@@ -198,13 +193,11 @@ module.exports = class MessageReceive {
             registeringUsers.delete(message.author.id);
         }
     } else {
-        // Se o usuário já existe, apenas atualiza o nome de usuário se necessário.
         if (userDb.uName !== message.author.username) {
             userDb.uName = message.author.username;
             await userDb.save();
         }
 
-        // Lógica de monitoramento para usuários existentes.
         if (userDb.monitor === "ativado" && userDb.uServer === message.guild.id) {
             const monitorChannel = message.guild.channels.cache.get(userDb.monitorChannelId);
             if (monitorChannel) {
@@ -215,7 +208,6 @@ module.exports = class MessageReceive {
                     .setTimestamp();
                 monitorChannel.send({ embeds: [embedMonitor] });
             } else {
-                // Desativa o monitor se o canal não for encontrado.
                 userDb.monitor = "desativado";
                 await userDb.save();
             }
@@ -224,7 +216,7 @@ module.exports = class MessageReceive {
 
     let prefix = server ? server.prefix : "g!";
 
-    if (!message.content.startsWith(prefix)) return; //se não começar com o prefixo
+    if (!message.content.startsWith(prefix || "G!")) return;
     const args = message.content.slice(prefix.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
     let comando = this.client.commands.get(command);
