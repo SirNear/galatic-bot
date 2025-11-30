@@ -345,7 +345,7 @@ module.exports = class ficha extends Command {
       /* #endregion */
 
       // CRIAÇÃO DA FICHA EM DATABASE
-      await this.client.database.Ficha.create({
+      const novaFic = await this.client.database.Ficha.create({
         userId: interaction.user.id,
         guildId: interaction.guild.id,
         nome: fichaData.nome,
@@ -355,6 +355,29 @@ module.exports = class ficha extends Command {
         imagemURL: fichaData.imagemURL,
         habilidades: [],
       });
+
+      console.log(`[LOG FICHA] Ficha "${fichaData.nome}" criada por ${interaction.user.username} (${interaction.user.id}).`);
+
+      try {
+        const idCanLog = '1444579345736667147';
+        const canalLog = await this.client.channels.fetch(idCanLog);
+
+        if (canalLog) {
+          const embedLog = new EmbedBuilder()
+            .setColor("Green")
+            .setTitle("📝 Nova Ficha Criada")
+            .setDescription(`Uma nova ficha de personagem foi registrada no sistema.`)
+            .addFields(
+              { name: 'Personagem', value: novaFic.nome, inline: true },
+              { name: 'Criador', value: `<@${interaction.user.id}>`, inline: true },
+              { name: 'Raça', value: novaFic.raca, inline: false },
+              { name: 'Reino', value: novaFic.reino, inline: false }
+            )
+            .setTimestamp();
+
+          await canalLog.send({ embeds: [embedLog] });
+        }
+      } catch (e) { console.error("Erro ao enviar log de criação de ficha para o canal:", e); }
 
       //EMBED CONFIRMAÇÃO DE CRIAÇÃO DE FICHA
       const embed = new EmbedBuilder()
