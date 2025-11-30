@@ -53,14 +53,16 @@ module.exports = class ficha extends Command {
   // #region FUNÇÕES ARMAZENAR APARÊNCIA, COLETAR RESPOSTA, CONFIRMAR BOTÃO, MOSTRAR FORMULARIO
 
   async coletarResposta(interaction, pergunta) {
-    const channel = interaction.channel;
-    const author = interaction.user;
+    const channel = interaction.channel; // O canal onde a interação original ocorreu
+    const author = interaction.user; // O autor da interação
 
-    const perguntaMsg = await interaction.followUp({ //envia msgBotao para cada pergunta
-      content: pergunta,
-      fetchReply: true, // fetchReply está obsoleto, mas mantido por enquanto.
-      flags: 64,
-    });
+    let perguntaMsg;
+    if (pergunta) { // Só envia a mensagem de pergunta se ela for fornecida
+      perguntaMsg = await interaction.followUp({
+        content: pergunta,
+        flags: 64, // Ephemeral
+      });
+    }
 
     const coletorResposta = channel.createMessageCollector({ //coletor da perguntaMsg
       filter: (m) => m.author.id === author.id,
@@ -75,7 +77,9 @@ module.exports = class ficha extends Command {
       });
     });
 
-    await perguntaMsg.delete().catch(() => {});
+    if (perguntaMsg) {
+      await perguntaMsg.delete().catch(() => {});
+    }
 
     if (!collected) {
       await interaction.followUp({
@@ -88,15 +92,13 @@ module.exports = class ficha extends Command {
     const resposta = collected.content;
     const attachment = collected.attachments.first();
 
-    await collected.delete().catch(() => {});
-
-    return { resposta, attachment };
+    return { resposta, attachment, mensagemColetada: collected };
   }
 
-  async armazemAparencia(interaction, fichaNome) {
-    const resposta = await this.coletarResposta(interaction, "Envie a imagem agora.");
-    const attachment = resposta.attachment;
-    const canalArmazenamento = await this.client.channels.fetch('1094070734151766026').catch(() => null);
+  async armazemImagem(interaction, tipoItem, nomeItem, nomeFicha) {
+    const resposta = await this.coletarResposta(interaction, null); // Não envia mais a pergunta, apenas espera a imagem.
+    const attachment = resposta?.attachment;
+    const canalArmazenamento = await this.client.channels.fetch('1444543166232530996').catch(() => null);
 
 /* #region  DEBUG */
     if (!resposta || !resposta.attachment || !resposta.attachment.contentType?.startsWith("image/")) { //se não tem imagem ou se for arquvio, segue sem img
@@ -105,7 +107,7 @@ module.exports = class ficha extends Command {
     }
 
     if (!canalArmazenamento || !canalArmazenamento.isTextBased()) {
-      console.error(`Canal de armazenamento (ID: ${canalArmazenamentoId}) inválido ou não encontrado.`);
+      console.error(`Canal de armazenamento (ID: 1444543166232530996) inválido ou não encontrado.`);
       await interaction.followUp({ content: "❌ Erro de configuração: O canal de armazenamento de imagens não foi encontrado.", flags: 64 });
       return null;
     }
@@ -113,20 +115,24 @@ module.exports = class ficha extends Command {
     
   //backend
     try {
-      const embedAparencia = new EmbedBuilder()
-        .setColor(color.dblue)
-        .setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>")
-        .setFooter({ text: `Aparência para a ficha de ${fichaNome || "Nome não definido"}` })
-        .setImage(attachment.url);
+      const sentMessage = await canalArmazenamento.send({
+        content: `Imagem para ${tipoItem} **${nomeItem}** da ficha **${nomeFicha}** (enviado por: ${interaction.user.username})`,
+        files: [attachment]
+      });
 
-      const sentMessage = await canalArmazenamento.send({ embeds: [embedAparencia]});
+      const novaUrl = sentMessage.attachments.first()?.url;
 
-      if (!attachment.url) throw new Error("A URL do anexo não foi encontrada após o envio.");
+      if (!novaUrl) {
+        throw new Error("Não foi possível obter a URL da imagem após o envio para o canal de armazenamento.");
+      }
 
-      await sentMessage.edit({ embeds: [embedAparencia] });
-      return attachment.url;
+      if (resposta && resposta.mensagemColetada) {
+        await resposta.mensagemColetada.delete().catch(() => {});
+      }
+
+      return novaUrl;
     } catch (e) {
-      console.error(`Erro ao enviar imagem para o canal de armazenamento (ID: ${canalArmazenamentoId}):`, e);
+      console.error(`Erro ao enviar imagem para o canal de armazenamento (ID: 1444543166232530996):`, e);
       await interaction.followUp({ content: "❌ Ocorreu um erro ao salvar a imagem. Contate um administrador.", flags: 64 });
       return null;
     }
@@ -154,23 +160,30 @@ module.exports = class ficha extends Command {
 
   async botaoConfirma(interaction, mensagemPergunta, customLabelButtomY, customLabelButtomN, msgPersonalizadaUpdt) {
     const botoesRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('botaoConfirmaId').setLabel(customLabelButtomY).setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('botaoConfirmaId').setLabel(customLabelButtomY).setStyle(ButtonStyle.Success).setEmoji('✅'),
       new ButtonBuilder().setCustomId('botaoNegaId').setLabel(customLabelButtomN).setStyle(ButtonStyle.Danger)
     );
 
-    const msgBotao = await interaction.followUp({
+    const msgBotao = await interaction.editReply({
       content: mensagemPergunta,
       components: [botoesRow],
       ephemeral: true,
       fetchReply: true,
-    });
+    }).catch(() => interaction.followUp({ content: mensagemPergunta, components: [botoesRow], ephemeral: true, fetchReply: true }));
 
     try {
       const btnInteraction = await msgBotao.awaitMessageComponent({ filter: i => i.user.id === interaction.user.id, time: 60000 });
-      await btnInteraction.update({ content: msgPersonalizadaUpdt, components: [] });
-      return btnInteraction.customId === 'botaoConfirmaId';
+      const confirmado = btnInteraction.customId === 'botaoConfirmaId';
+
+      if (confirmado && msgPersonalizadaUpdt && msgPersonalizadaUpdt.length > 0) {
+          await btnInteraction.update({ content: msgPersonalizadaUpdt, components: [] });
+      } else if (!confirmado) {
+          await btnInteraction.update({ content: "Operação cancelada.", components: [], embeds: [] });
+      }
+      
+      return { confirmed: btnInteraction.customId === 'botaoConfirmaId', interaction: btnInteraction };
     } catch (e) {
-      await msgBotao.edit({ content: "Tempo esgotado. Continuando...", components: [] }).catch(() => {});
+      await msgBotao.edit({ content: "<:berror:1406837900556898304> | **Tempo esgotado.** Operação cancelada.", components: [] }).catch(() => {});
       return false;
     }
   }
@@ -195,83 +208,126 @@ module.exports = class ficha extends Command {
 
     parts.push(currentChunk.substring(0, splitIndex));
     currentChunk = currentChunk.substring(splitIndex).trim();
+    if (currentChunk.length === 0 && parts.length > 0) break;
   }
   return parts;
   }
 
+  async buscarImagemBackup(tipoItem, nomeItem, nomeFicha) {
+    const canalArmazenamento = await this.client.channels.fetch('1444543166232530996').catch(() => null);
+    if (!canalArmazenamento) return null;
+
+    try {
+      const messages = await canalArmazenamento.messages.fetch({ limit: 100 });
+      let searchString;
+      if (tipoItem === 'aparência') {
+        searchString = `Aparência para **${nomeFicha}**`;
+      } else {
+        searchString = `Imagem para ${tipoItem} **${nomeItem}** da ficha **${nomeFicha}**`;
+      }
+
+      const foundMessage = messages.find(m => m.content.includes(searchString) && m.attachments.size > 0);
+
+      if (foundMessage) {
+        return foundMessage.attachments.first().url;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Erro ao buscar imagem no canal de backup:", error);
+      return null;
+    }
+  }
+
   // #endregion
 
+  async run(interaction) {
+    const subComando = interaction.options.getSubcommand();
+
+    switch (subComando) {
+      case "criar":
+        await this.backFichaCriar(interaction);
+        break;
+      case "ver":
+        await this.backFichaVer(interaction);
+        break;
+      case "habilidade":
+        await this.backFichaHabAdd(interaction);
+        break;
+    }
+  }
 
   /* #region  BACK-END */
 
   /* #region  CRIAÇÃO DE FICHA */
   
   async backFichaCriar(interaction) {
+    const msgInicial = await interaction.reply({
+      content: "Iniciando criação de ficha...",
+      ephemeral: true,
+      fetchReply: true
+    });
     try { 
-      await interaction.deferReply({ ephemeral: true });
-      await interaction.editReply({
-        content:
-          "<:cpnews:1411060646019338406> | **Iniciando criação de ficha...** Responda as perguntas a seguir:",
-      });
+      const modalFicha = new ModalBuilder()
+        .setCustomId("modal_ficha_criar")
+        .setTitle("Criação de Ficha de Personagem");
 
-      /* #region  CONFIGURAÇÕES */
-      const channel = interaction.channel;
-      const author = interaction.user;
+      const nomeInput = new TextInputBuilder()
+        .setCustomId("criar_nome")
+        .setLabel("Nome do Personagem")
+        .setPlaceholder("O nome único do seu personagem.")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-      const perguntas = [
-        "Qual o nome do personagem?",
-        "Qual a raça do personagem? (Verifique as raças disponíveis no [sistema do RPG](https://discord.com/channels/731974689798488185/1142949580779032636))",
-        "Qual o reino de origem do personagem? (Elysium, Ozark, Minerva, etc.)",
-        "Qual a aparência do personagem? (Você pode enviar um texto ou um arquivo .txt com 'Nome da Aparência, Universo de Origem')",
-      ];
-      
-      const camposFicha = [
-        "nome",
-        "raca",
-        "reino",
-        "aparencia" 
-      ];
+      const racaInput = new TextInputBuilder()
+        .setCustomId("criar_raca")
+        .setLabel("Raça do Personagem")
+        .setPlaceholder("Consulte as raças disponíveis no sistema.")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-      const fichaData = {};
+      const reinoInput = new TextInputBuilder()
+        .setCustomId("criar_reino")
+        .setLabel("Reino de Origem")
+        .setPlaceholder("Elysium, Ozark, Minerva, etc.")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-      /* #endregion */
+      const aparenciaInput = new TextInputBuilder()
+        .setCustomId("criar_aparencia")
+        .setLabel("Aparência (Nome, Universo)")
+        .setPlaceholder("Ex: Kratos, God of War")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-      /* #region  BACK LOGICA DE SALVAMENTO */
-      if (fichaData.aparencia && !fichaData.imagemURL) {
-        const querImagem = await this.botaoConfirma(interaction, "Deseja enviar uma imagem para a aparência?", "Sim", "Não", "Iniciando coleta de imagem...");
-        if (querImagem) {
-          const url = await this.armazemAparencia(interaction, fichaData.nome); 
-        }
+      modalFicha.addComponents(
+        new ActionRowBuilder().addComponents(nomeInput),
+        new ActionRowBuilder().addComponents(racaInput),
+        new ActionRowBuilder().addComponents(reinoInput),
+        new ActionRowBuilder().addComponents(aparenciaInput)
+      );
 
-        for (let i = 0; i < perguntas.length; i++) {
-          const pergunta = perguntas[i];
-          const respostaColetada = await this.coletarResposta(interaction, pergunta);
+      const formEnviado = await this.formulario(interaction, modalFicha);
 
-          if (!respostaColetada) return
-
-          let { resposta, attachment } = respostaColetada;
-
-          // Lógica para a pergunta da aparência
-          if (pergunta.includes("aparência") && !resposta && attachment) {
-            if (attachment.contentType?.startsWith("text/plain")) {
-              try {
-                const response = await fetch(attachment.url);
-                if (!response.ok) throw new Error("Falha ao buscar anexo.");
-                resposta = await response.text();
-              } catch (error) {
-                console.error("Erro ao processar anexo na criação de ficha:", error);
-                await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", flags: 64 });
-                return;
-              }
-            }
-          }
-
-          if (i === 3) return i = url
-          fichaData[camposFicha[i]] = resposta;
-          
-        }
+      if (!formEnviado) {
+        return;
       }
-      /* #endregion */
+
+      const fichaData = {
+        nome: formEnviado.fields.getTextInputValue("criar_nome"),
+        raca: formEnviado.fields.getTextInputValue("criar_raca"),
+        reino: formEnviado.fields.getTextInputValue("criar_reino"),
+        aparencia: formEnviado.fields.getTextInputValue("criar_aparencia"),
+      };
+
+      await formEnviado.deferUpdate(); // Apenas para confirmar que o modal foi recebido
+
+      const querImagem = await this.botaoConfirma(msgInicial, "Deseja enviar uma imagem para a aparência?", "Sim", "Não", "Ok, agora envie a imagem no chat.");
+      if (querImagem.confirmed) {
+        fichaData.imagemURL = await this.armazemImagem(msgInicial, "a aparência", fichaData.nome, fichaData.nome);
+      } else {
+        await msgInicial.edit({ content: "Ok, continuando sem imagem." });
+      }
 
       /* #region  SE JÁ HOUVER UMA FICHA DAQUELE PERSONAGEM */
       const fichaExistente = await this.client.database.Ficha.findOne({
@@ -281,7 +337,7 @@ module.exports = class ficha extends Command {
       });
 
       if (fichaExistente) {
-        return interaction.followUp({
+        return msgInicial.edit({
           content: "❌ Você já possui um personagem com este nome!",
           ephemeral: true,
         });
@@ -308,31 +364,27 @@ module.exports = class ficha extends Command {
           `A ficha para **${fichaData.nome}** foi criada com sucesso!`
         );
 
-      await interaction.followUp({ embeds: [embed], ephemeral: true });
+      await msgInicial.edit({ content: '', embeds: [embed], components: [] });
     } catch (err) {
       console.error("Erro ao criar ficha:", err);
-      if (interaction.deferred || interaction.replied) {
-        // evitar erros de resposta do discord
-        await interaction
-          .editReply({
-            content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
-            embeds: [],
-            components: [],
-          })
-          .catch(() => {});
-      } else {
-        await interaction
-          .reply({
-            content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
-            ephemeral: true,
-          })
-          .catch(() => {});
-      }
+      const errorMessage = {
+        content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
+        embeds: [],
+        components: [],
+        ephemeral: true
+      };
+      await (interaction.replied || interaction.deferred ? interaction.followUp(errorMessage) : interaction.reply(errorMessage)).catch(() => {});
     }
   }
 
   /* #region  ADICIONAR HABILIDADE NOVA */
   async backFichaHabAdd(interaction) {
+    const msgInicial = await interaction.reply({
+      content: "Buscando suas fichas...",
+      ephemeral: true,
+      fetchReply: true
+    });
+
     const fichasDoUsuario = await this.client.database.Ficha.find({
       userId: interaction.user.id,
       guildId: interaction.guild.id,
@@ -340,7 +392,7 @@ module.exports = class ficha extends Command {
 
     if (!fichasDoUsuario.length) {  // se não tem fichas
 
-      return interaction.reply({
+      return msgInicial.edit({
         content:
           "❌ Você não tem fichas registradas, precisa criar uma ficha primeiro com `/ficha criar`.",
         ephemeral: true,
@@ -361,12 +413,11 @@ module.exports = class ficha extends Command {
 
       const botoesRow = new ActionRowBuilder().addComponents(selectMenu);
 
-      const response = await interaction.reply({
+      await msgInicial.edit({
         content: "Para qual personagem você quer adicionar esta habilidade?",
         components: [botoesRow],
         ephemeral: true,
       });
-      const msgBotao = await response.fetch();
 
       const coletorResposta = msgBotao.createMessageComponentCollector({
         filter: (i) =>
@@ -377,18 +428,19 @@ module.exports = class ficha extends Command {
 
       coletorResposta.on("collect", async (i) => {
         const fichaId = i.values[0];
-        await this.backFichaUnicaHabAdd(i, fichaId);
+        await i.deferUpdate();
+        await this.backFichaUnicaHabAdd(msgInicial, i, fichaId);
       });
 
       coletorResposta.on("end", (collected) => {
         if (collected.size === 0) {
-          interaction
+          msgInicial
             .editReply({ content: "Tempo esgotado.", components: [] })
             .catch(() => {});
         }
       });
     } else {
-      // Se tem apenas uma ficha, usa ela diretamente
+      await msgInicial.edit({ content: `Adicionando habilidade para **${fichasDoUsuario[0].nome}**...` });
       const fichaId = fichasDoUsuario[0]._id.toString();
       await this.backFichaUnicaHabAdd(interaction, fichaId);
     }
@@ -397,94 +449,84 @@ module.exports = class ficha extends Command {
   /* #endregion */
 
   /* #region  ADICIONAR HABILIDADE NOVA */
-  async backFichaUnicaHabAdd(interaction, fichaId) {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ ephemeral: true });
-    }
+  async backFichaUnicaHabAdd(msgInicial, interaction, fichaId) {
+    const modalHab = new ModalBuilder()
+      .setCustomId(`modal_habilidade_add_${fichaId}`)
+      .setTitle("Adicionar Nova Habilidade");
 
-    if (interaction.isStringSelectMenu()) await interaction.deferUpdate();
+    const nomeInput = new TextInputBuilder().setCustomId('hab_nome').setLabel("Nome da Habilidade").setStyle(TextInputStyle.Short).setRequired(true);
+    const categoriaInput = new TextInputBuilder().setCustomId('hab_categoria').setLabel("Categoria").setPlaceholder("Física, Mágica, Passiva, etc.").setStyle(TextInputStyle.Short).setRequired(true);
+    const custoInput = new TextInputBuilder().setCustomId('hab_custo').setLabel("Custo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
+    const descricaoInput = new TextInputBuilder().setCustomId('hab_descricao').setLabel("Descrição da Habilidade").setStyle(TextInputStyle.Paragraph).setRequired(true);
 
-    await interaction.editReply({
-      content: "Iniciando adição de habilidade...",
-      embeds: [],
-      components: [],
-    });
+    modalHab.addComponents(
+      new ActionRowBuilder().addComponents(nomeInput),
+      new ActionRowBuilder().addComponents(categoriaInput),
+      new ActionRowBuilder().addComponents(custoInput),
+      new ActionRowBuilder().addComponents(descricaoInput)
+    );
 
-    /* #region  CONFIGURAÇÃO DE COLETORES, PERGUNTAS E RESPOSTAS */
-    const perguntas = [
-      "Qual o nome da habilidade?",
-      "Qual a categoria da habilidade? (Física, Mágica, Passiva, Haki, Aura de Combate, Sagrada, Demoníaca, Outros (diga qual))",
-      "Qual o custo da habilidade? (Ex: 10 Mana, 1 de CARDIO (<:patrickconcern:1407564230256758855>), 100 de mana sagrada, etc. Deixe em branco ou digite 'nenhum' se não houver custo.)",
-      "Qual a descrição da habilidade?",
-    ];
+    const formEnviado = await this.formulario(interaction, modalHab);
+    if (!formEnviado) return;
 
-    const dadosHabilidade = {};
-
-    for (const pergunta of perguntas) {
-      const respostaColetada = await this.coletarResposta(interaction, pergunta);
-      if (!respostaColetada) {
-        return;
-      }
-
-      let { resposta, attachment } = respostaColetada;
-
-      if (pergunta.includes("descrição") && !resposta && attachment) {
-        if (attachment.contentType?.startsWith("text/plain")) {
-          try {
-            const response = await fetch(attachment.url);
-            if (!response.ok) throw new Error("Falha ao buscar anexo.");
-            resposta = await response.text();
-          } catch (error) {
-            console.error("Erro ao processar anexo na adição de habilidade:", error);
-            await interaction.followUp({ content: "Ocorreu um erro ao ler o arquivo. Tente novamente.", ephemeral: true });
-            return;
-          }
-        }
-      }
-
-      if (pergunta.includes("nome")) dadosHabilidade.nome = resposta; // TODO: Corrigir, está pegando a resposta inteira
-      if (pergunta.includes("categoria")) dadosHabilidade.categoria = resposta;
-      if (pergunta.includes("custo")) dadosHabilidade.custo = resposta || " ";
-      if (pergunta.includes("descrição")) dadosHabilidade.descricao = resposta;
-    }
+    const dadosHabilidade = {
+      nome: formEnviado.fields.getTextInputValue('hab_nome'),
+      categoria: formEnviado.fields.getTextInputValue('hab_categoria'),
+      custo: formEnviado.fields.getTextInputValue('hab_custo') || "Nenhum",
+      descricao: formEnviado.fields.getTextInputValue('hab_descricao'),
+    };
 
     const ficha = await this.client.database.Ficha.findById(fichaId);
     if (!ficha) {
-      return interaction.followUp({ content: "Erro: A ficha selecionada não foi encontrada.", ephemeral: true });
-    }
+      return formEnviado.editReply({ content: "Erro: A ficha selecionada não foi encontrada." });
+    }    
+    
+    await formEnviado.deferUpdate();
 
-    // Pergunta se quer adicionar imagem para a habilidade principal
-    if (await this.botaoConfirma(interaction, "Deseja adicionar uma imagem para esta habilidade?")) {
-      const imageUrl = await this.armazemAparencia(interaction, ficha.nome);
+    const confirmacaoImagem = await this.botaoConfirma(msgInicial, `Deseja adicionar uma imagem para a habilidade **${dadosHabilidade.nome}**?`, "Sim", "Não", "");
+    if (confirmacaoImagem.confirmed) {
+      const imageUrl = await this.armazemImagem(msgInicial, "a habilidade", dadosHabilidade.nome, ficha.nome);
       if (imageUrl) dadosHabilidade.imagemURL = imageUrl;
     }
 
+    await msgInicial.edit({ content: 'Adicionando sub-habilidades...', components: [] });
     dadosHabilidade.subHabilidades = [];
+    
+    let confirmacaoSub;
+    while ((confirmacaoSub = await this.botaoConfirma(formEnviado, "Deseja adicionar uma sub-habilidade?", "Sim", "Não", "")).confirmed) {
 
-    // Loop para adicionar sub-habilidades
-    while (await this.botaoConfirma(interaction, "Deseja adicionar uma sub-habilidade?")) {
-      await interaction.followUp({ content: "Iniciando adição de sub-habilidade...", ephemeral: true });
-      const nomeSub = await this.coletarResposta(interaction, "Qual o nome da sub-habilidade?");
-      if (!nomeSub) break;
+      const modalSub = new ModalBuilder()
+        .setCustomId(`modal_sub_hab_add_${fichaId}_${Date.now()}`)
+        .setTitle("Adicionar Sub-Habilidade");
 
-      const descSub = await this.coletarResposta(interaction, "Qual a descrição da sub-habilidade?");
-      if (!descSub) break;
+      const nomeSubInput = new TextInputBuilder().setCustomId('sub_nome').setLabel("Nome da Sub-Habilidade").setStyle(TextInputStyle.Short).setRequired(true);
+      const descSubInput = new TextInputBuilder().setCustomId('sub_desc').setLabel("Descrição").setStyle(TextInputStyle.Paragraph).setRequired(true);
+      const custoSubInput = new TextInputBuilder().setCustomId('sub_custo').setLabel("Custo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
 
-      const custoSub = await this.coletarResposta(interaction, "Qual o custo da sub-habilidade? (Opcional)");
+      modalSub.addComponents(
+        new ActionRowBuilder().addComponents(nomeSubInput),
+        new ActionRowBuilder().addComponents(descSubInput),
+        new ActionRowBuilder().addComponents(custoSubInput)
+      );
+
+      const formSubEnviado = await this.formulario(confirmacaoSub.interaction, modalSub);
+      if (!formSubEnviado) break;
 
       const dadosSubHabilidade = {
-        nome: nomeSub.resposta,
-        descricao: descSub.resposta,
-        custo: custoSub ? custoSub.resposta : "Nenhum",
+        nome: formSubEnviado.fields.getTextInputValue('sub_nome'),
+        descricao: formSubEnviado.fields.getTextInputValue('sub_desc'),
+        custo: formSubEnviado.fields.getTextInputValue('sub_custo') || "Nenhum",
       };
+      await formSubEnviado.deferUpdate();
 
-      if (await this.botaoConfirma(interaction, "Deseja adicionar uma imagem para esta sub-habilidade?")) {
-        const imageUrl = await this.armazemAparencia(interaction, ficha.nome);
+      const confirmacaoImgSub = await this.botaoConfirma(formSubEnviado, `Deseja adicionar uma imagem para a sub-habilidade **${dadosSubHabilidade.nome}**?`, "Sim", "Não", "");
+      if (confirmacaoImgSub && confirmacaoImgSub.confirmed) {
+        const imageUrl = await this.armazemImagem(confirmacaoImgSub.interaction, "a sub-habilidade", dadosSubHabilidade.nome, ficha.nome);
         if (imageUrl) dadosSubHabilidade.imagemURL = imageUrl;
       }
 
       dadosHabilidade.subHabilidades.push(dadosSubHabilidade);
-      await interaction.followUp({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada.`, ephemeral: true });
+      await msgInicial.edit({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada.`, components: [] });
     }
 
     ficha.habilidades.push(dadosHabilidade);
@@ -497,189 +539,16 @@ module.exports = class ficha extends Command {
         `Habilidade **${dadosHabilidade.nome}** adicionada à ficha de **${ficha.nome}**.`
       );
 
-    /* #region RESUMIR DESCRIÇÃO COM MAIS DE 4000 CARACTERES */
-    const components = [];
-    let botaoResumo;
-    if (dadosHabilidade.descricao.length > 4000) {
-      // O ID da habilidade é gerado pelo Mongoose no array
-      const habilidadeId = ficha.habilidades[ficha.habilidades.length - 1]._id;
-      botaoResumo = new ButtonBuilder()
-        .setCustomId(`summarize_${ficha._id}_${habilidadeId}`)
-        .setLabel("Resumir Descrição (Excede 4000 caracteres)")
-        .setStyle(ButtonStyle.Primary);
-
-      const botoesRow = new ActionRowBuilder().addComponents(botaoResumo);
-      components.push(botoesRow);
-    }
-
-    const followUpMessage = await interaction.followUp({
+    await msgInicial.edit({
+      content: '',
       embeds: [embed],
-      components: components,
-      ephemeral: true,
-      fetchReply: true,
+      components: []
     });
-
-    if (botaoResumo) {
-      const botaoResumoColetor =
-        followUpMessage.createMessageComponentCollector({
-          filter: (i) =>
-            i.user.id === interaction.user.id &&
-            i.customId.startsWith("summarize_"),
-          time: 300000, // 5 minutos para clicar
-        });
-
-      botaoResumoColetor.on("collect", async (i) => {
-        botaoResumoColetor.stop(); // Para o coletor inicial, pois a interação continuará em um novo coletor
-        await i.deferReply({ ephemeral: true });
-        const [_, fichaId, habilidadeId] = i.customId.split("_");
-
-        try {
-          const ficha = await this.client.database.Ficha.findById(fichaId);
-          const habilidade = ficha.habilidades.id(habilidadeId);
-          if (!habilidade) {
-            return i.editReply({ content: "Habilidade não encontrada." });
-          }
-          const descCompleta = habilidade.descricao;
-
-          await i.editReply({
-            content: "Resumindo a habilidade com a IA... 🤖",
-          });
-
-          let descResumida = await summarizeText(descCompleta);
-
-          const botoesResumo = () =>
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`)
-                .setLabel("Confirmar")
-                .setStyle(ButtonStyle.Success),
-              new ButtonBuilder()
-                .setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`)
-                .setLabel("Resumir Novamente")
-                .setStyle(ButtonStyle.Primary),
-              new ButtonBuilder()
-                .setCustomId("cancel_summary")
-                .setLabel("Cancelar")
-                .setStyle(ButtonStyle.Danger)
-            );
-
-          const embedResumo = (text) =>
-            new EmbedBuilder()
-              .setTitle("📝 DESCRIÇÃO RESUMIDA")
-              .setDescription(text.substring(0, 4096))
-              .setColor("Blue")
-              .setFooter({ text: "Escolha uma opção abaixo." });
-
-          const msgBotaoResumo = await i.editReply({
-            content: "Aqui está o resumo gerado:",
-            embeds: [embedResumo(descResumida)],
-            components: [botoesResumo()],
-          });
-
-          const opcoesColetoresBotoesSum =
-            msgBotaoResumo.createMessageComponentCollector({
-              filter: (btn) => btn.user.id === i.user.id,
-              time: 300000, // 5 minutos
-            });
-
-          opcoesColetoresBotoesSum.on("collect", async (btnInteraction) => {
-            const btnFichaId = btnInteraction.customId.split("_")[2];
-            const btnHabilidadeId = btnInteraction.customId.split("_")[3];
-
-            if (btnInteraction.customId.startsWith("confirm_summary_")) {
-              await btnInteraction.deferUpdate();
-              const fichaToUpdate = await this.client.database.Ficha.findById(
-                btnFichaId
-              );
-              const habilidadeToUpdate =
-                fichaToUpdate.habilidades.id(btnHabilidadeId);
-              habilidadeToUpdate.descricao = descResumida;
-              await fichaToUpdate.save();
-              await i.editReply({
-                content:
-                  "✅ Resumo aplicado com sucesso! Você pode ver a habilidade usando `/ficha ver`.",
-                embeds: [],
-                components: [],
-              });
-
-              botaoResumo.setDisabled(true);
-
-              try {
-                await followUpMessage.edit({
-                  components: [
-                    new ActionRowBuilder().addComponents(botaoResumo),
-                  ],
-                });
-              } catch (editError) {
-                if (editError.code === 10008) {
-                  console.log(
-                    "A mensagem original de confirmação de habilidade foi deletada, não foi possível desabilitar o botão."
-                  );
-                } else {
-                  console.error(
-                    "Erro ao tentar editar a mensagem de confirmação:",
-                    editError
-                  );
-                }
-              }
-              opcoesColetoresBotoesSum.stop();
-            } else if (
-              btnInteraction.customId.startsWith("resummarize_again_")
-            ) {
-              await btnInteraction.deferUpdate();
-              await i.editReply({
-                content: "Resumindo novamente... 🤖",
-                embeds: [],
-                components: [],
-              });
-
-              descResumida = await summarizeText(descCompleta);
-              await i.editReply({
-                content: "Aqui está o novo resumo:",
-                embeds: [embedResumo(descResumida)],
-                components: [botoesResumo()],
-              });
-            } else if (btnInteraction.customId === "cancel_summary") {
-              await btnInteraction.deferUpdate();
-              await i.editReply({
-                content:
-                  "Resumo cancelado. A descrição permanece a mesma dividida na ficha.",
-                embeds: [],
-                components: [],
-              });
-              opcoesColetoresBotoesSum.stop();
-            }
-          });
-
-          opcoesColetoresBotoesSum.on("end", async (collected, reason) => {
-            if (reason === "time") {
-              await i
-                .editReply({
-                  content: "Tempo esgotado.",
-                  embeds: [],
-                  components: [],
-                })
-                .catch(() => {});
-            }
-          });
-        } catch (error) {
-          console.error("Erro ao resumir habilidade (criação):", error);
-          await i
-            .editReply({
-              content: "Ocorreu um erro ao tentar resumir a habilidade.",
-            })
-            .catch(() => {});
-        }
-      });
-    }
-
-    /* #endregion */
   }
   /* #endregion */
 
   /* #region VISUALIZAÇÃO DE FICHA UNICA */
   async backFichaVer(interaction) {
-    await interaction.deferReply({ ephemeral: true });
     const fichasDoUsuario = await this.client.database.Ficha.find({
       userId: interaction.user.id,
       guildId: interaction.guild.id,
@@ -687,7 +556,7 @@ module.exports = class ficha extends Command {
 
     if (!fichasDoUsuario.length) {
       return interaction.editReply({
-        content:
+        content: 
           "❌ Você não possui nenhuma ficha para visualizar. Use `/ficha criar` para começar.", ephemeral: true
       });
     }
@@ -706,13 +575,11 @@ module.exports = class ficha extends Command {
 
     const botoesRow = new ActionRowBuilder().addComponents(selectMenu);
 
-    const response = await interaction.editReply({
+    const response = await interaction.reply({
       content: "Qual ficha você gostaria de ver?",
       components: [botoesRow], ephemeral: true
     });
 
-    // O 'response' de editReply já é o objeto da mensagem.
-    // Tentar .fetch() em uma mensagem efêmera (flags: 64) causa o erro "Unknown Message".
     const coletorResposta = response.createMessageComponentCollector({
       filter: (i) =>
         i.user.id === interaction.user.id && i.customId === "select_ficha_view",
@@ -721,7 +588,7 @@ module.exports = class ficha extends Command {
 
     coletorResposta.on("collect", async (i) => {
       const fichaId = i.values[0];
-      await this.backFichaVerMultipla(i, fichaId); // Passa a nova interação e o ID da ficha
+      await this.backFichaVerMultipla(i, fichaId); 
     });
 
     coletorResposta.on("end", (collected, reason) => {
@@ -737,20 +604,18 @@ module.exports = class ficha extends Command {
 
   /* #region  VISUALIZAÇÃO DE FICHA MULTIPLA */
   async backFichaVerMultipla(interaction, fichaId) {
-    try {
-      if (interaction.isStringSelectMenu()) {
-        await interaction.deferUpdate();
-      }
+    try { 
+      await interaction.deferReply({ ephemeral: true });
 
       // Busca todas as fichas do usuário
-      const fichas = await this.client.database.Ficha.find({
+      let fichas = await this.client.database.Ficha.find({
         userId: interaction.user.id,
         guildId: interaction.guild.id,
       }).sort({ createdAt: -1 }); // Ordena por data de criação
 
       if (!fichas.length) {
         // Esta verificação já é feita em backFichaVer, mas é bom ter como segurança.
-        return interaction.editReply({ content: "Nenhuma ficha encontrada." });
+        return interaction.editReply({ content: "Nenhuma ficha encontrada.", ephemeral: true });
       }
 
       this.client.fichaStates.set(interaction.user.id, {
@@ -762,11 +627,21 @@ module.exports = class ficha extends Command {
       let currentFichaIndex = fichas.findIndex(
         (f) => f._id.toString() === fichaId.toString()
       );
-      const pages = fichas.length;
+      let pages = fichas.length;
+
+      // Lógica de busca automática de imagem para a ficha principal
+      let fichaPrincipal = fichas[currentFichaIndex];
+      if (!fichaPrincipal.imagemURL) {
+        const backupUrl = await this.buscarImagemBackup('aparência', fichaPrincipal.nome, fichaPrincipal.nome);
+        if (backupUrl) fichaPrincipal.imagemURL = backupUrl;
+        await fichaPrincipal.save();
+      }
 
       let viewMode = "ficha"; // 'ficha' ou 'habilidades'
       let currentHabilidadeIndex = 0;
       let currentDescPageIndex = 0;
+      let currentSubHabilidadeIndex = 0;
+      let habilidadePaiAtual = null;
 
       const categoryIcons = {
         fisica: "⚔️",
@@ -795,7 +670,7 @@ module.exports = class ficha extends Command {
                 : "Nenhuma habilidade registrada",
             }
           )
-          .setFooter({ text: `Página ${currentFichaIndex + 1} de ${pages}` });
+          .setFooter({ text: `Ficha ${currentFichaIndex + 1} de ${pages}` });
 
         if (ficha.imagemURL) {
           embed.setImage(ficha.imagemURL);
@@ -838,7 +713,7 @@ module.exports = class ficha extends Command {
         }
 
         /* #region  PARAMTROS DE CONFIG */
-        const MAX_DESC_LENGTH = 2000;
+        const MAX_DESC_LENGTH = 3500;
         const MAX_FIELD_LENGTH = 1024;
         let extraComponents = [];
         let pageDescs = [];
@@ -855,39 +730,30 @@ module.exports = class ficha extends Command {
         );
         actionRow.addComponents(
             new ButtonBuilder()
+                .setCustomId(`add_image_habilidade_${ficha._id}_${habilidade._id}`)
+                .setLabel("Adicionar Imagem")
+                .setStyle(ButtonStyle.Secondary)
+        );
+        actionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`delete_habilidade_${ficha._id}_${habilidade._id}`)
+                .setLabel("Excluir")
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🗑️'));
+        actionRow.addComponents(
+            new ButtonBuilder()
                 .setCustomId(`add_subhabilidade_${ficha._id}_${habilidade._id}`)
                 .setLabel("Adicionar Sub-habilidade")
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('➕')
         );
 
-
-        if (habilidade.subHabilidades && habilidade.subHabilidades.length > 0) {
-            actionRow.addComponents(new ButtonBuilder()
-                .setCustomId(`view_sub_habilidades_${habilidade._id}`)
-                .setLabel("Ver Sub-habilidades")
-                .setStyle(ButtonStyle.Secondary)
-            );
-        }
-
         if (habilidade.descricao) {
-          if (habilidade.descricao.length > 4000) {
-            //APARECE BOTÃO DE RESUMIR DESCRIÇÃO CASO SEJA MAIOR QUE 4000 CARACTERES, VAI TER PAGINAÇÃO
-            const botaoResumo = new ButtonBuilder()
-              .setCustomId(`summarize_${ficha._id}_${habilidade._id}`)
-              .setLabel("Resumir")
-              .setStyle(ButtonStyle.Success);
-            actionRow.addComponents(botaoResumo);
-          }
-
           if (habilidade.descricao.length <= MAX_DESC_LENGTH) {
-            //SE FOR MENOR QUE 2000 CARACTERES, MOSTRA NORMAL
-            embed.setDescription(habilidade.descricao);
+            embed.setDescription(habilidade.descricao || "Nenhuma descrição fornecida.");
           } else {
-            //SE FOR MAIOR QUE 2000 CARACTERES, DIVIDE EM PÁGINAS
-
-            pageDescs = splitDescription(habilidade.descricao, MAX_DESC_LENGTH);
-            embed.setDescription(pageDescs[descPageIndex]);
+            pageDescs = this.splitDescription(habilidade.descricao, MAX_DESC_LENGTH);
+            embed.setDescription(pageDescs[descPageIndex] ?? "");
 
             /* #region  BOTÕES DE PAGINAÇÃO PARTES DESCRIÇÕES */
             const descNavButtons = new ActionRowBuilder().addComponents(
@@ -905,6 +771,16 @@ module.exports = class ficha extends Command {
             extraComponents.push(descNavButtons);
             /* #endregion */
           }
+        } else {
+            embed.setDescription("Nenhuma descrição fornecida.");
+        }
+
+        if (habilidade.subHabilidades && habilidade.subHabilidades.length > 0) {
+            actionRow.addComponents(new ButtonBuilder()
+                .setCustomId(`view_sub_habilidades_${habilidade._id}`)
+                .setLabel("Ver Sub-habilidades")
+                .setStyle(ButtonStyle.Secondary)
+            );
         }
 
         if (actionRow.components.length > 0) {
@@ -929,25 +805,56 @@ module.exports = class ficha extends Command {
 
         embed.setFooter({ text: footerParts.join(" | ") });
 
-        /* #region  FRONT-END SUB-HABILIDADES */
-        if (habilidade.subHabilidades && habilidade.subHabilidades.length > 0) {
-          const subFields = habilidade.subHabilidades.map((sub) => ({
-            name: `Sub-habilidade: ${sub.nome}`,
-            value:
-              sub.descricao.length > MAX_FIELD_LENGTH
-                ? `${sub.descricao.substring(0, MAX_FIELD_LENGTH - 4)}...`
-                : sub.descricao,
-            inline: false,
-          }));
+        return { embed, components: extraComponents };
+      };
 
-          if ((embed.data.fields?.length ?? 0) + subFields.length <= 25) {
-            embed.addFields(subFields);
-          }
+      const getSubHabilidadeEmbed = (subHabilidade, habilidadePai) => {
+        const embed = new EmbedBuilder()
+          .setColor("Aqua")
+          .setTitle(`SUB: ${subHabilidade.nome}`)
+          .setDescription(subHabilidade.descricao || "Nenhuma descrição fornecida.");
+
+        if (subHabilidade.custo && subHabilidade.custo.toLowerCase() !== "nenhum") {
+          embed.addFields({ name: "Custo", value: subHabilidade.custo, inline: true });
         }
 
-        /* #endregion */
+        if (subHabilidade.imagemURL) {
+          embed.setImage(subHabilidade.imagemURL);
+        }
 
-        return { embed, components: extraComponents };
+        const actionButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`edit_sub_habilidade_${habilidadePai._id}_${subHabilidade._id}`)
+                .setLabel("Editar")
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('✏️'),
+            new ButtonBuilder()
+                .setCustomId(`add_image_sub_habilidade_${habilidadePai._id}_${subHabilidade._id}`)
+                .setLabel("Adicionar Imagem")
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        const totalSubHabilidades = habilidadePai.subHabilidades.length;
+        embed.setFooter({ text: `Sub-habilidade ${currentSubHabilidadeIndex + 1} de ${totalSubHabilidades} | Pai: ${habilidadePai.nome}` });
+
+        const navButtons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("prevSubHab")
+            .setEmoji("◀️")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(currentSubHabilidadeIndex === 0),
+          new ButtonBuilder()
+            .setCustomId("voltarHabilidadePai")
+            .setLabel("Voltar à Habilidade")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId("nextSubHab")
+            .setEmoji("▶️")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(currentSubHabilidadeIndex >= totalSubHabilidades - 1)
+        );
+
+        return { embed, components: [actionButtons, navButtons] };
       };
 
       /* #region  FRONT-END BOTÕES DE NAVEGAÇÃO DA FICHA */
@@ -973,7 +880,11 @@ module.exports = class ficha extends Command {
             .setCustomId(`edit_ficha_${fichas[currentFichaIndex]._id}`)
             .setLabel("Editar Ficha")
             .setStyle(ButtonStyle.Secondary)
-            .setEmoji('✏️'));
+            .setEmoji('✏️'),
+          new ButtonBuilder()
+            .setCustomId(`delete_ficha_${fichas[currentFichaIndex]._id}`)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🗑️'));
       };
 
       // Botões de navegação das Habilidades
@@ -997,7 +908,7 @@ module.exports = class ficha extends Command {
       };
       /* #endregion */
 
-      const message = await interaction.followUp({
+      const message = await interaction.editReply({
         embeds: [getFichaEmbed(fichas[currentFichaIndex])],
         components: [
           botNavFicha(currentFichaIndex === 0, currentFichaIndex === pages - 1),
@@ -1058,168 +969,142 @@ module.exports = class ficha extends Command {
             return;
         }
 
-        if (i.customId.startsWith("add_subhabilidade_")) {
-            const perguntasSub = [
-              'Qual o nome da sub-habilidade?',
-              'Qual a descrição da sub-habilidade?',
-              'Qual o custo da sub-habilidade? (Opcional)'
-            ];
-            const respostasSub = {};
-
-            for (const pergunta of perguntasSub) {
-              const respostaColetada = await this.coletarResposta(i, pergunta);
-              if (!respostaColetada) {
-                return;
-              }
-              respostasSub[pergunta] = respostaColetada.resposta;
-            }
-
-            const fichaParaEditar = await this.client.database.Ficha.findById(fichaId);
-            const habilidadeParaEditar = fichaParaEditar.habilidades.id(habilidadeId);
-            
+        if (i.customId.startsWith("add_image_habilidade_")) {
+            const [,,, fichaId, habilidadeId] = i.customId.split('_');
+            const modal = new ModalBuilder()
+                .setCustomId(`modal_add_image_hab_${fichaId}_${habilidadeId}`)
+                .setTitle('Adicionar Imagem à Habilidade');
+            const urlInput = new TextInputBuilder()
+                .setCustomId('hab_image_url')
+                .setLabel('URL da Imagem')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setPlaceholder('https://exemplo.com/imagem.png');
+            modal.addComponents(new ActionRowBuilder().addComponents(urlInput));
+            await i.showModal(modal);
+            return;
         }
 
-        if (i.customId.startsWith("summarize_")) {
-          await i.deferReply({ ephemeral: true });
-          const [_, fichaId, habilidadeId] = i.customId.split("_");
+        if (i.customId.startsWith("add_image_sub_habilidade_")) {
+            const [,,, habilidadePaiId, subHabilidadeId] = i.customId.split('_');
+            const modal = new ModalBuilder()
+                .setCustomId(`modal_add_image_subhab_${habilidadePaiId}_${subHabilidadeId}`)
+                .setTitle('Adicionar Imagem à Sub-Habilidade');
+            const urlInput = new TextInputBuilder()
+                .setCustomId('subhab_image_url')
+                .setLabel('URL da Imagem')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setPlaceholder('https://exemplo.com/imagem.png');
+            modal.addComponents(new ActionRowBuilder().addComponents(urlInput));
+            await i.showModal(modal);
+            return;
+        }
 
-          try {
-            const ficha = await this.client.database.Ficha.findById(fichaId);
-            const habilidade = ficha.habilidades.id(habilidadeId);
-            if (!habilidade) {
-              return i.editReply({ content: "Habilidade não encontrada." });
+        if (i.customId.startsWith("edit_sub_habilidade_")) {
+            const [,,, habilidadePaiId, subHabilidadeId] = i.customId.split('_');
+            const ficha = await this.client.database.Ficha.findOne({ "habilidades._id": habilidadePaiId });
+            const habilidadePai = ficha.habilidades.id(habilidadePaiId);
+            const subHab = habilidadePai.subHabilidades.id(subHabilidadeId);
+
+            if (!subHab) return i.reply({ content: "Sub-habilidade não encontrada.", ephemeral: true });
+
+            const modal = new ModalBuilder().setCustomId(`modal_edit_subhab_${habilidadePaiId}_${subHabilidadeId}`).setTitle(`Editando: ${subHab.nome}`);
+            const nomeInput = new TextInputBuilder().setCustomId('edit_sub_nome').setLabel("Nome da Sub-Habilidade").setStyle(TextInputStyle.Short).setValue(subHab.nome).setRequired(true);
+            const descInput = new TextInputBuilder().setCustomId('edit_sub_desc').setLabel("Descrição").setStyle(TextInputStyle.Paragraph).setValue(subHab.descricao).setRequired(true);
+            const custoInput = new TextInputBuilder().setCustomId('edit_sub_custo').setLabel("Custo (Opcional)").setStyle(TextInputStyle.Short).setValue(subHab.custo || "Nenhum").setRequired(false);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(nomeInput),
+                new ActionRowBuilder().addComponents(descInput),
+                new ActionRowBuilder().addComponents(custoInput)
+            );
+            await i.showModal(modal);
+            return;
+        }
+
+        if (i.customId.startsWith("delete_habilidade_")) {
+            const [,, fichaId, habilidadeId] = i.customId.split('_');
+            
+            const confirmacao = await this.botaoConfirma(i, "Você tem certeza que deseja excluir esta habilidade permanentemente?", "Sim, excluir", "Não", "");
+
+            if (confirmacao.confirmed) {
+                const fichaParaAtualizar = await this.client.database.Ficha.findById(fichaId);
+                if (!fichaParaAtualizar) return confirmacao.interaction.reply({ content: "Ficha não encontrada.", ephemeral: true });
+
+                fichaParaAtualizar.habilidades.pull({ _id: habilidadeId });
+                await fichaParaAtualizar.save();
+
+                await confirmacao.interaction.update({ content: "✅ Habilidade excluída com sucesso! A visualização será atualizada.", components: [], embeds: [] });
+                viewMode = "habilidades"; // Volta para a lista de categorias
+                coletorResposta.emit('collect', i); // Força a atualização da tela
             }
-            const descCompleta = habilidade.descricao;
+            return;
+        }
 
-            await i.editReply({
-              content: "Resumindo a habilidade com a IA... 🤖",
-            });
-            const { summarizeText } = require("../../api/resumir.js");
-            let descResumida = await summarizeText(descCompleta);
+        if (i.customId.startsWith("delete_ficha_")) {
+            const fichaIdParaExcluir = i.customId.split('_')[2];
+            
+            await i.deferUpdate();
 
-            const botoesResumo = () =>
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`confirm_summary_${fichaId}_${habilidadeId}`)
-                  .setLabel("Confirmar")
-                  .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                  .setCustomId(`resummarize_again_${fichaId}_${habilidadeId}`)
-                  .setLabel("Resumir Novamente")
-                  .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                  .setCustomId("cancel_summary")
-                  .setLabel("Cancelar")
-                  .setStyle(ButtonStyle.Danger)
-              );
+            const confirmacao = await this.botaoConfirma(i, "Você tem certeza que deseja excluir esta ficha permanentemente? Esta ação não pode ser desfeita.", "Sim, excluir", "Não", "");
 
-            const embedResumo = (text) =>
-              new EmbedBuilder()
-                .setTitle("📝 Proposta de Resumo")
-                .setDescription(text.substring(0, 4096))
-                .setColor("Blue")
-                .setFooter({ text: "Escolha uma opção abaixo." });
+            if (confirmacao.confirmed) {
+                await this.client.database.Ficha.findByIdAndDelete(fichaIdParaExcluir);
 
-            const msgBotaoResumo = await i.editReply({
-              content: "Aqui está o resumo gerado:",
-              embeds: [embedResumo(descResumida)],
-              components: [botoesResumo()],
-            });
+                fichas = fichas.filter(f => f._id.toString() !== fichaIdParaExcluir);
+                pages = fichas.length;
 
-            const opcoesColetoresBotoesSum =
-              msgBotaoResumo.createMessageComponentCollector({
-                filter: (btn) => btn.user.id === i.user.id,
-                time: 300000, // 5 minutes
-              });
+                if (pages === 0) {
+                    await message.edit({ content: "Você não possui mais fichas para visualizar.", embeds: [], components: [] });
+                    coletorResposta.stop();
+                    return;
+                }
 
-            opcoesColetoresBotoesSum.on("collect", async (btnInteraction) => {
-              const btnFichaId = btnInteraction.customId.split("_")[2];
-              const btnHabilidadeId = btnInteraction.customId.split("_")[3];
+                currentFichaIndex = Math.max(0, currentFichaIndex - 1);
 
-              if (btnInteraction.customId.startsWith("confirm_summary_")) {
-                await btnInteraction.deferUpdate();
-                const fichaToUpdate = await this.client.database.Ficha.findById(
-                  btnFichaId
-                );
-                const habilidadeToUpdate =
-                  fichaToUpdate.habilidades.id(btnHabilidadeId);
-                habilidadeToUpdate.descricao = descResumida;
-                await fichaToUpdate.save();
+                // Força a atualização da visualização para a próxima ficha
+                await message.edit({ content: "✅ Ficha excluída com sucesso! Atualizando visualização...", embeds: [], components: [] });
+                i.customId = 'noop'; // Um ID que não faz nada, apenas para reativar o coletor
+                coletorResposta.emit('collect', i);
+            }
+            return;
+        }
 
-                viewMode = `habilidade_categoria_${habilidadeToUpdate.categoria.toLowerCase()}`;
-                currentDescPageIndex = 0;
-                const { embed: newHabilidadeEmbed, components: newComponents } =
-                  getHabilidadeEmbed(habilidadeToUpdate, fichaToUpdate, 0);
+        if (i.customId.startsWith("add_subhabilidade_")) {
+            const [,, fichaId, habilidadeId] = i.customId.split('_');
+            const fichaParaEditar = await this.client.database.Ficha.findById(fichaId);
+            const habilidadeParaEditar = fichaParaEditar.habilidades.id(habilidadeId);
 
-                // Atualiza a mensagem pública original
-                await message.edit({
-                  embeds: [newHabilidadeEmbed],
-                  components: [
-                    botNavHabs(
-                      currentHabilidadeIndex === 0,
-                      currentHabilidadeIndex >=
-                        fichaToUpdate.habilidades.filter(
-                          (s) =>
-                            s.categoria.toLowerCase() ===
-                            habilidadeToUpdate.categoria.toLowerCase()
-                        ).length -
-                          1
-                    ),
-                    ...newComponents,
-                  ],
-                });
+            if (!habilidadeParaEditar) return i.reply({ content: "Habilidade não encontrada.", ephemeral: true });
 
-                await i.editReply({
-                  content: "✅ Resumo aplicado com sucesso!",
-                  embeds: [],
-                  components: [],
-                });
-                opcoesColetoresBotoesSum.stop();
-              } else if (
-                btnInteraction.customId.startsWith("resummarize_again_")
-              ) {
-                await btnInteraction.deferUpdate();
-                await i.editReply({
-                  content: "Resumindo novamente... 🤖",
-                  embeds: [],
-                  components: [],
-                });
-                descResumida = await summarizeText(descCompleta);
-                await i.editReply({
-                  content: "Aqui está o novo resumo:",
-                  embeds: [embedResumo(descResumida)],
-                  components: [botoesResumo()],
-                });
-              } else if (btnInteraction.customId === "cancel_summary") {
-                await btnInteraction.deferUpdate();
-                await i.editReply({
-                  content: "Operação cancelada.",
-                  embeds: [],
-                  components: [],
-                });
-                opcoesColetoresBotoesSum.stop();
-              }
-            });
+            const modalSub = new ModalBuilder()
+                .setCustomId(`modal_add_sub_${fichaId}_${habilidadeId}`)
+                .setTitle(`Nova Sub para: ${habilidadeParaEditar.nome}`);
 
-            opcoesColetoresBotoesSum.on("end", async (collected, reason) => {
-              if (reason === "time") {
-                await i
-                  .editReply({
-                    content: "Tempo esgotado.",
-                    embeds: [],
-                    components: [],
-                  })
-                  .catch(() => {});
-              }
-            });
-          } catch (error) {
-            console.error("Erro ao resumir:", error);
-            await i.followUp({
-              content: "Ocorreu um erro ao tentar resumir a habilidade.",
-              ephemeral: true,
-            });
-          }
-          return;
+            const nomeSubInput = new TextInputBuilder().setCustomId('sub_nome').setLabel("Nome da Sub-Habilidade").setStyle(TextInputStyle.Short).setRequired(true);
+            const descSubInput = new TextInputBuilder().setCustomId('sub_desc').setLabel("Descrição").setStyle(TextInputStyle.Paragraph).setRequired(true);
+            const custoSubInput = new TextInputBuilder().setCustomId('sub_custo').setLabel("Custo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
+
+            modalSub.addComponents(
+                new ActionRowBuilder().addComponents(nomeSubInput),
+                new ActionRowBuilder().addComponents(descSubInput),
+                new ActionRowBuilder().addComponents(custoSubInput)
+            );
+
+            const formSubEnviado = await this.formulario(i, modalSub);
+            if (!formSubEnviado) return;
+
+            const dadosSubHabilidade = {
+                nome: formSubEnviado.fields.getTextInputValue('sub_nome'),
+                descricao: formSubEnviado.fields.getTextInputValue('sub_desc'),
+                custo: formSubEnviado.fields.getTextInputValue('sub_custo') || "Nenhum",
+            };
+
+            habilidadeParaEditar.subHabilidades.push(dadosSubHabilidade);
+            await fichaParaEditar.save();
+            await formSubEnviado.reply({ content: `✅ Sub-habilidade **${dadosSubHabilidade.nome}** adicionada com sucesso! Navegue novamente para vê-la.`, ephemeral: true });
+            
         }
 
         if (viewMode === "ficha") {
@@ -1256,13 +1141,16 @@ module.exports = class ficha extends Command {
             if (currentDescPageIndex > 0) currentDescPageIndex--;
           } else if (i.customId === "next_desc_page") {
             currentDescPageIndex++;
+          } else if (i.customId.startsWith("view_sub_habilidades_")) {
+            viewMode = "sub_habilidades";
+            currentSubHabilidadeIndex = 0;
+            currentDescPageIndex = 0; // Reseta paginação da descrição principal
           }
         }
-
-        // Atualiza a mensagem com base no modo de visualização
+        
         try {
           if (viewMode === "ficha") {
-            await i.update({
+            await i.update({ // Atualiza a mensagem com base no modo de visualização
               embeds: [getFichaEmbed(fichas[currentFichaIndex])],
               components: [
                 botNavFicha(
@@ -1358,9 +1246,19 @@ module.exports = class ficha extends Command {
                 .setDisabled(currentHabilidadeIndex >= totalHabilidades - 1)
             );
 
+            habilidadePaiAtual = skillCategoriasPresentes[currentHabilidadeIndex];
+
+            // Lógica de busca automática de imagem para a habilidade
+            if (!habilidadePaiAtual.imagemURL) {
+              const backupUrl = await this.buscarImagemBackup('a habilidade', habilidadePaiAtual.nome, fichaAtual.nome);
+              if (backupUrl) {
+                habilidadePaiAtual.imagemURL = backupUrl;
+                await fichaAtual.save();
+              }
+            }
             const { embed: habilidadeEmbed, components: extraComponents } =
               getHabilidadeEmbed(
-                skillCategoriasPresentes[currentHabilidadeIndex],
+                habilidadePaiAtual,
                 fichaAtual,
                 currentDescPageIndex
               );
@@ -1369,6 +1267,32 @@ module.exports = class ficha extends Command {
               embeds: [habilidadeEmbed],
               components: [navButtons, ...extraComponents],
             });
+          } else if (viewMode === "sub_habilidades") {
+            const fichaAtual = fichas[currentFichaIndex];
+            if (!habilidadePaiAtual) throw new Error("Habilidade pai não encontrada para visualizar sub-habilidades.");
+
+            if (i.customId === "prevSubHab") currentSubHabilidadeIndex--;
+            if (i.customId === "nextSubHab") currentSubHabilidadeIndex++;
+            if (i.customId === "voltarHabilidadePai") {
+                viewMode = `habilidade_categoria_${habilidadePaiAtual.categoria.toLowerCase()}`;
+                i.customId = 'noop'; // Evita re-processamento
+                coletorResposta.emit('collect', i); // Re-emite a interação para o coletor processar o novo viewMode
+                return; // Pula o resto da execução atual
+            }
+            
+            const subHabilidadeAtual = habilidadePaiAtual.subHabilidades[currentSubHabilidadeIndex];
+            // Lógica de busca automática de imagem para a sub-habilidade
+            if (!subHabilidadeAtual.imagemURL) {
+                const backupUrl = await this.buscarImagemBackup('a sub-habilidade', subHabilidadeAtual.nome, fichaAtual.nome);
+                if (backupUrl) {
+                    subHabilidadeAtual.imagemURL = backupUrl;
+                    const fichaParaSalvar = await this.client.database.Ficha.findById(fichaAtual._id);
+                    await fichaParaSalvar.save();
+                }
+            }
+            const { embed: subEmbed, components: subComponents } = getSubHabilidadeEmbed(subHabilidadeAtual, habilidadePaiAtual);
+
+            await i.update({ embeds: [subEmbed], components: subComponents });
           }
         } catch (error) {
           if (error.code !== "InteractionAlreadyReplied") {
@@ -1392,6 +1316,57 @@ module.exports = class ficha extends Command {
     }
   }
   /* #endregion */
-
   /* #endregion */
 };
+
+async function handleFichaInteraction(interaction, client) {
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId.startsWith('modal_edit_ficha_')) {
+            const fichaId = interaction.customId.split('_')[3];
+            const ficha = await client.database.Ficha.findById(fichaId);
+            if (!ficha) return interaction.reply({ content: "Ficha não encontrada.", ephemeral: true });
+
+            ficha.nome = interaction.fields.getTextInputValue('edit_nome');
+            ficha.raca = interaction.fields.getTextInputValue('edit_raca');
+            ficha.reino = interaction.fields.getTextInputValue('edit_reino');
+            ficha.aparencia = interaction.fields.getTextInputValue('edit_aparencia');
+
+            await ficha.save();
+            return interaction.reply({ content: "✅ Ficha atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+        }
+
+        if (interaction.customId.startsWith('modal_edit_habilidade_')) {
+            const habilidadeId = interaction.customId.split('_')[3];
+            const ficha = await client.database.Ficha.findOne({ "habilidades._id": habilidadeId });
+            if (!ficha) return interaction.reply({ content: "Habilidade ou ficha não encontrada.", ephemeral: true });
+
+            const habilidade = ficha.habilidades.id(habilidadeId);
+            if (!habilidade) return interaction.reply({ content: "Habilidade não encontrada.", ephemeral: true });
+
+            habilidade.nome = interaction.fields.getTextInputValue('edit_nome');
+            habilidade.descricao = interaction.fields.getTextInputValue('edit_descricao');
+            habilidade.categoria = interaction.fields.getTextInputValue('edit_categoria');
+            habilidade.custo = interaction.fields.getTextInputValue('edit_custo');
+
+            await ficha.save();
+            return interaction.reply({ content: "✅ Habilidade atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+        }
+
+        if (interaction.customId.startsWith('modal_edit_subhab_')) {
+            const [,,, habilidadePaiId, subHabilidadeId] = interaction.customId.split('_');
+            const ficha = await client.database.Ficha.findOne({ "habilidades._id": habilidadePaiId });
+            if (!ficha) return interaction.reply({ content: "Ficha não encontrada.", ephemeral: true });
+
+            const habilidadePai = ficha.habilidades.id(habilidadePaiId);
+            const subHab = habilidadePai.subHabilidades.id(subHabilidadeId);
+            if (!subHab) return interaction.reply({ content: "Sub-habilidade não encontrada.", ephemeral: true });
+
+            subHab.nome = interaction.fields.getTextInputValue('edit_sub_nome');
+            subHab.descricao = interaction.fields.getTextInputValue('edit_sub_desc');
+            subHab.custo = interaction.fields.getTextInputValue('edit_sub_custo');
+
+            await ficha.save();
+            return interaction.reply({ content: "✅ Sub-habilidade atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+        }
+    }
+}
