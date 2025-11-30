@@ -607,14 +607,12 @@ module.exports = class ficha extends Command {
     try { 
       await interaction.deferReply({ ephemeral: true });
 
-      // Busca todas as fichas do usuário
       let fichas = await this.client.database.Ficha.find({
         userId: interaction.user.id,
         guildId: interaction.guild.id,
-      }).sort({ createdAt: -1 }); // Ordena por data de criação
+      }).sort({ createdAt: -1 }); 
 
       if (!fichas.length) {
-        // Esta verificação já é feita em backFichaVer, mas é bom ter como segurança.
         return interaction.editReply({ content: "Nenhuma ficha encontrada.", ephemeral: true });
       }
 
@@ -623,13 +621,11 @@ module.exports = class ficha extends Command {
         fichas,
       });
 
-      // Configuração da paginação
       let currentFichaIndex = fichas.findIndex(
         (f) => f._id.toString() === fichaId.toString()
       );
       let pages = fichas.length;
 
-      // Lógica de busca automática de imagem para a ficha principal
       let fichaPrincipal = fichas[currentFichaIndex];
       if (!fichaPrincipal.imagemURL) {
         const backupUrl = await this.buscarImagemBackup('aparência', fichaPrincipal.nome, fichaPrincipal.nome);
