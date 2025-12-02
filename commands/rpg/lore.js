@@ -111,7 +111,7 @@ module.exports = class lore extends Command {
             const endCollector = async (endReaction, endUser) => {
                 if (!reactionFilter(endReaction, endUser)) return;
 
-                if (endReaction.emoji.name === '2️⃣' && endReaction.message.id !== loreInicio.id) {
+                if (endReaction.emoji.name === '2️⃣') {
                     clearTimeout(endTimeout); // Limpa o timeout de fim
                     const loreFim = endReaction.message;
                     this.client.removeListener('messageReactionAdd', endCollector);
