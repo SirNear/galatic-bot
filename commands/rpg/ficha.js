@@ -13,6 +13,13 @@ const {
 const fetch = require("node-fetch"); 
 const Command = require("../../structures/Command");
 const color = require("../../api/colors.json");
+const { google } = require("googleapis");
+
+const auth = new google.auth.GoogleAuth({
+    keyFile: "./api/regal-primacy-233803-4fc7ea1a8a5a.json",
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+});
+const sheets = google.sheets({ version: "v4", auth });
 const { summarizeText } = require("../../api/resumir.js");
 module.exports = class ficha extends Command {
   constructor(client) {
@@ -139,19 +146,15 @@ module.exports = class ficha extends Command {
   }
 
   async formulario(interaction, modal, timeout = 1800000) {
-    await interaction.showModal(modal); //exibir formulário
-
     try {
+      await interaction.showModal(modal);
       const formEnviado = await interaction.awaitModalSubmit({
         filter: i => i.user.id === interaction.user.id && i.customId === modal.data.custom_id,
         time: timeout,
       });
-      return formEnviado; //retorna respostas do form
-
+      return formEnviado;
     } catch (err) {
-      if (err.code === 'InteractionCollectorError') {
-        // O tempo esgotou, não precisa notificar o usuário pois o modal some.
-      } else {
+      if (err.code !== 'InteractionCollectorError') {
         console.error("Erro ao aguardar modal:", err);
       }
       return null;
@@ -260,6 +263,15 @@ module.exports = class ficha extends Command {
 
   /* #region  CRIAÇÃO DE FICHA */
   
+  async normalizeText(s) {
+    return String(s || "")
+      .normalize("NFD") // Separa os acentos das letras
+      .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
   async backFichaCriar(interaction) {
     try {
       const modalFicha = new ModalBuilder()
@@ -301,11 +313,14 @@ module.exports = class ficha extends Command {
         new ActionRowBuilder().addComponents(aparenciaInput)
       );
 
-      const formEnviado = await this.formulario(interaction, modalFicha);
+      await interaction.showModal(modalFicha);
 
-      if (!formEnviado) {
-        return;
-      }
+      const formEnviado = await interaction.awaitModalSubmit({
+        filter: i => i.user.id === interaction.user.id && i.customId === 'modal_ficha_criar',
+        time: 1800000,
+      }).catch(() => null);
+
+      if (!formEnviado) return; // Se o modal expirou ou deu erro, para a execução.
 
       const fichaData = {
         nome: formEnviado.fields.getTextInputValue("criar_nome"),
@@ -314,15 +329,72 @@ module.exports = class ficha extends Command {
         aparencia: formEnviado.fields.getTextInputValue("criar_aparencia"),
       };
 
-      await formEnviado.deferUpdate(); // Apenas para confirmar que o modal foi recebido
+      // Deferir a resposta do formulário para poder enviar mensagens de acompanhamento.
+      await formEnviado.deferReply({ ephemeral: true });
+      
+      await formEnviado.editReply({ content: "Processando criação da ficha..." });
+
+      // VERIFICAÇÃO DE DISPONIBILIDADE DA APARÊNCIA
+      const nomeAparNorm = await this.normalizeText(fichaData.aparencia.split(',')[0].trim());
+      const jogadorDb = await this.client.database.userData.findOne({ uid: interaction.user.id, uServer: interaction.guild.id });
+      const nomeJogador = jogadorDb ? await this.normalizeText(jogadorDb.jogador) : null;
+
+      // --- INÍCIO DO DEBUG ---
+      console.log(`\n[DEBUG] Iniciando verificação de aparência...`);
+      console.log(`[DEBUG] Aparência da ficha: '${fichaData.aparencia.split(',')[0].trim()}' -> Normalizada: '${nomeAparNorm}'`);
+      console.log(`[DEBUG] Jogador da interação: '${jogadorDb?.jogador}' -> Normalizado: '${nomeJogador}'`);
+      // --- FIM DO DEBUG ---
+
+      try {
+        const res = await sheets.spreadsheets.values.get({
+          spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+          range: "INDIVIDUAIS!A:D",
+        });
+        const rows = res.data.values || [];
+
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || !row[0]) continue;
+
+            const aparPlanilhaNorm = await this.normalizeText(row[0]);
+            
+            if (aparPlanilhaNorm === nomeAparNorm) {
+                const jogadorPlanilhaNorm = row[3] ? await this.normalizeText(row[3]) : null;
+
+                // --- INÍCIO DO DEBUG ---
+                console.log(`[DEBUG] Match encontrado na linha da planilha: ${i + 1}`);
+                console.log(`[DEBUG] -> Aparência Planilha: '${row[0]}' (Normalizada: '${aparPlanilhaNorm}')`);
+                console.log(`[DEBUG] -> Jogador Planilha: '${row[3]}' (Normalizado: '${jogadorPlanilhaNorm}')`);
+                const isDifferentOwner = jogadorPlanilhaNorm !== nomeJogador;
+                console.log(`[DEBUG] -> Comparando: '${jogadorPlanilhaNorm}' !== '${nomeJogador}' -> Resultado: ${isDifferentOwner}`);
+                // --- FIM DO DEBUG ---
+
+                if (isDifferentOwner) {
+                    // --- INÍCIO DO DEBUG ---
+                    console.log(`[DEBUG] VEREDITO: BLOQUEADO. Aparência em uso por outro jogador.`);
+                    // --- FIM DO DEBUG ---
+                    await formEnviado.editReply({
+                        content: `❌ A aparência **${row[0]}** já está em uso pelo jogador **${row[3]}**. Por favor, escolha outra aparência.`,
+                        flags: 64
+                    });
+                    return;
+                }
+                break; 
+            }
+        }
+      } catch (err) {
+        console.error("Erro ao verificar disponibilidade da aparência na planilha:", err);
+      } finally {
+        console.log("[DEBUG] Verificação de aparência finalizada.");
+        // --- FIM DO DEBUG ---
+      }
 
       const querImagem = await this.botaoConfirma(formEnviado, "Deseja enviar uma imagem para a aparência?", "Sim", "Não", "Ok, agora envie a imagem no chat.");
-      if (querImagem.confirmed) {
-        fichaData.imagemURL = await this.armazemImagem(querImagem.interaction, "a aparência", fichaData.nome, fichaData.nome);
-      } 
-
+      
       const interacaoFinal = querImagem.interaction || formEnviado;
-      await interacaoFinal.editReply({ content: "Processando e salvando sua ficha...", components: [], embeds: [] }).catch(() => {});
+      if (querImagem.confirmed) {
+        fichaData.imagemURL = await this.armazemImagem(interacaoFinal, "a aparência", fichaData.nome, fichaData.nome);
+      } 
       
       /* #region  SE JÁ HOUVER UMA FICHA DAQUELE PERSONAGEM */
       const fichaExistente = await this.client.database.Ficha.findOne({
@@ -332,7 +404,7 @@ module.exports = class ficha extends Command {
       });
 
       if (fichaExistente) {
-        return interacaoFinal.followUp({
+        return interacaoFinal.editReply({
           content: "❌ Você já possui um personagem com este nome!",
           ephemeral: true,
         });
@@ -382,14 +454,13 @@ module.exports = class ficha extends Command {
           `A ficha para **${fichaData.nome}** foi criada com sucesso!`
         );
 
-      await interacaoFinal.editReply({ content: '', embeds: [embed], components: [] });
+      await formEnviado.editReply({ content: '', embeds: [embed], components: [] });
     } catch (err) {
       console.error("Erro ao criar ficha:", err);
       const errorMessage = {
         content: `Ocorreu um erro ao criar a ficha! Erro: \`${err.message}\`.`,
         embeds: [],
         components: [],
-        ephemeral: true
       };
       await (interaction.replied || interaction.deferred ? interaction.followUp(errorMessage) : interaction.reply(errorMessage)).catch(() => {});
     }
@@ -444,8 +515,8 @@ module.exports = class ficha extends Command {
 
       coletorResposta.on("collect", async (i) => {
         const fichaId = i.values[0];
-        await i.update({ content: `Adicionando habilidade para a ficha selecionada...`, components: [] });
-        await this.backFichaUnicaHabAdd(msgInicial, i, fichaId);
+        await i.update({ content: `Adicionando habilidade para **${fichasDoUsuario.find(f => f._id.toString() === fichaId).nome}**...`, components: [] });
+        await this.backFichaUnicaHabAdd(i, fichaId);
       });
 
       coletorResposta.on("end", (collected) => {
@@ -458,7 +529,7 @@ module.exports = class ficha extends Command {
     } else {
       await msgInicial.edit({ content: `Adicionando habilidade para **${fichasDoUsuario[0].nome}**...` });
       const fichaId = fichasDoUsuario[0]._id;
-      await this.backFichaUnicaHabAdd(interaction, fichaId);
+      await this.backFichaUnicaHabAdd(interaction, fichaId); 
     }
   }
 
@@ -481,7 +552,7 @@ module.exports = class ficha extends Command {
       new ActionRowBuilder().addComponents(custoInput),
       new ActionRowBuilder().addComponents(descricaoInput)
     );
-
+    
     const formEnviado = await this.formulario(interaction, modalHab);
     if (!formEnviado) return;
 
@@ -493,7 +564,7 @@ module.exports = class ficha extends Command {
     };
 
     const ficha = await this.client.database.Ficha.findById(fichaId);
-    if (!ficha) {
+    if (!ficha) { // Verificação de segurança
       return formEnviado.editReply({ content: "Erro: A ficha selecionada não foi encontrada." });
     }    
     
@@ -1062,23 +1133,28 @@ module.exports = class ficha extends Command {
             const confirmacao = await this.botaoConfirma(i, "Você tem certeza que deseja excluir esta ficha permanentemente? Esta ação não pode ser desfeita.", "Sim, excluir", "Não", "");
 
             if (confirmacao.confirmed) {
+                await confirmacao.interaction.deferUpdate();
+
                 await this.client.database.Ficha.findByIdAndDelete(fichaIdParaExcluir);
 
                 fichas = fichas.filter(f => f._id.toString() !== fichaIdParaExcluir);
                 pages = fichas.length;
 
                 if (pages === 0) {
-                    await confirmacao.interaction.editReply({ content: "Você não possui mais fichas para visualizar.", embeds: [], components: [] });
+                    await i.editReply({ content: "Você não possui mais fichas para visualizar.", embeds: [], components: [] });
                     coletorResposta.stop();
                     return;
                 }
 
                 currentFichaIndex = Math.max(0, currentFichaIndex - 1);
 
-                // Força a atualização da visualização para a próxima ficha
-                await confirmacao.interaction.editReply({ content: "✅ Ficha excluída com sucesso! Atualizando visualização...", embeds: [], components: [] });
-                i.customId = 'noop'; // Um ID que não faz nada, apenas para reativar o coletor
-                coletorResposta.emit('collect', i);
+                // Atualiza a mensagem principal (i) com a ficha anterior/primeira.
+                await i.editReply({
+                    content: null, // Limpa a mensagem de "excluído com sucesso"
+                    embeds: [getFichaEmbed(fichas[currentFichaIndex])],
+                    components: [botNavFicha(currentFichaIndex === 0, currentFichaIndex === pages - 1)],
+                });
+
             }
             return;
         }
@@ -1344,7 +1420,7 @@ async function handleFichaInteraction(interaction, client) {
             ficha.aparencia = interaction.fields.getTextInputValue('edit_aparencia');
 
             await ficha.save();
-            return interaction.reply({ content: "✅ Ficha atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+            return interaction.reply({ content: "✅ Ficha atualizada com sucesso! Navegue novamente para ver as alterações.", ephemeral: true });
         }
 
         if (interaction.customId.startsWith('modal_edit_habilidade_')) {
@@ -1361,7 +1437,7 @@ async function handleFichaInteraction(interaction, client) {
             habilidade.custo = interaction.fields.getTextInputValue('edit_custo');
 
             await ficha.save();
-            return interaction.reply({ content: "✅ Habilidade atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+            return interaction.reply({ content: "✅ Habilidade atualizada com sucesso! Navegue novamente para ver as alterações.", ephemeral: true });
         }
 
         if (interaction.customId.startsWith('modal_edit_subhab_')) {
@@ -1378,7 +1454,7 @@ async function handleFichaInteraction(interaction, client) {
             subHab.custo = interaction.fields.getTextInputValue('edit_sub_custo');
 
             await ficha.save();
-            return interaction.reply({ content: "✅ Sub-habilidade atualizada com sucesso! A visualização será atualizada em breve.", ephemeral: true });
+            return interaction.reply({ content: "✅ Sub-habilidade atualizada com sucesso! Navegue novamente para ver as alterações.", ephemeral: true });
         }
     }
 }
