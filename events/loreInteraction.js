@@ -484,13 +484,18 @@ async function handleLoreInteraction(interaction, client) {
                     const response = await fetch(attachment.url);
                     if (!response.ok) throw new Error('Falha ao baixar o arquivo de backup.');
                     const backupText = await response.text();
-                    const contApenas = backupText.split('\n').map(line => line.match(/^\[.*?\] .*?: (.*)$/)?.[1]).filter(Boolean).join('\n\n');
-                    if (!contApenas.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', ephemeral: true });
+                    const regMen = /\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\] .*?:\s*\n([\s\S]*?)(?=\n?\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\]|$)/g;
+                    const correspondencias = [...backupText.matchAll(regMen)];
+                    const conteudos = correspondencias
+                        .map(corr => corr[1].trim())
+                        .filter(cont => cont && !cont.startsWith('[Mensagem sem texto]') && !cont.startsWith('[Anexo:'));
+                    const contApe = conteudos.join('\n\n');
+                    if (!contApe.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', ephemeral: true });
 
                     const { paginateText } = require('../commands/rpg/lore.js');
-                    const textPages = paginateText(contApenas);
-                    const newPagesAsObjects = textPages.map(pageContent => ({ content: pageContent, imageUrl: null }));
-                    lore.chapters.push({ name: newChapterName, pages: newPagesAsObjects });
+                    const paginasTex = paginateText(contApe);
+                    const novasPagObj = paginasTex.map(contPag => ({ content: contPag, imageUrl: null }));
+                    lore.chapters.push({ name: newChapterName, pages: novasPagObj });
                     await lore.save();
                     await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, ephemeral: true });
                     await msg.delete().catch(() => {});
