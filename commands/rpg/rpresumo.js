@@ -88,7 +88,7 @@ module.exports = class rpresumo extends Command {
         const threads = [...activeThreads.threads.values(), ...archivedThreads.threads.values()];
         
         for (const thread of threads) {
-          if (allMessages.length >= 1000) break;
+          if (allMessages.length >= 10000) break;
           
           let threadMessages = [];
           let lastThreadMessageId;
@@ -110,7 +110,7 @@ module.exports = class rpresumo extends Command {
           allMessages.push(...threadMessages);
         }
       } else {
-        while (allMessages.length < 1000) {
+        while (allMessages.length < 10000) {
           const options = { limit: 100 };
           if (lastId) {
             options.before = lastId;
@@ -133,19 +133,35 @@ module.exports = class rpresumo extends Command {
         }
       }
 
-      if (allMessages.length > 1000) {
-        allMessages = allMessages.slice(0, 1000);
+      if (allMessages.length > 10000) {
+        allMessages = allMessages.slice(0, 10000);
       }
 
       if (allMessages.length === 0) {
         return interaction.editReply({ content: "Não encontrei nenhuma mensagem nesse canal." });
       }
 
-      const orderedMessages = allMessages.reverse();
+      const orderedMessages = allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-      const formattedText = orderedMessages
-        .map(msg => `[${moment(msg.createdAt).format("DD/MM/YYYY HH:mm:ss")}] ${msg.author.tag}: ${msg.content}`)
-        .join("\n\n---\n\n");
+      const idsMen = orderedMessages.map((msg) => msg.id);
+      const lorEnc = await this.client.database.Lore.find({ messageId: { $in: idsMen } }).lean();
+      const mapLor = new Map(lorEnc.map((lor) => [lor.messageId, lor]));
+
+      const menFor = [];
+
+      for (const msg of orderedMessages) {
+        const dadLor = mapLor.get(msg.id);
+        if (dadLor) {
+          dadLor.chapters.forEach((cap) => {
+            const conCap = cap.pages.map((pag) => pag.content).join('\n\n');
+            menFor.push(`[${moment(msg.createdAt).format("DD/MM/YYYY HH:mm:ss")}] ${msg.author.tag} (Lore: ${dadLor.title} - ${cap.name}):\n${conCap}`);
+          });
+        } else {
+          menFor.push(`[${moment(msg.createdAt).format("DD/MM/YYYY HH:mm:ss")}] ${msg.author.tag}: ${msg.content}`);
+        }
+      }
+
+      const formattedText = menFor.join("\n\n---\n\n");
 
       const logBuffer = Buffer.from(formattedText, "utf-8");
       const logAttachment = new AttachmentBuilder(logBuffer, { name: `mensagens-${channel.name}.txt` });
