@@ -11,6 +11,7 @@ const {
     ComponentType
 } = require('discord.js');
 const fetch = require('node-fetch');
+const AdmZip = require('adm-zip');
 const { messagesToTxt } = require('../api/messagesToTxt.js');
 
 async function handleLoreInteraction(interaction, client) {
@@ -236,7 +237,46 @@ async function handleLoreInteraction(interaction, client) {
 
                     const embed = new EmbedBuilder().setTitle(loreDoc.title || 'Lore').setColor('#0099ff').setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() }).setDescription(currentDescription).setFooter({ text: footerParts.join(' | ') }).setTimestamp();
                     let files = [];
-                    if (page.imageUrl && await validateImageUrl(page.imageUrl)) {
+                    
+                    let imgVal = false;
+                    if (page.imageUrl) {
+                        imgVal = await validateImageUrl(page.imageUrl);
+                        if (!imgVal) {
+                            try {
+                                const canBacId = '1437124928737509559';
+                                const canBac = await client.channels.fetch(canBacId).catch(() => null);
+                                if (canBac) {
+                                    const menBac = await canBac.messages.fetch({ limit: 100 });
+                                    const nomZipCap = `capitulo_${chapter.name}_imagens.zip`;
+                                    const nomZipLor = `lore_imagens_${loreDoc.messageId}.zip`;
+                                    const msgZip = menBac.find(m => m.attachments.some(a => a.name === nomZipCap || a.name === nomZipLor));
+
+                                    if (msgZip) {
+                                        const aneZip = msgZip.attachments.find(a => a.name === nomZipCap || a.name === nomZipLor);
+                                        const resZip = await fetch(aneZip.url);
+                                        const bufZip = Buffer.from(await resZip.arrayBuffer());
+                                        const arqZip = new AdmZip(bufZip);
+                                        const entZip = arqZip.getEntries().filter(e => !e.isDirectory && /\.(png|jpe?g|gif)$/i.test(e.entryName)).sort((a, b) => a.entryName.localeCompare(b.entryName, undefined, { numeric: true }));
+                                        const pagComImg = chapter.pages.filter(p => p.imageUrl);
+
+                                        if (entZip.length > 0) {
+                                            for (let i = 0; i < entZip.length; i++) {
+                                                if (i < pagComImg.length) {
+                                                    const bufImg = entZip[i].getData();
+                                                    const msgImg = await canBac.send({ files: [new AttachmentBuilder(bufImg, { name: entZip[i].entryName })] });
+                                                    pagComImg[i].imageUrl = msgImg.attachments.first().url;
+                                                }
+                                            }
+                                            await client.database.Lore.updateOne({ messageId: loreDoc.messageId }, { $set: { chapters: loreDoc.chapters } });
+                                            imgVal = await validateImageUrl(page.imageUrl);
+                                        }
+                                    }
+                                }
+                            } catch (errRec) { console.error('Erro ao recuperar imagens do backup:', errRec); }
+                        }
+                    }
+
+                    if (page.imageUrl && imgVal) {
                         try {
                             const response = await fetch(page.imageUrl);
                             const imageBuffer = Buffer.from(await response.arrayBuffer());
@@ -289,14 +329,16 @@ async function handleLoreInteraction(interaction, client) {
                 return components;
             };
 
-            const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
-            const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex), ephemeral: true };
-
             if (action === 'read') {
-                await interaction.reply(responseOptions);
+                await interaction.deferReply({ flags: 64 });
             } else {
-                await interaction.update(responseOptions);
+                await interaction.deferUpdate();
             }
+
+            const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
+            const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex) };
+
+            await interaction.editReply(responseOptions);
         }
 
         if (interaction.customId.startsWith('delete_chapter_')) {
