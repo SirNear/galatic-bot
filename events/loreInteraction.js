@@ -16,7 +16,7 @@ const { messagesToTxt } = require('../api/messagesToTxt.js');
 
 async function handleLoreInteraction(interaction, client) {
     // Lógica de botões da Lore
-    if (interaction.isButton()) {
+    if (interaction.isButton() || (interaction.isStringSelectMenu() && interaction.customId.startsWith('lore_read_'))) {
         if (interaction.customId.startsWith('lore_manage_')) {
             const parts = interaction.customId.split('_');
             const manageAction = parts[2];
@@ -249,22 +249,46 @@ async function handleLoreInteraction(interaction, client) {
                                     const menBac = await canBac.messages.fetch({ limit: 100 });
                                     const nomZipCap = `capitulo_${chapter.name}_imagens.zip`;
                                     const nomZipLor = `lore_imagens_${loreDoc.messageId}.zip`;
-                                    const msgZip = menBac.find(m => m.attachments.some(a => a.name === nomZipCap || a.name === nomZipLor));
+                                    const normalizeName = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                                    
+                                    let msgZip = menBac.find(m => m.attachments.some(a => normalizeName(a.name) === normalizeName(nomZipCap)));
+                                    let isGlobalZip = false;
+
+                                    if (!msgZip) {
+                                        msgZip = menBac.find(m => m.attachments.some(a => normalizeName(a.name) === normalizeName(nomZipLor)));
+                                        if (msgZip) isGlobalZip = true;
+                                    }
 
                                     if (msgZip) {
-                                        const aneZip = msgZip.attachments.find(a => a.name === nomZipCap || a.name === nomZipLor);
+                                        const aneZip = msgZip.attachments.find(a => isGlobalZip ? normalizeName(a.name) === normalizeName(nomZipLor) : normalizeName(a.name) === normalizeName(nomZipCap));
+                                        if (!aneZip) throw new Error('Anexo ZIP não encontrado na mensagem de backup.');
+
                                         const resZip = await fetch(aneZip.url);
                                         const bufZip = Buffer.from(await resZip.arrayBuffer());
                                         const arqZip = new AdmZip(bufZip);
                                         const entZip = arqZip.getEntries().filter(e => !e.isDirectory && /\.(png|jpe?g|gif)$/i.test(e.entryName)).sort((a, b) => a.entryName.localeCompare(b.entryName, undefined, { numeric: true }));
                                         const pagComImg = chapter.pages.filter(p => p.imageUrl);
 
+                                        let offset = 0;
+                                        if (isGlobalZip) {
+                                            for (let c = 0; c < chapIdx; c++) {
+                                                if (loreDoc.chapters[c] && loreDoc.chapters[c].pages) {
+                                                    offset += loreDoc.chapters[c].pages.filter(p => p.imageUrl).length;
+                                                }
+                                            }
+                                        }
+
                                         if (entZip.length > 0) {
-                                            for (let i = 0; i < entZip.length; i++) {
-                                                if (i < pagComImg.length) {
-                                                    const bufImg = entZip[i].getData();
-                                                    const msgImg = await canBac.send({ files: [new AttachmentBuilder(bufImg, { name: entZip[i].entryName })] });
-                                                    pagComImg[i].imageUrl = msgImg.attachments.first().url;
+                                            for (let i = 0; i < pagComImg.length; i++) {
+                                                const zipIdx = offset + i;
+                                                if (zipIdx < entZip.length) {
+                                                    const isCurrentPage = pagComImg[i] === page;
+                                                    const isBroken = isCurrentPage || !await validateImageUrl(pagComImg[i].imageUrl);
+                                                    if (isBroken) {
+                                                        const bufImg = entZip[zipIdx].getData();
+                                                        const msgImg = await canBac.send({ files: [new AttachmentBuilder(bufImg, { name: entZip[zipIdx].entryName })] });
+                                                        pagComImg[i].imageUrl = msgImg.attachments.first().url;
+                                                    }
                                                 }
                                             }
                                             await client.database.Lore.updateOne({ messageId: loreDoc.messageId }, { $set: { chapters: loreDoc.chapters } });
@@ -330,9 +354,9 @@ async function handleLoreInteraction(interaction, client) {
             };
 
             if (action === 'read') {
-                await interaction.deferReply({ flags: 64 });
+                if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 });
             } else {
-                await interaction.deferUpdate();
+                if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             }
 
             const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
