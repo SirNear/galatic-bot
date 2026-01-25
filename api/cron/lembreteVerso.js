@@ -4,7 +4,7 @@ const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 
 module.exports = (client) => {
-  // Executa todo domingo às 18:00 (ajuste conforme necessário)
+  // Executa todo domingo às 18:00
   cron.schedule("0 18 * * 0", async () => {
     console.log("CRON: Iniciando verificação de versos incompletos...");
 
@@ -22,9 +22,8 @@ module.exports = (client) => {
       });
 
       const rowVal = resShe.data.values || [];
-      const mapJog = new Map(); // Mapa para agrupar versos por jogador
+      const mapJog = new Map();
 
-      // Pula o cabeçalho (i = 1)
       for (let i = 1; i < rowVal.length; i++) {
         const [nomVer, usoVer, nomJog] = rowVal[i];
         if (!nomVer || !nomJog) continue;
@@ -40,12 +39,12 @@ module.exports = (client) => {
       }
 
       for (const [nomJog, lisVer] of mapJog) {
-        // Busca o usuário no banco de dados pelo nome do jogador
         const useDb = await client.database.userData.findOne({ jogador: nomJog });
 
         if (useDb && useDb.uid) {
           try {
-            const useDis = await client.users.fetch(useDb.uid);
+            // force: true garante que busque da API mesmo se não estiver em cache
+            const useDis = await client.users.fetch(useDb.uid, { force: true });
             if (useDis) {
               const lisTxt = lisVer.map((v) => `• **${v.verso}** (${v.uso}%)`).join("\n");
 

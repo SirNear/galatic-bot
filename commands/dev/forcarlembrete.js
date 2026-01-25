@@ -29,27 +29,32 @@ module.exports = class ForcarLembrete extends Command {
     }
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        try {
+            await interaction.deferReply({ ephemeral: true });
 
-        const usuAlv = interaction.options.getUser('usuario');
-        const idUsuAlv = usuAlv ? usuAlv.id : null;
+            const usuAlv = interaction.options.getUser('usuario');
+            const idUsuAlv = usuAlv ? usuAlv.id : null;
 
-        await interaction.editReply({ content: `Iniciando verificação... ${usuAlv ? `(Alvo: ${usuAlv})` : '(Alvo: Todos)'}` });
+            await interaction.editReply({ content: `Iniciando verificação... ${usuAlv ? `(Alvo: ${usuAlv})` : '(Alvo: Todos)'}` });
 
-        const resumo = await this.runLogLem(this.client, idUsuAlv);
+            const resumo = await this.runLogLem(this.client, idUsuAlv);
 
-        const embRes = new EmbedBuilder()
-            .setTitle('📄 Relatório de Lembretes Forçados')
-            .setColor(resumo.erros > 0 ? '#FF0000' : '#00FF00')
-            .addFields(
-                { name: 'Avisos Enviados', value: resumo.enviados.toString(), inline: true },
-                { name: 'Jogadores não encontrados', value: resumo.naoEncontrados.toString(), inline: true },
-                { name: 'Erros', value: resumo.erros.toString(), inline: true }
-            )
-            .setDescription(resumo.log.length > 0 ? `**Log de Operações:**\n\`\`\`\n${resumo.log.join('\n')}\n\`\`\`` : 'Nenhuma ação foi necessária.')
-            .setTimestamp();
+            const embRes = new EmbedBuilder()
+                .setTitle('📄 Relatório de Lembretes Forçados')
+                .setColor(resumo.erros > 0 ? '#FF0000' : '#00FF00')
+                .addFields(
+                    { name: 'Avisos Enviados', value: resumo.enviados.toString(), inline: true },
+                    { name: 'Jogadores não encontrados', value: resumo.naoEncontrados.toString(), inline: true },
+                    { name: 'Erros', value: resumo.erros.toString(), inline: true }
+                )
+                .setDescription(resumo.log.length > 0 ? `**Log de Operações:**\n\`\`\`\n${resumo.log.join('\n')}\n\`\`\`` : 'Nenhuma ação foi necessária.')
+                .setTimestamp();
 
-        await interaction.followUp({ embeds: [embRes], ephemeral: true });
+            await interaction.followUp({ embeds: [embRes], ephemeral: true });
+        } catch (error) {
+            console.error("Erro ao executar forcarlembrete:", error);
+            if (interaction.deferred) await interaction.editReply({ content: `Erro: ${error.message}` });
+        }
     }
 
     async run({ message, args, client }) {
@@ -117,9 +122,9 @@ module.exports = class ForcarLembrete extends Command {
                 const usuDb = await client.database.userData.findOne({ uid: idUsuAlv });
                 if (usuDb && usuDb.jogador) {
                     targetPlayerName = usuDb.jogador;
+                    targetPlayerName = usuDb.jogador;
                     jogPro = jogPro.filter(([nomJog]) => nomJog === targetPlayerName);
-                    if (jogPro.length === 0) resumo.log.push(`Jogador alvo (${targetPlayerName}) não possui versos pendentes.`);
-                } else {
+                    if (jogPro.length === 0) resumo.log.push(`Jogador alvo (${targetPlayerName}) não possui versos pendentes.`);                } else {
                     resumo.log.push(`Jogador alvo com ID ${idUsuAlv} não encontrado no banco de dados ou não associado.`);
                     return resumo;
                 }
