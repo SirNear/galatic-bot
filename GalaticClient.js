@@ -152,7 +152,9 @@ module.exports = class GalaticClient extends Client {
 
                 for (const cmdFile of commandFiles.filter(file => file.endsWith('.js'))) {
                     try {
-                        const command = new (require(`./commands/${category}/${cmdFile}`))(this);
+                        const CommandClass = require(`./commands/${category}/${cmdFile}`);
+                        if (typeof CommandClass !== 'function') continue;
+                        const command = new CommandClass(this);
                         command.dir = `./commands/${category}/${cmdFile}`;
 
                         // Registra comando normal
