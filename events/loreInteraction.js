@@ -446,8 +446,14 @@ async function handleLoreInteraction(interaction, client) {
 
                             if (imageAttachment) {
                                 processTextBlock();
-                                const backupMsg = await backupChannel.send({ files: [imageAttachment] });
-                                const persistentImageUrl = backupMsg.attachments.first()?.url;
+                                let persistentImageUrl = imageAttachment.url; // Fallback para a URL original
+                                try {
+                                    const backupMsg = await backupChannel.send({ files: [imageAttachment] });
+                                    persistentImageUrl = backupMsg.attachments.first()?.url;
+                                } catch (imgErr) {
+                                    console.warn(`Falha ao fazer backup da imagem individual (Discord 500/403). Usando URL original. Erro: ${imgErr.message}`);
+                                    // O script continua sem travar, usando a URL original
+                                }
 
                                 if (hasText) textBlock.push(msg.content);
                                 processTextBlock(persistentImageUrl);
