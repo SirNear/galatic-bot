@@ -1,3 +1,5 @@
+const lembreteVerso = require("../api/cron/lembreteVerso.js");
+
 module.exports = class Ready {
   constructor(client) {
     this.client = client;
@@ -10,5 +12,7 @@ module.exports = class Ready {
 
     const GUILD_ID = "731974689798488185";
     this.client.setupUnarchiveLoop(GUILD_ID);
+
+    lembreteVerso(this.client);
   }
 };
