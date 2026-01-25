@@ -111,12 +111,14 @@ module.exports = class ForcarLembrete extends Command {
             }
 
             let jogPro = Array.from(mapJog.entries());
+            let targetPlayerName = null;
 
             if (idUsuAlv) {
                 const usuDb = await client.database.userData.findOne({ uid: idUsuAlv });
                 if (usuDb && usuDb.jogador) {
-                    jogPro = jogPro.filter(([nomJog]) => nomJog === usuDb.jogador);
-                    if (jogPro.length === 0) resumo.log.push(`Jogador alvo (${usuDb.jogador}) não possui versos pendentes.`);
+                    targetPlayerName = usuDb.jogador;
+                    jogPro = jogPro.filter(([nomJog]) => nomJog === targetPlayerName);
+                    if (jogPro.length === 0) resumo.log.push(`Jogador alvo (${targetPlayerName}) não possui versos pendentes.`);
                 } else {
                     resumo.log.push(`Jogador alvo com ID ${idUsuAlv} não encontrado no banco de dados ou não associado.`);
                     return resumo;
@@ -124,16 +126,24 @@ module.exports = class ForcarLembrete extends Command {
             }
 
             for (const [nomJog, lisVer] of jogPro) {
-                const usuDb = await client.database.userData.findOne({ jogador: nomJog });
-                if (usuDb && usuDb.uid) {
+                let uidDestino = null;
+
+                if (idUsuAlv && nomJog === targetPlayerName) {
+                    uidDestino = idUsuAlv;
+                } else {
+                    const usuDb = await client.database.userData.findOne({ jogador: nomJog });
+                    if (usuDb) uidDestino = usuDb.uid;
+                }
+
+                if (uidDestino) {
                     try {
-                        const usuDis = await client.users.fetch(usuDb.uid);
+                        const usuDis = await client.users.fetch(uidDestino, { force: true });
                         if (usuDis) {
                             const lisTxt = lisVer.map((v) => `• **${v.verso}** (${v.uso})`).join("\n");
                             const embAvi = new EmbedBuilder().setColor("#FFA500").setTitle("⚠️ Lembrete de Versos Pendentes").setDescription(`Olá, **${nomJog}**! Notei que você possui universos com uso incompleto.\n\n**Seus Versos Pendentes:**\n${lisTxt}\n\nNão se esqueça de registrar as aparências utilizadas nesses versos para liberar novos registros!\n💡 *Dica: Você pode editar a porcentagem de uso pesquisando o verso no comando* \`/aparencia\` *ou* \`g!ap\`.`).setFooter({ text: "Galatic Bot - Sistema de RPG" }).setTimestamp();
                             await usuDis.send({ embeds: [embAvi] });
                             resumo.enviados++;
-                            resumo.log.push(`Aviso enviado para ${nomJog} (${usuDb.uid}).`);
+                            resumo.log.push(`Aviso enviado para ${nomJog} (${uidDestino}).`);
                         }
                     } catch (errEnv) {
                         resumo.erros++;
