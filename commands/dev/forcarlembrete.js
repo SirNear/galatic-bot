@@ -145,7 +145,7 @@ module.exports = class ForcarLembrete extends Command {
                         const usuDis = await client.users.fetch(uidDestino, { force: true });
                         if (usuDis) {
                             const lisTxt = lisVer.map((v) => `• **${v.verso}** (${v.uso})`).join("\n");
-                            const embAvi = new EmbedBuilder().setColor("#FFA500").setTitle("⚠️ Lembrete de Versos Pendentes").setDescription(`Olá, **${nomJog}**! Notei que você possui universos com uso incompleto.\n\n**Seus Versos Pendentes:**\n${lisTxt}\n\nNão se esqueça de registrar as aparências utilizadas nesses versos para liberar novos registros!\n💡 *Dica: Você pode editar a porcentagem de uso pesquisando o verso no comando* \`/aparencia\` *ou* \`g!ap\`.`).setFooter({ text: "Galatic Bot - Sistema de RPG" }).setTimestamp();
+                            const embAvi = new EmbedBuilder().setColor("#FFA500").setTitle("⚠️ Lembrete de Versos Pendentes").setDescription(`Olá, **${nomJog}**! Notei que você possui universos com uso incompleto.\n\n**Seus Versos Pendentes:**\n${lisTxt}\n\nNão se esqueça de registrar as aparências utilizadas nesses versos para liberar novos registros!\n💡 *Dica: Você pode editar a porcentagem de uso pesquisando o verso no comando* \`/aparencia\` *ou* \`g!ap\`.`).setTimestamp();
                             await usuDis.send({ embeds: [embAvi] });
                             resumo.enviados++;
                             resumo.log.push(`Aviso enviado para ${nomJog} (${uidDestino}).`);
