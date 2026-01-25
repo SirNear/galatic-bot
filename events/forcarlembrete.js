@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const Command = require('../../structures/Command.js');
+const Command = require("../../structures/Command.js");
 const { google } = require("googleapis");
 const path = require("path");
 
