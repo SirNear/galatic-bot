@@ -87,7 +87,7 @@ async function handleAppearanceInteraction(interaction, client) {
             const novoUniverso = interaction.fields.getTextInputValue('edit_ap_universo');
             const novoPersonagem = interaction.fields.getTextInputValue('edit_ap_personagem');
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
 
             const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `INDIVIDUAIS!D${rowIndex}:D${rowIndex}` });
             const jogador = res.data.values?.[0]?.[0] || '';

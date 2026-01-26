@@ -368,7 +368,7 @@ module.exports = class GalaticClient extends Client {
                 });
 
                 collector.on('collect', async i => {
-                    await i.deferReply({ ephemeral: true });
+                    await i.deferReply({ flags: 64 });
 
                     const questAtual = await this.database.Quest.findById(quest._id);
 
@@ -433,7 +433,7 @@ module.exports = class GalaticClient extends Client {
     async handleQuestApproval(interaction) {
         const approvalRoleId = '731974690125643869'; // ID do cargo que pode aprovar
         if (!interaction.member.roles.cache.has(approvalRoleId)) {
-            return interaction.reply({ content: "❌ Você não tem permissão para aprovar ou rejeitar quests.", ephemeral: true });
+            return interaction.reply({ content: "❌ Você não tem permissão para aprovar ou rejeitar quests.", flags: 64 });
         }
 
         const [action, type, questId] = interaction.customId.split('_');

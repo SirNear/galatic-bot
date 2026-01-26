@@ -128,18 +128,26 @@ module.exports = class lore extends Command {
                         
                         let finalPages = [];
                         let textBlock = [];
+                        let currentImageUrl = null;
 
                         const processAndPaginateTextBlock = (imageUrl = null) => {
                             if (textBlock.length > 0) {
                                 const fullText = textBlock.join('\n\n');
                                 const textPages = paginateText(fullText);
-                                textPages.forEach(pageContent => {
+                                textPages.forEach((pageContent, index) => {
+                                    const imgUrl = (index === 0 && imageUrl) ? imageUrl : null;
                                     finalPages.push({
                                         content: pageContent,
-                                        imageUrl: imageUrl
+                                        imageUrl: imgUrl
                                     });
                                 });
                                 textBlock = [];
+                            } else if (imageUrl) {
+                                // Se não há texto mas há imagem, adiciona página com apenas a imagem
+                                finalPages.push({
+                                    content: ' ',
+                                    imageUrl: imageUrl
+                                });
                             }
                         };
 
@@ -155,8 +163,10 @@ module.exports = class lore extends Command {
 
                             // Se a mensagem atual tem uma imagem, ou se é a última mensagem do loop,
                             // processamos o bloco de texto acumulado até agora.
-                            if (imageAttachment || i === messages.length - 1) {
-                                processAndPaginateTextBlock(imageAttachment?.url ?? null);
+                            if (imageAttachment) {
+                                processAndPaginateTextBlock(imageAttachment.url);
+                            } else if (i === messages.length - 1) {
+                                processAndPaginateTextBlock(null);
                             }
                         }
 
