@@ -10,12 +10,6 @@ module.exports = class GuildCreate {
 	async run(guild, client) {
 		const server = await this.client.database.Guilds.findById(guild.id);
 		
-		let embedBanned = new EmbedBuilder()
-		.setColor(color.red)
-		.setTitle('<:errorYaro:816811156512440331> | **Seu servidor está banido**')
-		.setDescription(`Você me adicionou ao ${guild.name} e fico feliz por me escolher, mas eu fui retirado do seu servidor por um dos meus administradores. Entre em contato com o [suporte](https://discord.gg/EsAb4jDAvx) para saber mais.`)
-		.addFields({name: '**Motivo do Banimento**', value: server.banReason, inline: true})
-				
 		let embedCreated = new EmbedBuilder()
 		.setColor(color.green)
 		.setTitle('**NOVO SERVIDOR**')
@@ -82,13 +76,19 @@ module.exports = class GuildCreate {
 		  }else {
 			  
 			if(server.banned === true) {
+				let embedBanned = new EmbedBuilder()
+				.setColor(color.red)
+				.setTitle('<:errorYaro:816811156512440331> | **Seu servidor está banido**')
+				.setDescription(`Você me adicionou ao ${guild.name} e fico feliz por me escolher, mas eu fui retirado do seu servidor por um dos meus administradores. Entre em contato com o suporte para saber mais.`)
+				.addFields({name: '**Motivo do Banimento**', value: server.banReason || 'Não especificado', inline: true})
+
 				server.tryAdd = true
 				server.save().then(msg => {
 				guild.leave()
 					
 				})
 				
-				this.client.users.send(guild.ownerId, {embeds: [embedBanned]})
+				this.client.users.send(guild.ownerId, {embeds: [embedBanned]}).catch(() => {})
 
 			}else {
 				

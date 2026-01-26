@@ -315,7 +315,11 @@ module.exports = class GalaticClient extends Client {
         }
 
       } catch (error) {
-        console.error(`[OPEN TOPICS SYSTEM] Erro crítico ao processar o servidor ${guildId}:`, error);
+        if (error.code === 10004) {
+            console.warn(`[OPEN TOPICS SYSTEM] Servidor ${guildId} não encontrado (Unknown Guild).`);
+        } else {
+            console.error(`[OPEN TOPICS SYSTEM] Erro crítico ao processar o servidor ${guildId}:`, error);
+        }
       } finally {
         let logMessage = `[OPEN TOPICS SYSTEM] Processo concluído. Total de postagens reabertas: ${summary.reopened}.`;
         if (summary.failed > 0) {
@@ -416,8 +420,8 @@ module.exports = class GalaticClient extends Client {
                 });
 
             } catch (error) {
-                if (error.code === 10008 || error.code === 10003) { // Unknown Message or Unknown Channel
-                    console.warn(`Mensagem ou canal da quest ${quest.nome} (ID: ${quest._id}) não encontrado. Talvez tenha sido deletada.`);
+                if (error.code === 10008 || error.code === 10003 || error.code === 50001) { // Unknown Message, Unknown Channel or Missing Access
+                    console.warn(`Mensagem ou canal da quest ${quest.nome} (ID: ${quest._id}) não encontrado ou sem acesso (${error.code}).`);
                 } else {
                     console.error(`Erro ao recarregar coletor para a quest ${quest._id}:`, error);
                 }
