@@ -2,25 +2,45 @@
 // Função de inicializar o contador
 async function iniciarContador(tempoRestante, sujeito, msgAlvo, message) {
     
-    let contador = await msgAlvo.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
-    let intervalo = setInterval(() => {
-        tempoRestante--; // decrementar o tempo restante
-
-        if (tempoRestante <= 0) {
-            clearInterval(intervalo);
-            msgAlvo.delete().catch(() => { });
-            
-            if (contador && typeof contador.edit === 'function') {
-                contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
-            }
-        } else {
-            if (contador && typeof contador.edit === 'function') {
-                contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}...` }).catch(() => { });
-            }
-        }
-    }, 1000);
+    // msgAlvo pode ser um Message (com .reply()) ou um Channel (com .send())
+    const isMessage = msgAlvo && typeof msgAlvo.reply === 'function';
+    const isChannel = msgAlvo && typeof msgAlvo.send === 'function';
     
-    return {intervalo, contador}; 
+    if (!isMessage && !isChannel) {
+        console.error('[ERRO] msgAlvo inválido - não tem .reply() nem .send()');
+        return { intervalo: null, contador: null };
+    }
+    
+    try {
+        // Se for Message, usar .reply(), se for Channel usar .send()
+        let contador;
+        if (isMessage) {
+            contador = await msgAlvo.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
+        } else {
+            contador = await msgAlvo.send({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
+        }
+        
+        let intervalo = setInterval(() => {
+            tempoRestante--; // decrementar o tempo restante
+
+            if (tempoRestante <= 0) {
+                clearInterval(intervalo);
+                
+                if (contador && typeof contador.edit === 'function') {
+                    contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
+                }
+            } else {
+                if (contador && typeof contador.edit === 'function') {
+                    contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}...` }).catch(() => { });
+                }
+            }
+        }, 1000);
+        
+        return {intervalo, contador};
+    } catch (err) {
+        console.error('[ERRO] Falha ao iniciar contador:', err);
+        return { intervalo: null, contador: null };
+    }
     /* 
     Deve receber os parâmetros a acao (ação a ser feita pelo usuário no tempo do contador), sujeito (com oque deve ser feito), msgNavegacao (Mensagem genérica de nav) e message (mensagem enviada pelo usuário)
     Retornar o intervalo restante e o contador

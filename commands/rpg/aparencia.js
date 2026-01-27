@@ -198,11 +198,44 @@ module.exports = class aparencia extends Command {
   async processarSelecaoAparencia(i, message, msgNavegacao) {
     const tempoRestante = 15;
     const sujeito = "enviar a aparência";
-    const msgAlvo = msgNavegacao || message;
     
-    // Garantir que msgNavegacao é sempre uma Message válida
-    if (!msgNavegacao || typeof msgNavegacao.createMessageComponentCollector !== 'function') {
-      msgNavegacao = message;
+    // ⚠️ CRÍTICO: Extrair a Message real do InteractionCallbackResponse se necessário
+    let messageToEdit = msgNavegacao;
+    
+    // Se for InteractionCallbackResponse, extrair a Message
+    if (messageToEdit && messageToEdit.resource && messageToEdit.resource.message) {
+      messageToEdit = messageToEdit.resource.message;
+    }
+    
+    if (!messageToEdit || typeof messageToEdit.edit !== 'function') {
+      console.error('[ERRO] messageToEdit não é uma Message válida!');
+      console.error('[ERRO] Type:', messageToEdit?.constructor?.name);
+      return;
+    }
+    
+    // Canal para coletores (pode ser Channel, não precisa ser Message)
+    let channelForCollectors = null;
+    try {
+      if (message && message.channel) {
+        channelForCollectors = message.channel;
+      } else if (i && i.channel) {
+        channelForCollectors = i.channel;
+      }
+    } catch (err) {
+      channelForCollectors = i.channel;
+    }
+    
+    // msgAlvo é usado para enviar mensagens de contador (precisa ter .reply() ou .send())
+    // Sempre usar um channel para garantir que tem método de envio
+    let msgAlvo;
+    try {
+      if (message && message.channel) {
+        msgAlvo = message.channel;
+      } else if (i && i.channel) {
+        msgAlvo = i.channel;
+      }
+    } catch (err) {
+      msgAlvo = i.channel;
     }
 
     switch (i.customId) {
@@ -226,40 +259,58 @@ module.exports = class aparencia extends Command {
 
         /* #region  CONTADOR */
 
-        ({ intervalo, contador } = await iniciarContador(
-          tempoRestante,
-          sujeito,
-          msgAlvo,
-          message
-        ));
+        try {
+          ({ intervalo, contador } = await iniciarContador(
+            tempoRestante,
+            sujeito,
+            msgAlvo,
+            message
+          ));
+        } catch (err) {
+          console.error('[ERRO] Falha ao iniciar contador:', err);
+          await i.followUp({ content: 'Erro ao iniciar contador. Tente novamente.' }).catch(() => {});
+          return;
+        }
         /* #endregion */
 
-        const coletorAparencia = (msgNavegacao.channel || message.channel).createMessageCollector({
-          filter: (m) => m.author.id === message.author.id,
+        // Use user ID from message or interaction
+        const userIdToFilter = message ? message.author.id : i.user.id;
+        const channelForCollector = channelForCollectors;
+        
+        const coletorAparencia = channelForCollector.createMessageCollector({
+          filter: (m) => m.author.id === userIdToFilter,
           time: 15000,
           max: 1,
         });
 
           /* #region  BACK BUSCA E REGISTRO DE APARÊNCIA */
           coletorAparencia.on("collect", async (m) => {
-            const nomeAparencia = await pararContador(
-              m.content,
-              intervalo,
-              contador
-            );
+            console.log('[LOG] ===== INICIANDO PROCESSAMENTO DE APARÊNCIA =====');
+            console.log('[LOG] Mensagem recebida:', m.content);
+            try {
+              console.log('[LOG] 1. Parando contador...');
+              const nomeAparencia = await pararContador(
+                m.content,
+                intervalo,
+                contador
+              );
+              console.log('[LOG] 2. Nome da aparência normalizado:', nomeAparencia);
 
-            let resultados = [];
-            target = await normalizeText(nomeAparencia);
+              let resultados = [];
+              target = await normalizeText(nomeAparencia);
+              console.log('[LOG] 3. Target normalizado:', target);
 
-            /* #region  BUSCA RESULTADOS NA PLANILHA */
-            resultados = await buscarAparencias(sheets, 'nome', target);
+              /* #region  BUSCA RESULTADOS NA PLANILHA */
+              console.log('[LOG] 4. Iniciando busca na planilha...');
+              resultados = await buscarAparencias(sheets, 'nome', target);
+              console.log('[LOG] 5. Resultados encontrados:', resultados.length);
 
-            let pag = 0;
-            const EmbedPagesAparencia = resultados.map((r, idx) => 
-                    new EmbedBuilder()
-                        .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
-                        .setColor("#212416")
-                        .setDescription(`<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`)
+              let pag = 0;
+              const EmbedPagesAparencia = resultados.map((r, idx) => 
+                      new EmbedBuilder()
+                          .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`)
+                          .setColor("#212416")
+                          .setDescription(`<:patrickconcern:1407564230256758855> | Resultado similar ${idx + 1} de ${resultados.length}`)
                         .addFields(
                             { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
                             { name: "**UNIVERSO**", value: r.universo ?? "—" },
@@ -270,56 +321,103 @@ module.exports = class aparencia extends Command {
                 );
             
                 const navRow = async (idx) => {
-                    const author = message.author;
-                    const member = message.member;
-                    const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: message.guild.id });
-                    const components = [
-                        new ButtonBuilder().setCustomId("reg_nova_ap").setEmoji("➕").setStyle(ButtonStyle.Success),
-                        new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesAparencia.length === 0),
-                        new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1 || EmbedPagesAparencia.length === 0),
-                        new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Secondary)
-                    ];
+                    try {
+                        console.log('[DEBUG] navRow called com idx:', idx);
+                        // Use message if available, otherwise use interaction
+                        const author = (message && message.author) || i.user;
+                        const member = (message && message.member) || i.member;
+                        const guildId = (message && message.guild.id) || i.guild.id;
+                        
+                        console.log('[DEBUG] Buscando userDb para uid:', author.id, 'server:', guildId);
+                        const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: guildId });
+                        console.log('[DEBUG] userDb encontrado:', !!userDb);
+                        
+                        const components = [
+                            new ButtonBuilder().setCustomId("reg_nova_ap").setEmoji("➕").setStyle(ButtonStyle.Success),
+                            new ButtonBuilder().setCustomId("prev_ap_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesAparencia.length === 0),
+                            new ButtonBuilder().setCustomId("next_ap_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesAparencia.length - 1 || EmbedPagesAparencia.length === 0),
+                            new ButtonBuilder().setCustomId("close_ap_similar").setLabel("❌").setStyle(ButtonStyle.Secondary)
+                        ];
 
-                    const currentResult = resultados[idx];
-                    if (currentResult && userDb) {
-                        const jogadorPlanilha = currentResult.jogador;
-                        const jogadorDB = userDb.jogador;
+                        const currentResult = resultados[idx];
+                        if (currentResult && userDb && member) {
+                            const jogadorPlanilha = currentResult.jogador;
+                            const jogadorDB = userDb.jogador;
 
-                        const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
-                        const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+                            const jogadorPlanilhaNorm = await normalizeText(jogadorPlanilha);
+                            const jogadorDBNorm = await normalizeText(jogadorDB);
+                            const isOwner = jogadorPlanilhaNorm === jogadorDBNorm;
+                            const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+                            
+                            console.log('[DEBUG] isOwner:', isOwner, 'isAdmin:', isAdmin);
 
-                        if (isOwner || isAdmin) {
-                            const rowIndex = currentResult.rowIndex;
-                            components.push(
-                                new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
-                                new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger) // Corrigido para Danger
+                            if (isOwner || isAdmin) {
+                                const rowIndex = currentResult.rowIndex;
+                                components.push(
+                                    new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+                                    new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger) // Corrigido para Danger
+                                );
+                            }
+                        }
+
+                        const rows = [];
+                        for (let i = 0; i < components.length; i += 5) {
+                            rows.push(
+                                new ActionRowBuilder().addComponents(components.slice(i, i + 5))
                             );
                         }
-                    }
 
-                    const rows = [];
-                    for (let i = 0; i < components.length; i += 5) {
-                        rows.push(
-                            new ActionRowBuilder().addComponents(components.slice(i, i + 5))
-                        );
+                        console.log('[DEBUG] navRow retornando com', rows.length, 'ActionRows');
+                        return rows;
+                    } catch (err) {
+                        console.error('[ERRO CRÍTICO] Erro em navRow:', err);
+                        throw err;
                     }
-
-                    return rows;
                 };
 
                 if (resultados.length === 0) {
                     EmbedPagesAparencia.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nA aparência **${target}** está livre para registro!\nClique no botão abaixo para registrá-la.`));
                 }
 
-                await msgNavegacao.edit({
-                    embeds: [EmbedPagesAparencia[pag]],
-                    components: await navRow(pag),
-                });
+                console.log('[LOG] 6. Tentando editar messageToEdit...');
+                if (messageToEdit && typeof messageToEdit.edit === 'function') {
+                    try {
+                        console.log('[LOG] 6a. Gerando navRow...');
+                        const navRowComponents = await navRow(pag);
+                        console.log('[LOG] 6b. NavRow gerado com sucesso, chamando edit...');
+                        console.log('[DEBUG] messageToEdit type:', messageToEdit.constructor.name);
+                        console.log('[DEBUG] messageToEdit.id:', messageToEdit.id);
+                        
+                        const editPromise = messageToEdit.edit({
+                            embeds: [EmbedPagesAparencia[pag]],
+                            components: navRowComponents,
+                        });
+                        
+                        editPromise
+                            .then((result) => {
+                                console.log('[LOG] 6c. Edit resolvido com sucesso!');
+                                console.log('[DEBUG] Result:', result ? result.id : 'null');
+                            })
+                            .catch((err) => {
+                                console.error('[ERRO] Falha na promessa do edit:', err.message);
+                                console.error('[ERRO] Stack:', err.stack);
+                            });
+                        
+                        await editPromise;
+                        console.log('[LOG] 6d. Await do edit finalizado!');
+                    } catch (err) {
+                        console.error('[ERRO] Exceção ao criar navRow ou editar messageToEdit (aparência):', err);
+                        console.error('[ERRO] Stack:', err.stack);
+                    }
+                } else {
+                    console.error('[ERRO] messageToEdit é inválido ou não tem método edit. messageToEdit:', typeof messageToEdit, messageToEdit?.constructor?.name);
+                }
 
                 let registroIniciado = false;
 
-                const navCollector = msgNavegacao.createMessageComponentCollector({
-                    filter: (ii) => ii.user.id === message.author.id,
+                const filterUserIdNav = message ? message.author.id : i.user.id;
+                const navCollector = messageToEdit.createMessageComponentCollector({
+                    filter: (ii) => ii.user.id === filterUserIdNav,
                     time: 60000,
                     idle: 30000
                 });
@@ -340,7 +438,7 @@ module.exports = class aparencia extends Command {
                         case 'reg_nova_ap':
                             registroIniciado = true;
                             navCollector.stop("register");
-                            await handleRegistro('aparência', target, msgNavegacao, ii, botLogChannel, this.client, sheets, false, []);
+                            await handleRegistro('aparência', target, messageToEdit, ii, botLogChannel, this.client, sheets, false, []);
                             return;
                         default:
                             if (ii.customId.startsWith('edit_appearance_') || ii.customId.startsWith('delete_appearance_')) {
@@ -358,12 +456,18 @@ module.exports = class aparencia extends Command {
 
                 navCollector.on("end", async (collected, reason) => {
                     if (reason === "closed") {
-                        await msgNavegacao.delete().catch(() => {});
-                        message.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
+                        await messageToEdit.delete().catch(() => {});
+                        const channelToSend = message ? message.channel : i.channel;
+                        channelToSend.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
                     } else if (reason !== "register") {
-                        await msgNavegacao.edit({ components: [] }).catch(() => {});
+                        await messageToEdit.edit({ components: [] }).catch(() => {});
                     }
                 });
+                console.log('[LOG] ===== FIM DO PROCESSAMENTO DE APARÊNCIA =====');
+            } catch (err) {
+              console.error('[ERRO] Exceção no coletorAparencia.on("collect"):', err);
+              console.error('[ERRO] Stack:', err.stack);
+            }
           });
 
           coletorAparencia.on("end", (collected, reason) => {
@@ -372,7 +476,7 @@ module.exports = class aparencia extends Command {
               if (contador && typeof contador.edit === 'function') {
                 contador.edit({ content: "Tempo esgotado." }).catch(() => {});
               }
-              msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
+              messageToEdit.edit({ embeds: [], components: [] }).catch(() => {});
             }
           });
 
@@ -390,43 +494,60 @@ module.exports = class aparencia extends Command {
               .update({ embeds: [embedVerso], components: [] })
               .catch(() => {});
 
-              ({ intervalo, contador } = await iniciarContador(
-                tempoRestante,
-                "enviar o verso",
-                msgAlvo,
-                message
-              ));
+              try {
+                ({ intervalo, contador } = await iniciarContador(
+                  tempoRestante,
+                  "enviar o verso",
+                  msgAlvo,
+                  message
+                ));
+              } catch (err) {
+                console.error('[ERRO] Falha ao iniciar contador (verso):', err);
+                await i.followUp({ content: 'Erro ao iniciar contador. Tente novamente.' }).catch(() => {});
+                return;
+              }
 
-              const coletorVerso = (msgNavegacao.channel || message.channel).createMessageCollector({
-                filter: (m) => m.author.id === message.author.id,
+              // Use user ID from message or interaction
+              const userIdToFilterVerso = message ? message.author.id : i.user.id;
+              const channelForVersoCollector = channelForCollectors;
+              
+              const coletorVerso = channelForVersoCollector.createMessageCollector({
+                filter: (m) => m.author.id === userIdToFilterVerso,
                 time: 15000,
                 max: 1,
               }); //₢oletorverso
 
               coletorVerso.on("collect", async (m) => {
-                const nomeVerso = await pararContador(
-                  m.content,
-                  intervalo,
-                  contador
-                );
-
-                let resultados = [];
-                target = await normalizeText(nomeVerso);
-
+                console.log('[LOG] ===== INICIANDO PROCESSAMENTO DE VERSO =====');
+                console.log('[LOG] Mensagem recebida:', m.content);
                 try {
-                  const res = await sheets.spreadsheets.values.get({
-                    spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-                    range: "UNIVERSO!A:C",
-                  });
-                  const rows = res.data.values || [];
+                  console.log('[LOG] 1. Parando contador...');
+                  const nomeVerso = await pararContador(
+                    m.content,
+                    intervalo,
+                    contador
+                  );
+                  console.log('[LOG] 2. Nome do verso normalizado:', nomeVerso);
 
-                  for (let r = 1; r < rows.length; r++) {
-                    const row = rows[r];
-                    if (!row) continue;
-                    const [verso, uso, jogador] = row;
-                    if (!verso) continue;
+                  let resultados = [];
+                  target = await normalizeText(nomeVerso);
+                  console.log('[LOG] 3. Target normalizado:', target);
 
-                    const versoNorm = await normalizeText(verso);
+                  try {
+                    console.log('[LOG] 4. Iniciando busca na planilha (UNIVERSO)...');
+                    const res = await sheets.spreadsheets.values.get({
+                      spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                      range: "UNIVERSO!A:C",
+                    });
+                    const rows = res.data.values || [];
+
+                    for (let r = 1; r < rows.length; r++) {
+                      const row = rows[r];
+                      if (!row) continue;
+                      const [verso, uso, jogador] = row;
+                      if (!verso) continue;
+
+                      const versoNorm = await normalizeText(verso);
 
                     if (versoNorm.length < 2) continue;
 
@@ -457,6 +578,7 @@ module.exports = class aparencia extends Command {
                 }
 
                 let pag = 0;
+                console.log('[LOG] 5. Resultados encontrados:', resultados.length);
                 const EmbedPagesVerso = resultados.map((r, idx) => 
                         new EmbedBuilder()
                             .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **`)
@@ -471,56 +593,103 @@ module.exports = class aparencia extends Command {
                     );
 
                     const navRow = async (idx) => {
-                      const author = message.author;
-                      const member = message.member;
-                      const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: message.guild.id });
-                      const components = [
-                        new ButtonBuilder().setCustomId("reg_novo_verso").setEmoji("➕").setStyle(ButtonStyle.Success),
-                        new ButtonBuilder().setCustomId("prev_verso_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesVerso.length === 0),
-                        new ButtonBuilder().setCustomId("next_verso_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesVerso.length - 1 || EmbedPagesVerso.length === 0),
-                        new ButtonBuilder().setCustomId("close_verso_similar").setLabel("❌").setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder().setCustomId("aparencia_lista").setEmoji("👤").setStyle(ButtonStyle.Success)
-                      ];
+                      try {
+                        console.log('[DEBUG] navRow verso chamado com idx:', idx);
+                        // Use message if available, otherwise use interaction
+                        const author = (message && message.author) || i.user;
+                        const member = (message && message.member) || i.member;
+                        const guildId = (message && message.guild.id) || i.guild.id;
+                        
+                        console.log('[DEBUG] Buscando userDb verso para uid:', author.id, 'server:', guildId);
+                        const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: guildId });
+                        console.log('[DEBUG] userDb verso encontrado:', !!userDb);
+                        
+                        const components = [
+                          new ButtonBuilder().setCustomId("reg_novo_verso").setEmoji("➕").setStyle(ButtonStyle.Success),
+                          new ButtonBuilder().setCustomId("prev_verso_similar").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(idx === 0 || EmbedPagesVerso.length === 0),
+                          new ButtonBuilder().setCustomId("next_verso_similar").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(idx === EmbedPagesVerso.length - 1 || EmbedPagesVerso.length === 0),
+                          new ButtonBuilder().setCustomId("close_verso_similar").setLabel("❌").setStyle(ButtonStyle.Secondary),
+                          new ButtonBuilder().setCustomId("aparencia_lista").setEmoji("👤").setStyle(ButtonStyle.Success)
+                        ];
 
-                      const currentResult = resultados[idx];
-                      if (currentResult && userDb) {
-                          const jogadorPlanilha = currentResult.jogador;
-                          const jogadorDB = userDb.jogador;
+                        const currentResult = resultados[idx];
+                        if (currentResult && userDb && member) {
+                            const jogadorPlanilha = currentResult.jogador;
+                            const jogadorDB = userDb.jogador;
 
-                          const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
-                          const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+                            const jogadorPlanilhaNorm = await normalizeText(jogadorPlanilha);
+                            const jogadorDBNorm = await normalizeText(jogadorDB);
+                            const isOwner = jogadorPlanilhaNorm === jogadorDBNorm;
+                            const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+                            
+                            console.log('[DEBUG] verso isOwner:', isOwner, 'isAdmin:', isAdmin);
 
-                          if (isOwner || isAdmin) {
-                              components.push(
-                                  new ButtonBuilder().setCustomId(`edit_verso_${idx}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
-                                  new ButtonBuilder().setCustomId(`delete_verso_${idx}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
-                              );
-                          }
+                            if (isOwner || isAdmin) {
+                                components.push(
+                                    new ButtonBuilder().setCustomId(`edit_verso_${idx}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+                                    new ButtonBuilder().setCustomId(`delete_verso_${idx}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
+                                );
+                            }
+                        }
+
+                        const rows = [];
+                        for (let i = 0; i < components.length; i += 5) {
+                            rows.push(
+                                new ActionRowBuilder().addComponents(components.slice(i, i + 5))
+                            );
+                        }
+
+                        console.log('[DEBUG] navRow verso retornando com', rows.length, 'ActionRows');
+                        return rows;
+                      } catch (err) {
+                        console.error('[ERRO CRÍTICO] Erro em navRow verso:', err);
+                        throw err;
                       }
-
-                      const rows = [];
-                      for (let i = 0; i < components.length; i += 5) {
-                          rows.push(
-                              new ActionRowBuilder().addComponents(components.slice(i, i + 5))
-                          );
-                      }
-
-                      return rows;
-                    }
+                    };
 
                       if (resultados.length === 0) {
                         EmbedPagesVerso.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nO verso **${target}** está livre para registro!\nClique no botão abaixo para registrá-lo.`));
                       }
 
-                      await msgNavegacao.edit({
-                        embeds: [EmbedPagesVerso[pag]],
-                        components: await navRow(pag),
-                      });
+                      console.log('[LOG] 6. Tentando editar messageToEdit verso...');
+                      if (messageToEdit && typeof messageToEdit.edit === 'function') {
+                        try {
+                          console.log('[LOG] 6a. Gerando navRow verso...');
+                          const navRowComponents = await navRow(pag);
+                          console.log('[LOG] 6b. NavRow verso gerado com sucesso, chamando edit...');
+                          console.log('[DEBUG] messageToEdit verso type:', messageToEdit.constructor.name);
+                          console.log('[DEBUG] messageToEdit verso id:', messageToEdit.id);
+                          
+                          const editPromise = messageToEdit.edit({
+                            embeds: [EmbedPagesVerso[pag]],
+                            components: navRowComponents,
+                          });
+                          
+                          editPromise
+                            .then((result) => {
+                              console.log('[LOG] 6c. Edit verso resolvido com sucesso!');
+                              console.log('[DEBUG] Result verso:', result ? result.id : 'null');
+                            })
+                            .catch((err) => {
+                              console.error('[ERRO] Falha na promessa do edit verso:', err.message);
+                              console.error('[ERRO] Stack verso:', err.stack);
+                            });
+                          
+                          await editPromise;
+                          console.log('[LOG] 6d. Await do edit verso finalizado!');
+                        } catch (err) {
+                          console.error('[ERRO] Exceção ao criar navRow ou editar messageToEdit (verso):', err);
+                          console.error('[ERRO] Stack verso:', err.stack);
+                        }
+                      } else {
+                        console.error('[ERRO] messageToEdit verso é inválido ou não tem método edit. messageToEdit:', typeof messageToEdit, messageToEdit?.constructor?.name);
+                      }
 
                       let registroIniciado = false;
 
-                      const navCollector = msgNavegacao.createMessageComponentCollector({
-                        filter: (ii) => ii.user.id === message.author.id,
+                      const filterUserIdNavVerso = message ? message.author.id : i.user.id;
+                      const navCollector = messageToEdit.createMessageComponentCollector({
+                        filter: (ii) => ii.user.id === filterUserIdNavVerso,
                         time: 60000,
                         idle: 30000
                       });
@@ -541,9 +710,15 @@ module.exports = class aparencia extends Command {
                           case 'reg_novo_verso':
                             registroIniciado = true;
                             navCollector.stop("register");
-                            await handleRegistro('verso', target, msgNavegacao, ii, botLogChannel, this.client, sheets, false, [], true);
+                            await handleRegistro('verso', target, messageToEdit, ii, botLogChannel, this.client, sheets, false, [], true);
                             return;
                           case 'aparencia_lista':
+                            // Proteger contra resultados vazios
+                            if (!resultados[pag]) {
+                              await ii.reply({ content: 'Nenhum resultado selecionado.', ephemeral: true });
+                              return;
+                            }
+                            
                             const versoAlvo = resultados[pag].verso;
                             const apps = await buscarAparencias(sheets, 'verso', versoAlvo);
                             
@@ -575,7 +750,8 @@ module.exports = class aparencia extends Command {
 
                             await ii.update({ embeds: [generateAppListEmbed(appPage)], components: [getAppButtons(appPage)] });
 
-                            const appCollector = msgNavegacao.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000 });
+                            const filterAppUser = message ? message.author.id : i.user.id;
+                            const appCollector = messageToEdit.createMessageComponentCollector({ filter: filter_i => filter_i.user.id === filterAppUser, time: 60000 });
                             
                             appCollector.on('collect', async (appI) => {
                                 if (appI.customId === 'prev_app_list') {
@@ -616,7 +792,8 @@ module.exports = class aparencia extends Command {
                                 modEdi.addComponents(new ActionRowBuilder().addComponents(inpNom), new ActionRowBuilder().addComponents(inpUso));
                                 await ii.showModal(modEdi);
 
-                                const subMod = await ii.awaitModalSubmit({ time: 60000, filter: f => f.user.id === message.author.id }).catch(() => null);
+                                const filterModalUser = message ? message.author.id : i.user.id;
+                                const subMod = await ii.awaitModalSubmit({ time: 60000, filter: f => f.user.id === filterModalUser }).catch(() => null);
                                 if (!subMod) return;
 
                                 const novNom = subMod.fields.getTextInputValue('edit_verso_nome');
@@ -681,13 +858,18 @@ module.exports = class aparencia extends Command {
 
                       navCollector.on("end", async (collected, reason) => { 
                         if (reason === "closed") {
-                          await msgNavegacao.delete().catch(() => {});
-                          message.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
+                          await messageToEdit.delete().catch(() => {});
+                          const channelToSend = message ? message.channel : i.channel;
+                          channelToSend.send({ content: "<a:cdfpatpat:1407135944456536186> | **NAVEGAÇÃO FINALIZADA!**" }).catch(() => {});
                         } else if (reason !== "register") {
-                          await msgNavegacao.edit({ components: [] }).catch(() => {});
+                          await messageToEdit.edit({ components: [] }).catch(() => {});
                         }
                       });
-            });
+                } catch (err) {
+                  console.error('[ERRO] Exceção no coletorVerso.on("collect"):', err);
+                  console.error('[ERRO] Stack:', err.stack);
+                }
+              });
 
             coletorVerso.on("end", (collected, reason) => {
               clearInterval(intervalo);
@@ -695,9 +877,11 @@ module.exports = class aparencia extends Command {
                 if (contador && typeof contador.edit === 'function') {
                   contador.edit({ content: "Tempo esgotado." }).catch(() => {});
                 }
-                msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
+                messageToEdit.edit({ embeds: [], components: [] }).catch(() => {});
               }
             });
+
+            console.log('[LOG] ===== FIM DO PROCESSAMENTO DE VERSO =====');
 
           break;
       }
@@ -709,23 +893,26 @@ module.exports = class aparencia extends Command {
     );
 
     // Detectar se um tipo foi especificado via opção do slash command
-    const tipoOpcao = interaction.options.getString('tipo');
+    const tipoOpcao = interaction.options?.getString('tipo');
     if (tipoOpcao === 'aparencia' || tipoOpcao === 'verso') {
       const customId = tipoOpcao === 'aparencia' ? 'botaoNavAparencia' : 'botaoNavVerso';
+      
+      // Responder com uma mensagem de carregamento
+      const msgReply = await interaction.reply({ content: '⏳ Carregando...', withResponse: true });
+      
+      // Criar um objeto que simula uma interação real
       const fakeInteraction = {
         customId: customId,
         user: interaction.user,
         member: interaction.member,
         channel: interaction.channel,
         guild: interaction.guild,
-        reply: interaction.reply.bind(interaction),
-        update: interaction.update.bind(interaction),
-        deferUpdate: interaction.deferUpdate.bind(interaction)
+        reply: async (options) => await msgReply.reply(options),
+        update: async (options) => await msgReply.edit(options),
+        deferUpdate: async () => {},
+        editReply: async (options) => await msgReply.edit(options),
+        followUp: async (options) => await msgReply.reply(options)
       };
-      
-      // Responder com uma mensagem vazia para obter a reply
-      await interaction.reply({ content: ' ', fetchReply: false });
-      const msgReply = await interaction.fetchReply();
       
       return this.processarSelecaoAparencia(fakeInteraction, null, msgReply);
     }
@@ -752,7 +939,7 @@ module.exports = class aparencia extends Command {
     const msgNavegacao = await interaction.reply({
       embeds: [embedNavegacao],
       components: [botaoSelecaoNavegacao],
-      fetchReply: true,
+      withResponse: true,
     });
 
     const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector(
@@ -762,7 +949,16 @@ module.exports = class aparencia extends Command {
     coletorBotoesNavegacao.on("collect", async (i) => {
       const tempoRestante = 15;
       const sujeito = "enviar a aparência";
-      const msgAlvo = msgNavegacao;
+      
+      // Sempre usar um channel para garantir que tem método de envio
+      let msgAlvo;
+      if (msgNavegacao && msgNavegacao.channel) {
+        msgAlvo = msgNavegacao.channel;
+      } else if (i && i.channel) {
+        msgAlvo = i.channel;
+      } else {
+        msgAlvo = interaction.channel;
+      }
 
       switch (i.customId) {
         case "botaoNavAparencia":
@@ -776,7 +972,10 @@ module.exports = class aparencia extends Command {
             sujeito,
             msgAlvo,
             i // Passa a interação para o contador
-          ));
+          ).catch(err => {
+            console.error('[ERRO] Falha ao iniciar contador (execute):', err);
+            return { intervalo: null, contador: null };
+          }));
 
           const coletorAparencia = i.channel.createMessageCollector({
             filter: (m) => m.author.id === i.user.id,
@@ -859,10 +1058,12 @@ module.exports = class aparencia extends Command {
                     EmbedPagesAparencia.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nA aparência **${target}** está livre para registro!\nClique no botão abaixo para registrá-la.`));
                 }
 
-                await msgNavegacao.edit({
-                    embeds: [EmbedPagesAparencia[pag]],
-                    components: await navRow(pag),
-                });
+                if (msgNavegacao && typeof msgNavegacao.edit === 'function') {
+                    await msgNavegacao.edit({
+                        embeds: [EmbedPagesAparencia[pag]],
+                        components: await navRow(pag),
+                    }).catch(() => {});
+                }
 
                 let registroIniciado = false;
 
@@ -934,7 +1135,10 @@ module.exports = class aparencia extends Command {
             "enviar o universo",
             msgAlvo,
             i
-          ));
+          ).catch(err => {
+            console.error('[ERRO] Falha ao iniciar contador (execute verso):', err);
+            return { intervalo: null, contador: null };
+          }));
 
           const coletorbotaoNavVerso = i.channel.createMessageCollector({
             filter: (m) => m.author.id === interaction.user.id,
