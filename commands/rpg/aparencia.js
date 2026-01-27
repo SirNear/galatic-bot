@@ -491,10 +491,7 @@ module.exports = class aparencia extends Command {
               }); //₢oletorverso
 
               coletorVerso.on("collect", async (m) => {
-                console.log('[LOG] ===== INICIANDO PROCESSAMENTO DE VERSO =====');
-                console.log('[LOG] Mensagem recebida:', m.content);
                 try {
-                  console.log('[LOG] 1. Parando contador...');
                   const nomeVerso = await pararContador(
                     m.content,
                     intervalo,
