@@ -610,14 +610,9 @@ module.exports = class aparencia extends Command {
                         EmbedPagesVerso.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nO verso **${target}** está livre para registro!\nClique no botão abaixo para registrá-lo.`));
                       }
 
-                      console.log('[LOG] 6. Tentando editar messageToEdit verso...');
                       if (messageToEdit && typeof messageToEdit.edit === 'function') {
                         try {
-                          console.log('[LOG] 6a. Gerando navRow verso...');
                           const navRowComponents = await navRow(pag);
-                          console.log('[LOG] 6b. NavRow verso gerado com sucesso, chamando edit...');
-                          console.log('[DEBUG] messageToEdit verso type:', messageToEdit.constructor.name);
-                          console.log('[DEBUG] messageToEdit verso id:', messageToEdit.id);
                           
                           const editPromise = messageToEdit.edit({
                             embeds: [EmbedPagesVerso[pag]],
@@ -625,17 +620,12 @@ module.exports = class aparencia extends Command {
                           });
                           
                           editPromise
-                            .then((result) => {
-                              console.log('[LOG] 6c. Edit verso resolvido com sucesso!');
-                              console.log('[DEBUG] Result verso:', result ? result.id : 'null');
-                            })
                             .catch((err) => {
                               console.error('[ERRO] Falha na promessa do edit verso:', err.message);
                               console.error('[ERRO] Stack verso:', err.stack);
                             });
                           
                           await editPromise;
-                          console.log('[LOG] 6d. Await do edit verso finalizado!');
                         } catch (err) {
                           console.error('[ERRO] Exceção ao criar navRow ou editar messageToEdit (verso):', err);
                           console.error('[ERRO] Stack verso:', err.stack);
