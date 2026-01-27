@@ -55,7 +55,17 @@ module.exports = class aparencia extends Command {
     if (this.config.slash) {
       this.data = new SlashCommandBuilder()
         .setName(this.config.name)
-        .setDescription(this.config.description);
+        .setDescription(this.config.description)
+        .addStringOption(option =>
+          option
+            .setName('tipo')
+            .setDescription('Tipo de busca')
+            .setRequired(false)
+            .addChoices(
+              { name: 'Aparência', value: 'aparencia' },
+              { name: 'Verso', value: 'verso' }
+            )
+        );
     }
   }
 
@@ -96,9 +106,61 @@ module.exports = class aparencia extends Command {
   }
 
   async run({ message, args, client, server }) {
-    const botLogChannel = await message.guild.channels.cache.find(
+    const botLogChannel = message.guild.channels.cache.find(
       (i) => i.id === "1409063037905670154"
     );
+
+    // Detectar se foi passado um argumento direto (aparencia ou verso)
+    const tipoSolicitado = args[0]?.toLowerCase();
+    
+    if (tipoSolicitado === 'aparencia' || tipoSolicitado === 'verso') {
+      // Simular um clique no botão apropriado
+      const customId = tipoSolicitado === 'aparencia' ? 'botaoNavAparencia' : 'botaoNavVerso';
+      
+      // Evento vazio que simula um coletor que nunca coleta nada
+      const { EventEmitter } = require('events');
+      const emptyCollector = new EventEmitter();
+      emptyCollector.stop = () => {};
+      
+      // Criar uma reply do bot que pode ser editada depois
+      const msgReply = await message.reply({ content: '⏳ Carregando...' });
+      
+      // Criar um objeto que simula uma interação de botão
+      const fakeInteraction = {
+        customId: customId,
+        user: message.author,
+        member: message.member,
+        guild: message.guild,
+        channel: message.channel,
+        update: async (options) => {
+          await msgReply.edit(options).catch(() => {});
+        },
+        reply: async (options) => {
+          return await msgReply.reply(options);
+        },
+        followUp: async (options) => {
+          return await msgReply.reply(options);
+        },
+        deferUpdate: async () => {},
+        editReply: async (options) => {
+          await msgReply.edit(options).catch(() => {});
+        },
+        // Métodos para simular uma mensagem
+        edit: async (options) => {
+          return await msgReply.edit(options).catch(() => {});
+        },
+        delete: async () => {
+          return await msgReply.delete().catch(() => {});
+        },
+        createMessageComponentCollector: (options) => {
+          // Retorna um coletor vazio que nunca coleta nada
+          return emptyCollector;
+        }
+      };
+
+      // Chamar a lógica do coletor diretamente sem mostrar o menu
+      return this.processarSelecaoAparencia(fakeInteraction, message, msgReply);
+    }
 
     const embedNavegacao = new EmbedBuilder() //? MENSAGEM DE NAVEGAÇÃO INICIAL - SELECIONAR BASE DE DADOS (APARENCIA OU UNIbotaoNavVerso)
       .setColor("#02607a")
@@ -129,44 +191,54 @@ module.exports = class aparencia extends Command {
     ); //60s de espera
 
     coletorBotoesNavegacao.on("collect", async (i) => {
-      const tempoRestante = 15;
-      const sujeito = "enviar a aparência";
-      const msgAlvo = msgNavegacao;
+      await this.processarSelecaoAparencia(i, message, msgNavegacao);
+    });
+  }
 
-      switch (i.customId) {
-        case "botaoNavAparencia":
-          //NAVEGAÇÃO PARA APARÊNCIA
-          
-          const embedAparencia = new EmbedBuilder() /* #region  embedAparencia */
-            .setColor("#212416")
-            .setTitle(
-              `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
-            )
-            .setDescription("Envie no chat a aparência que deseja verificar.")
-            .setFooter({
-              text: "envie apenas o nome da aparência, sem emojis, acentuações ou outros caracteres.",
-            });
-          /* #endregion */ // * ------------------------- EMBED APARENCIA -------------------------
+  async processarSelecaoAparencia(i, message, msgNavegacao) {
+    const tempoRestante = 15;
+    const sujeito = "enviar a aparência";
+    const msgAlvo = msgNavegacao || message;
+    
+    // Garantir que msgNavegacao é sempre uma Message válida
+    if (!msgNavegacao || typeof msgNavegacao.createMessageComponentCollector !== 'function') {
+      msgNavegacao = message;
+    }
 
-          await i
-            .update({ embeds: [embedAparencia], components: [] })
-            .catch(() => {});
-
-          /* #region  CONTADOR */
-
-          ({ intervalo, contador } = await iniciarContador(
-            tempoRestante,
-            sujeito,
-            msgAlvo,
-            message
-          ));
-          /* #endregion */
-
-          const coletorAparencia = msgNavegacao.channel.createMessageCollector({
-            filter: (m) => m.author.id === message.author.id,
-            time: 15000,
-            max: 1,
+    switch (i.customId) {
+      case "botaoNavAparencia":
+        //NAVEGAÇÃO PARA APARÊNCIA
+        
+        const embedAparencia = new EmbedBuilder() /* #region  embedAparencia */
+          .setColor("#212416")
+          .setTitle(
+            `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
+          )
+          .setDescription("Envie no chat a aparência que deseja verificar.")
+          .setFooter({
+            text: "envie apenas o nome da aparência, sem emojis, acentuações ou outros caracteres.",
           });
+        /* #endregion */ // * ------------------------- EMBED APARENCIA -------------------------
+
+        await i
+          .update({ embeds: [embedAparencia], components: [] })
+          .catch(() => {});
+
+        /* #region  CONTADOR */
+
+        ({ intervalo, contador } = await iniciarContador(
+          tempoRestante,
+          sujeito,
+          msgAlvo,
+          message
+        ));
+        /* #endregion */
+
+        const coletorAparencia = (msgNavegacao.channel || message.channel).createMessageCollector({
+          filter: (m) => m.author.id === message.author.id,
+          time: 15000,
+          max: 1,
+        });
 
           /* #region  BACK BUSCA E REGISTRO DE APARÊNCIA */
           coletorAparencia.on("collect", async (m) => {
@@ -297,7 +369,9 @@ module.exports = class aparencia extends Command {
           coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
-              contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              if (contador && typeof contador.edit === 'function') {
+                contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              }
               msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
           });
@@ -323,7 +397,7 @@ module.exports = class aparencia extends Command {
                 message
               ));
 
-              const coletorVerso = msgNavegacao.channel.createMessageCollector({
+              const coletorVerso = (msgNavegacao.channel || message.channel).createMessageCollector({
                 filter: (m) => m.author.id === message.author.id,
                 time: 15000,
                 max: 1,
@@ -613,18 +687,48 @@ module.exports = class aparencia extends Command {
                           await msgNavegacao.edit({ components: [] }).catch(() => {});
                         }
                       });
-      })
-      break;
+            });
+
+            coletorVerso.on("end", (collected, reason) => {
+              clearInterval(intervalo);
+              if (reason === "time" && collected.size === 0) {
+                if (contador && typeof contador.edit === 'function') {
+                  contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+                }
+                msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
+              }
+            });
+
+          break;
+      }
     }
-    
-    });
-  }
 
   async execute(interaction) {
-    const botLogChannel = await interaction.guild.channels.cache.find(
+    const botLogChannel = interaction.guild.channels.cache.find(
       (i) => i.id === "1409063037905670154"
     );
 
+    // Detectar se um tipo foi especificado via opção do slash command
+    const tipoOpcao = interaction.options.getString('tipo');
+    if (tipoOpcao === 'aparencia' || tipoOpcao === 'verso') {
+      const customId = tipoOpcao === 'aparencia' ? 'botaoNavAparencia' : 'botaoNavVerso';
+      const fakeInteraction = {
+        customId: customId,
+        user: interaction.user,
+        member: interaction.member,
+        channel: interaction.channel,
+        guild: interaction.guild,
+        reply: interaction.reply.bind(interaction),
+        update: interaction.update.bind(interaction),
+        deferUpdate: interaction.deferUpdate.bind(interaction)
+      };
+      
+      // Responder com uma mensagem vazia para obter a reply
+      await interaction.reply({ content: ' ', fetchReply: false });
+      const msgReply = await interaction.fetchReply();
+      
+      return this.processarSelecaoAparencia(fakeInteraction, null, msgReply);
+    }
 
     const embedNavegacao = new EmbedBuilder()
       .setColor("#02607a")
@@ -813,7 +917,9 @@ module.exports = class aparencia extends Command {
           coletorAparencia.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
-              contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              if (contador && typeof contador.edit === 'function') {
+                contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              }
               msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
           });
@@ -957,7 +1063,9 @@ module.exports = class aparencia extends Command {
           coletorbotaoNavVerso.on("end", (collected, reason) => {
             clearInterval(intervalo);
             if (reason === "time" && collected.size === 0) {
-              contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              if (contador && typeof contador.edit === 'function') {
+                contador.edit({ content: "Tempo esgotado." }).catch(() => {});
+              }
               msgNavegacao.edit({ embeds: [], components: [] }).catch(() => {});
             }
           });
