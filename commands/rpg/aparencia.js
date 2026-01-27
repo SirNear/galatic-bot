@@ -497,14 +497,10 @@ module.exports = class aparencia extends Command {
                     intervalo,
                     contador
                   );
-                  console.log('[LOG] 2. Nome do verso normalizado:', nomeVerso);
-
                   let resultados = [];
                   target = await normalizeText(nomeVerso);
-                  console.log('[LOG] 3. Target normalizado:', target);
 
                   try {
-                    console.log('[LOG] 4. Iniciando busca na planilha (UNIVERSO)...');
                     const res = await sheets.spreadsheets.values.get({
                       spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                       range: "UNIVERSO!A:C",
@@ -548,7 +544,6 @@ module.exports = class aparencia extends Command {
                 }
 
                 let pag = 0;
-                console.log('[LOG] 5. Resultados encontrados:', resultados.length);
                 const EmbedPagesVerso = resultados.map((r, idx) => 
                         new EmbedBuilder()
                             .setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS **`)
@@ -564,15 +559,12 @@ module.exports = class aparencia extends Command {
 
                     const navRow = async (idx) => {
                       try {
-                        console.log('[DEBUG] navRow verso chamado com idx:', idx);
                         // Use message if available, otherwise use interaction
                         const author = (message && message.author) || i.user;
                         const member = (message && message.member) || i.member;
                         const guildId = (message && message.guild.id) || i.guild.id;
                         
-                        console.log('[DEBUG] Buscando userDb verso para uid:', author.id, 'server:', guildId);
                         const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: guildId });
-                        console.log('[DEBUG] userDb verso encontrado:', !!userDb);
                         
                         const components = [
                           new ButtonBuilder().setCustomId("reg_novo_verso").setEmoji("➕").setStyle(ButtonStyle.Success),
@@ -591,8 +583,6 @@ module.exports = class aparencia extends Command {
                             const jogadorDBNorm = await normalizeText(jogadorDB);
                             const isOwner = jogadorPlanilhaNorm === jogadorDBNorm;
                             const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
-                            
-                            console.log('[DEBUG] verso isOwner:', isOwner, 'isAdmin:', isAdmin);
 
                             if (isOwner || isAdmin) {
                                 components.push(
@@ -609,7 +599,6 @@ module.exports = class aparencia extends Command {
                             );
                         }
 
-                        console.log('[DEBUG] navRow verso retornando com', rows.length, 'ActionRows');
                         return rows;
                       } catch (err) {
                         console.error('[ERRO CRÍTICO] Erro em navRow verso:', err);
