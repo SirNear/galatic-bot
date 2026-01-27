@@ -440,6 +440,9 @@ module.exports = class aparencia extends Command {
                     }
                 });
                 console.log('[LOG] ===== FIM DO PROCESSAMENTO DE APARÊNCIA =====');
+            } catch (err) {
+              console.error('[ERRO] Erro ao processar busca de aparência:', err);
+              await i.followUp({ content: 'Erro ao processar sua busca. Tente novamente.' }).catch(() => {});
             }
           });
 
