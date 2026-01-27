@@ -159,7 +159,7 @@ module.exports = class aparencia extends Command {
       };
 
       // Chamar a lógica do coletor diretamente sem mostrar o menu
-      return this.processarSelecaoAparencia(fakeInteraction, message, msgReply);
+      return this.processarSelecaoAparencia(fakeInteraction, message, msgReply, botLogChannel);
     }
 
     const embedNavegacao = new EmbedBuilder() //? MENSAGEM DE NAVEGAÇÃO INICIAL - SELECIONAR BASE DE DADOS (APARENCIA OU UNIbotaoNavVerso)
@@ -191,11 +191,11 @@ module.exports = class aparencia extends Command {
     ); //60s de espera
 
     coletorBotoesNavegacao.on("collect", async (i) => {
-      await this.processarSelecaoAparencia(i, message, msgNavegacao);
+      await this.processarSelecaoAparencia(i, message, msgNavegacao, botLogChannel);
     });
   }
 
-  async processarSelecaoAparencia(i, message, msgNavegacao) {
+  async processarSelecaoAparencia(i, message, msgNavegacao, botLogChannel) {
     const tempoRestante = 15;
     const sujeito = "enviar a aparência";
     
@@ -285,25 +285,17 @@ module.exports = class aparencia extends Command {
 
           /* #region  BACK BUSCA E REGISTRO DE APARÊNCIA */
           coletorAparencia.on("collect", async (m) => {
-            console.log('[LOG] ===== INICIANDO PROCESSAMENTO DE APARÊNCIA =====');
-            console.log('[LOG] Mensagem recebida:', m.content);
             try {
-              console.log('[LOG] 1. Parando contador...');
               const nomeAparencia = await pararContador(
                 m.content,
                 intervalo,
                 contador
               );
-              console.log('[LOG] 2. Nome da aparência normalizado:', nomeAparencia);
-
               let resultados = [];
               target = await normalizeText(nomeAparencia);
-              console.log('[LOG] 3. Target normalizado:', target);
 
               /* #region  BUSCA RESULTADOS NA PLANILHA */
-              console.log('[LOG] 4. Iniciando busca na planilha...');
               resultados = await buscarAparencias(sheets, 'nome', target);
-              console.log('[LOG] 5. Resultados encontrados:', resultados.length);
 
               let pag = 0;
               const EmbedPagesAparencia = resultados.map((r, idx) => 
@@ -322,15 +314,12 @@ module.exports = class aparencia extends Command {
             
                 const navRow = async (idx) => {
                     try {
-                        console.log('[DEBUG] navRow called com idx:', idx);
                         // Use message if available, otherwise use interaction
                         const author = (message && message.author) || i.user;
                         const member = (message && message.member) || i.member;
                         const guildId = (message && message.guild.id) || i.guild.id;
                         
-                        console.log('[DEBUG] Buscando userDb para uid:', author.id, 'server:', guildId);
                         const userDb = await this.client.database.userData.findOne({ uid: author.id, uServer: guildId });
-                        console.log('[DEBUG] userDb encontrado:', !!userDb);
                         
                         const components = [
                             new ButtonBuilder().setCustomId("reg_nova_ap").setEmoji("➕").setStyle(ButtonStyle.Success),
@@ -348,8 +337,6 @@ module.exports = class aparencia extends Command {
                             const jogadorDBNorm = await normalizeText(jogadorDB);
                             const isOwner = jogadorPlanilhaNorm === jogadorDBNorm;
                             const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
-                            
-                            console.log('[DEBUG] isOwner:', isOwner, 'isAdmin:', isAdmin);
 
                             if (isOwner || isAdmin) {
                                 const rowIndex = currentResult.rowIndex;
@@ -367,7 +354,6 @@ module.exports = class aparencia extends Command {
                             );
                         }
 
-                        console.log('[DEBUG] navRow retornando com', rows.length, 'ActionRows');
                         return rows;
                     } catch (err) {
                         console.error('[ERRO CRÍTICO] Erro em navRow:', err);
@@ -379,14 +365,9 @@ module.exports = class aparencia extends Command {
                     EmbedPagesAparencia.push(new EmbedBuilder().setTitle(`<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`).setColor("#212416").setDescription(`<:a_check:1406838162276941824> | **Nenhum resultado similar encontrado.**\n\nA aparência **${target}** está livre para registro!\nClique no botão abaixo para registrá-la.`));
                 }
 
-                console.log('[LOG] 6. Tentando editar messageToEdit...');
                 if (messageToEdit && typeof messageToEdit.edit === 'function') {
                     try {
-                        console.log('[LOG] 6a. Gerando navRow...');
                         const navRowComponents = await navRow(pag);
-                        console.log('[LOG] 6b. NavRow gerado com sucesso, chamando edit...');
-                        console.log('[DEBUG] messageToEdit type:', messageToEdit.constructor.name);
-                        console.log('[DEBUG] messageToEdit.id:', messageToEdit.id);
                         
                         const editPromise = messageToEdit.edit({
                             embeds: [EmbedPagesAparencia[pag]],
@@ -394,17 +375,12 @@ module.exports = class aparencia extends Command {
                         });
                         
                         editPromise
-                            .then((result) => {
-                                console.log('[LOG] 6c. Edit resolvido com sucesso!');
-                                console.log('[DEBUG] Result:', result ? result.id : 'null');
-                            })
                             .catch((err) => {
                                 console.error('[ERRO] Falha na promessa do edit:', err.message);
                                 console.error('[ERRO] Stack:', err.stack);
                             });
                         
                         await editPromise;
-                        console.log('[LOG] 6d. Await do edit finalizado!');
                     } catch (err) {
                         console.error('[ERRO] Exceção ao criar navRow ou editar messageToEdit (aparência):', err);
                         console.error('[ERRO] Stack:', err.stack);
@@ -464,9 +440,6 @@ module.exports = class aparencia extends Command {
                     }
                 });
                 console.log('[LOG] ===== FIM DO PROCESSAMENTO DE APARÊNCIA =====');
-            } catch (err) {
-              console.error('[ERRO] Exceção no coletorAparencia.on("collect"):', err);
-              console.error('[ERRO] Stack:', err.stack);
             }
           });
 
@@ -914,7 +887,7 @@ module.exports = class aparencia extends Command {
         followUp: async (options) => await msgReply.reply(options)
       };
       
-      return this.processarSelecaoAparencia(fakeInteraction, null, msgReply);
+      return this.processarSelecaoAparencia(fakeInteraction, null, msgReply, botLogChannel);
     }
 
     const embedNavegacao = new EmbedBuilder()
