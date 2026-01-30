@@ -222,7 +222,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   if(userDb.tokenAp > 0) {
     userDb.tokenAp -= 1;
     await userDb.save();
-    await modalInteraction.followUp({ content: `<:ctokenap:1409062391083031040> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
+    await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
   }
 
   // Salvar na planilha
