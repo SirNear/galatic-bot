@@ -47,11 +47,11 @@ module.exports = class aparencia extends Command {
       UserPermission: [""],
       clientPermission: null,
       OnlyDevs: false,
-      slash: true, // Habilita o comando de barra
-      description: "Pesquisa a disponibilidade de uma aparência ou botaoNavVerso.", // Descrição para o /help
+      slash: true, 
+      description: "Pesquisa a disponibilidade de uma aparência ou botaoNavVerso.", 
     });
 
-    // Configuração do Comando de Barra (Slash Command)
+    
     if (this.config.slash) {
       this.data = new SlashCommandBuilder()
         .setName(this.config.name)
@@ -81,7 +81,7 @@ module.exports = class aparencia extends Command {
 
     const coletorResposta = channel.createMessageCollector({
       filter: (m) => m.author.id === author.id,
-      time: 300000, // 5 minutos
+      time: 300000, 
       max: 1,
     });
 
@@ -110,22 +110,22 @@ module.exports = class aparencia extends Command {
       (i) => i.id === "1409063037905670154"
     );
 
-    // Detectar se foi passado um argumento direto (aparencia ou verso)
+    
     const tipoSolicitado = args[0]?.toLowerCase();
     
     if (tipoSolicitado === 'aparencia' || tipoSolicitado === 'verso') {
-      // Simular um clique no botão apropriado
+      
       const customId = tipoSolicitado === 'aparencia' ? 'botaoNavAparencia' : 'botaoNavVerso';
       
-      // Evento vazio que simula um coletor que nunca coleta nada
+      
       const { EventEmitter } = require('events');
       const emptyCollector = new EventEmitter();
       emptyCollector.stop = () => {};
       
-      // Criar uma reply do bot que pode ser editada depois
+      
       const msgReply = await message.reply({ content: '⏳ Carregando...' });
       
-      // Criar um objeto que simula uma interação de botão
+      
       const fakeInteraction = {
         customId: customId,
         user: message.author,
@@ -145,7 +145,7 @@ module.exports = class aparencia extends Command {
         editReply: async (options) => {
           await msgReply.edit(options).catch(() => {});
         },
-        // Métodos para simular uma mensagem
+        
         edit: async (options) => {
           return await msgReply.edit(options).catch(() => {});
         },
@@ -153,16 +153,16 @@ module.exports = class aparencia extends Command {
           return await msgReply.delete().catch(() => {});
         },
         createMessageComponentCollector: (options) => {
-          // Retorna um coletor vazio que nunca coleta nada
+          
           return emptyCollector;
         }
       };
 
-      // Chamar a lógica do coletor diretamente sem mostrar o menu
+      
       return this.processarSelecaoAparencia(fakeInteraction, message, msgReply, botLogChannel);
     }
 
-    const embedNavegacao = new EmbedBuilder() //? MENSAGEM DE NAVEGAÇÃO INICIAL - SELECIONAR BASE DE DADOS (APARENCIA OU UNIbotaoNavVerso)
+    const embedNavegacao = new EmbedBuilder() 
       .setColor("#02607a")
       .setTitle(
         "<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>"
@@ -181,14 +181,14 @@ module.exports = class aparencia extends Command {
         .setStyle(ButtonStyle.Success)
     );
 
-    const msgNavegacao = await message.reply({ // !MSG UNIVERSAL ABAIXO - APENAS EDITAR
+    const msgNavegacao = await message.reply({ 
       embeds: [embedNavegacao],
       components: [botaoSelecaoNavegacao],
     });
 
-    const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector( //? COLETOR DOS BOTÕES
+    const coletorBotoesNavegacao = msgNavegacao.createMessageComponentCollector( 
       { filter: (i) => i.user.id === message.author.id, time: 60000 }
-    ); //60s de espera
+    ); 
 
     coletorBotoesNavegacao.on("collect", async (i) => {
       await this.processarSelecaoAparencia(i, message, msgNavegacao, botLogChannel);
@@ -199,10 +199,10 @@ module.exports = class aparencia extends Command {
     const tempoRestante = 15;
     const sujeito = "enviar a aparência";
     
-    // ⚠️ CRÍTICO: Extrair a Message real do InteractionCallbackResponse se necessário
+    
     let messageToEdit = msgNavegacao;
     
-    // Se for InteractionCallbackResponse, extrair a Message
+    
     if (messageToEdit && messageToEdit.resource && messageToEdit.resource.message) {
       messageToEdit = messageToEdit.resource.message;
     }
@@ -213,7 +213,7 @@ module.exports = class aparencia extends Command {
       return;
     }
     
-    // Canal para coletores (pode ser Channel, não precisa ser Message)
+    
     let channelForCollectors = null;
     try {
       if (message && message.channel) {
@@ -225,8 +225,8 @@ module.exports = class aparencia extends Command {
       channelForCollectors = i.channel;
     }
     
-    // msgAlvo é usado para enviar mensagens de contador (precisa ter .reply() ou .send())
-    // Sempre usar um channel para garantir que tem método de envio
+    
+    
     let msgAlvo;
     try {
       if (message && message.channel) {
@@ -240,9 +240,9 @@ module.exports = class aparencia extends Command {
 
     switch (i.customId) {
       case "botaoNavAparencia":
-        //NAVEGAÇÃO PARA APARÊNCIA
         
-        const embedAparencia = new EmbedBuilder() /* #region  embedAparencia */
+        
+        const embedAparencia = new EmbedBuilder()
           .setColor("#212416")
           .setTitle(
             `<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS **`
@@ -251,13 +251,13 @@ module.exports = class aparencia extends Command {
           .setFooter({
             text: "envie apenas o nome da aparência, sem emojis, acentuações ou outros caracteres.",
           });
-        /* #endregion */ // * ------------------------- EMBED APARENCIA -------------------------
+        
 
         await i
           .update({ embeds: [embedAparencia], components: [] })
           .catch(() => {});
 
-        /* #region  CONTADOR */
+       
 
         try {
           ({ intervalo, contador } = await iniciarContador(
@@ -271,9 +271,9 @@ module.exports = class aparencia extends Command {
           await i.followUp({ content: 'Erro ao iniciar contador. Tente novamente.' }).catch(() => {});
           return;
         }
-        /* #endregion */
+       
 
-        // Use user ID from message or interaction
+        
         const userIdToFilter = message ? message.author.id : i.user.id;
         const channelForCollector = channelForCollectors;
         
@@ -283,7 +283,7 @@ module.exports = class aparencia extends Command {
           max: 1,
         });
 
-          /* #region  BACK BUSCA E REGISTRO DE APARÊNCIA */
+         
           coletorAparencia.on("collect", async (m) => {
             try {
               const nomeAparencia = await pararContador(
@@ -294,7 +294,7 @@ module.exports = class aparencia extends Command {
               let resultados = [];
               target = await normalizeText(nomeAparencia);
 
-              /* #region  BUSCA RESULTADOS NA PLANILHA */
+             
               resultados = await buscarAparencias(sheets, 'nome', target);
 
               let pag = 0;
@@ -314,7 +314,7 @@ module.exports = class aparencia extends Command {
             
                 const navRow = async (idx) => {
                     try {
-                        // Use message if available, otherwise use interaction
+                        
                         const author = (message && message.author) || i.user;
                         const member = (message && message.member) || i.member;
                         const guildId = (message && message.guild.id) || i.guild.id;
@@ -342,7 +342,7 @@ module.exports = class aparencia extends Command {
                                 const rowIndex = currentResult.rowIndex;
                                 components.push(
                                     new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
-                                    new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger) // Corrigido para Danger
+                                    new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger) 
                                 );
                             }
                         }
@@ -458,7 +458,7 @@ module.exports = class aparencia extends Command {
 
           break;
         case "botaoNavVerso":
-            //NAVEGAÇÃO PARA VERSO
+            
 
             const embedVerso = new EmbedBuilder()
             .setColor(colors.purple)
@@ -483,7 +483,7 @@ module.exports = class aparencia extends Command {
                 return;
               }
 
-              // Use user ID from message or interaction
+              
               const userIdToFilterVerso = message ? message.author.id : i.user.id;
               const channelForVersoCollector = channelForCollectors;
               
@@ -491,7 +491,7 @@ module.exports = class aparencia extends Command {
                 filter: (m) => m.author.id === userIdToFilterVerso,
                 time: 15000,
                 max: 1,
-              }); //₢oletorverso
+              }); 
 
               coletorVerso.on("collect", async (m) => {
                 try {
@@ -562,7 +562,7 @@ module.exports = class aparencia extends Command {
 
                     const navRow = async (idx) => {
                       try {
-                        // Use message if available, otherwise use interaction
+                        
                         const author = (message && message.author) || i.user;
                         const member = (message && message.member) || i.member;
                         const guildId = (message && message.guild.id) || i.guild.id;
@@ -665,7 +665,7 @@ module.exports = class aparencia extends Command {
                             await handleRegistro('verso', target, messageToEdit, ii, botLogChannel, this.client, sheets, false, [], true);
                             return;
                           case 'aparencia_lista':
-                            // Proteger contra resultados vazios
+                            
                             if (!resultados[pag]) {
                               await ii.reply({ content: 'Nenhum resultado selecionado.', ephemeral: true });
                               return;
@@ -730,7 +730,7 @@ module.exports = class aparencia extends Command {
                               if (!objVer) return ii.reply({ content: "Erro ao localizar verso.", ephemeral: true });
 
                               const keyFil = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
-                              const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
+                              const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https:
                               const sheWri = google.sheets({ version: "v4", auth: autGoo });
 
                               if (ii.customId.startsWith('edit_verso_')) {
@@ -774,14 +774,14 @@ module.exports = class aparencia extends Command {
                                 colDel.on('collect', async d => {
                                   if (d.customId === 'confirm_del_verso') {
                                     await d.deferUpdate();
-                                    // Deleta a linha usando batchUpdate para remover a linha inteira e subir as outras
+                                    
                                     await sheWri.spreadsheets.batchUpdate({
                                       spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                                       resource: {
                                         requests: [{
                                           deleteDimension: {
                                             range: {
-                                              sheetId: 0, // Assumindo que UNIVERSO é a primeira aba (ID 0). Se não for, precisa buscar o sheetId pelo nome.
+                                              sheetId: 0, 
                                               dimension: "ROWS",
                                               startIndex: objVer.rowIndex - 1,
                                               endIndex: objVer.rowIndex
@@ -844,15 +844,15 @@ module.exports = class aparencia extends Command {
       (i) => i.id === "1409063037905670154"
     );
 
-    // Detectar se um tipo foi especificado via opção do slash command
+    
     const tipoOpcao = interaction.options?.getString('tipo');
     if (tipoOpcao === 'aparencia' || tipoOpcao === 'verso') {
       const customId = tipoOpcao === 'aparencia' ? 'botaoNavAparencia' : 'botaoNavVerso';
       
-      // Responder com uma mensagem de carregamento
+      
       const msgReply = await interaction.reply({ content: '⏳ Carregando...', withResponse: true });
       
-      // Criar um objeto que simula uma interação real
+      
       const fakeInteraction = {
         customId: customId,
         user: interaction.user,
@@ -902,7 +902,7 @@ module.exports = class aparencia extends Command {
       const tempoRestante = 15;
       const sujeito = "enviar a aparência";
       
-      // Sempre usar um channel para garantir que tem método de envio
+      
       let msgAlvo;
       if (msgNavegacao && msgNavegacao.channel) {
         msgAlvo = msgNavegacao.channel;
@@ -923,7 +923,7 @@ module.exports = class aparencia extends Command {
             tempoRestante,
             sujeito,
             msgAlvo,
-            i // Passa a interação para o contador
+            i 
           ).catch(err => {
             console.error('[ERRO] Falha ao iniciar contador (execute):', err);
             return { intervalo: null, contador: null };
@@ -978,11 +978,11 @@ module.exports = class aparencia extends Command {
                         const jogadorPlanilha = currentResult.jogador;
                         const jogadorDB = userDb.jogador;
 
-                        // --- DEBUG LOG ---
+                        
                         console.log(`[DEBUG] Verificando dono (slash):`);
                         console.log(` - Planilha: '${jogadorPlanilha}' -> Normalizado: '${await normalizeText(jogadorPlanilha)}'`);
                         console.log(` - Banco de Dados: '${jogadorDB}' -> Normalizado: '${await normalizeText(jogadorDB)}'`);
-                        // --- FIM DEBUG ---
+                        
 
                         const isOwner = await normalizeText(jogadorPlanilha) === await normalizeText(jogadorDB);
                         const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -1170,7 +1170,7 @@ module.exports = class aparencia extends Command {
                 ] })
                 .catch(() => {});
                 
-                // Coletor para o botão de ver aparências no exact match
+                
                 const exactCollector = msgNavegacao.createMessageComponentCollector({ filter: ii => ii.user.id === interaction.user.id, time: 60000 });
                 exactCollector.on('collect', async (ii) => {
                     if (ii.customId === 'aparencia_lista_exact') {
@@ -1192,9 +1192,9 @@ module.exports = class aparencia extends Command {
                         );
                         await ii.update({ embeds: [generateAppListEmbed(appPage)], components: [getAppButtons(appPage)] });
                     } else if (ii.customId === 'prev_app_list' || ii.customId === 'next_app_list') {
-                        // Lógica de paginação simplificada (assumindo que o estado appPage precisaria ser mantido, mas aqui recriamos para brevidade no exact match)
-                        // Para implementação completa, idealmente usaríamos uma função compartilhada de paginação.
-                        // Como o exact match é um caso específico, deixamos o botão de voltar funcional.
+                        
+                        
+                        
                         await ii.deferUpdate();
                     } else if (ii.customId === 'back_to_exact') {
                         await ii.update({ embeds: [embedExato], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("aparencia_lista_exact").setEmoji("👤").setLabel("Ver Aparências").setStyle(ButtonStyle.Success))] });

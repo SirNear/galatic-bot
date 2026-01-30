@@ -209,7 +209,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
       const targetVerso = normalize(args.argUniverso);
       const ownsTarget = userVersos.some(r => normalize(r[0]) === targetVerso);
 
-      if (!ownsTarget) {
+      if (!ownsTarget && userDb.tokenAp <= 0) {
         const listaPendencias = incompleteVersos.map(r => `• **${r[0]}** (${r[1]})`).join('\n');
         return modalInteraction.followUp({
           content: `<:berror:1406837900556898304> | **Registro Bloqueado!**\n\nVocê possui universos com uso incompleto. Para registrar uma nova aparência, você deve completar seus universos atuais ou registrar a aparência em um universo que você já possui.\n\n**Suas Pendências:**\n${listaPendencias}\n\n**Universo tentado:** ${args.argUniverso}`,
@@ -217,6 +217,12 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
         });
       }
     }
+  }
+
+  if(userDb.tokenAp > 0) {
+    userDb.tokenAp -= 1;
+    await userDb.save();
+    await modalInteraction.followUp({ content: `<:ctokenap:1409062391083031040> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
   }
 
   // Salvar na planilha

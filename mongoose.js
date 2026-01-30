@@ -52,7 +52,7 @@ let Puni = new mongoose.Schema({
 })
 
 let uD = new mongoose.Schema({
-  _id: {type: String, required: true, unique: true}, 
+  _id: {type: String, required: true}, 
   uid: {type: String , required: true},
   uName: {type: String},
   jogador: {type: String , default: 'nrpg'},
@@ -70,7 +70,8 @@ let uD = new mongoose.Schema({
     type: Map,
     of: Number,
     default: { 'atrevicoins': 0 }
-  }
+  },
+  tokenAp: {type: Number, default: 0},
 })
 
 uD.index({ uid: 1, uServer: 1 });

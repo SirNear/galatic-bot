@@ -254,6 +254,8 @@ module.exports = class rpresumo extends Command {
       console.error("Erro ao executar /rpresumo:", err);
       if (err.status === 503) {
         await interaction.editReply({ content: "🔧 O Gemini (IA que utilizo para resumir) está sobrecarregada no momento. Por favor, tente novamente em alguns minutos." }).catch(() => {});
+      } else if (err.status === 429) {
+        await interaction.editReply({ content: "⏳ O limite de uso da IA foi atingido (Quota Exceeded). Por favor, tente novamente mais tarde." }).catch(() => {});
       } else {
         await interaction.editReply({ content: "❌ Ocorreu um erro ao tentar buscar as mensagens ou gerar o resumo. Verifique se eu tenho permissão para ver o canal." }).catch(() => {});
       }

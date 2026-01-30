@@ -185,7 +185,8 @@ module.exports = class GalaticClient extends Client {
             let count = 0;
             for (const file of eventFiles.filter(f => f.endsWith('.js') && !f.includes('Interaction.js'))) {
                 try {
-                    const eventName = file.split('.')[0];
+                    let eventName = file.split('.')[0];
+                    if (eventName === 'ready') eventName = 'clientReady';
                     const eventClass = require(`.${path.sep}events${path.sep}${file}`);
                     const event = new eventClass(this);
                     this.events.add(eventName, event);
