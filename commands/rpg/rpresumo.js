@@ -5,7 +5,6 @@ const {
   ActionRowBuilder,
   ChannelType,
   ButtonBuilder,
-  MessageFlags, // Importar MessageFlags
 } = require("discord.js");
 const Command = require("../../structures/Command");
 const error = require("../../api/error.js");
@@ -54,7 +53,7 @@ module.exports = class rpresumo extends Command {
   }
 
   async execute(interaction) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ ephemeral: true });
 
     const channel = interaction.options.getChannel("canal");
     const dataInicioStr = interaction.options.getString("data_inicio");
@@ -227,7 +226,7 @@ module.exports = class rpresumo extends Command {
         } else if (i.customId === 'next_page') {
           currentPage++;
         } else if (i.customId === 'summarize_page') {
-          await i.reply({ content: '<a:aNgErY:1423045205979828345> | Resumindo de novo... (preguiçoso do caralho)', flags: MessageFlags.Ephemeral});
+          await i.reply({ content: '<a:aNgErY:1423045205979828345> | Resumindo de novo... (preguiçoso do caralho)', ephemeral: true });
           try {
             const fullSummaryText = pages.join('\n\n');
             const finalSummaryArray = await summarizeSummary(fullSummaryText);
@@ -236,9 +235,9 @@ module.exports = class rpresumo extends Command {
               .setColor("Gold")
               .setTitle(`🤖 Resumo do Resumo`)
               .setDescription(finalSummaryArray[0]);
-            await i.followUp({ content: '<:monkaStab:810735232458031145> | Ta ai, enche mais o saco não', embeds: [summaryEmbed], flags: MessageFlags.Ephemeral });
+            await i.followUp({ content: '<:monkaStab:810735232458031145> | Ta ai, enche mais o saco não', embeds: [summaryEmbed], ephemeral: true });
           } catch (summaryError) {
-            await i.followUp({ content: '❌ Ocorreu um erro ao tentar gerar o resumo final.', flags: MessageFlags.Ephemeral }).catch(() => {});
+            await i.followUp({ content: '❌ Ocorreu um erro ao tentar gerar o resumo final.', ephemeral: true }).catch(() => {});
           }
           return; 
         }
