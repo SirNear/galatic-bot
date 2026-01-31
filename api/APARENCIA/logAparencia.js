@@ -17,8 +17,16 @@ const EMOJIS = {
 
 async function logOperacao(client, user, acao, tipoItem, dados) {
     try {
-        const channel = await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
-        if (!channel) return console.error(`[LOG APARENCIA] Canal ${LOG_CHANNEL_ID} não encontrado.`);
+        if (!client || !client.channels) {
+            console.error('[LOG APARENCIA] Client inválido ou sem channels.');
+            return;
+        }
+
+        const channel = await client.channels.fetch(LOG_CHANNEL_ID).catch(err => {
+            console.error(`[LOG APARENCIA] Erro ao buscar canal ${LOG_CHANNEL_ID}:`, err);
+            return null;
+        });
+        if (!channel) return console.error(`[LOG APARENCIA] Canal ${LOG_CHANNEL_ID} não encontrado (fetch retornou null).`);
 
         const cor = CORES[acao] || '#FFFFFF';
         const emoji = EMOJIS[acao] || 'ℹ️';
@@ -61,6 +69,7 @@ async function logOperacao(client, user, acao, tipoItem, dados) {
         }
 
         await channel.send({ embeds: [embed] });
+        console.log(`[LOG APARENCIA] Log de ${acao} enviado com sucesso para ${channel.name}`);
     } catch (error) {
         console.error(`[LOG APARENCIA] Erro ao enviar log:`, error);
     }

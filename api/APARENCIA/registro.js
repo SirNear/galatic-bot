@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 const { google } = require("googleapis");
 const path = require("path");
+const { logOperacao } = require("./logAparencia.js");
 
 // Configurações unificadas para os tipos de registro
 const REGISTRY_CONFIG = {
@@ -237,6 +238,13 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
     range: `${sheetName}!A${nextRow}`,
     valueInputOption: "USER_ENTERED",
     resource: { values: [values] }
+  });
+
+  await logOperacao(client, interaction.user, 'Registrar', config.nomeItem, {
+    nome: args.argNome,
+    universo: args.argUniverso,
+    personagem: args.argPersonagem,
+    uso: args.argUso
   });
 
   if (config.posRegistro) {

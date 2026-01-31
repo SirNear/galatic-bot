@@ -187,8 +187,14 @@ module.exports = class GalaticClient extends Client {
             for (const file of eventFiles.filter(f => f.endsWith('.js') && !f.includes('Interaction.js'))) {
                 try {
                     let eventName = file.split('.')[0];
-                    if (eventName === 'ready') eventName = 'clientReady';
+                    if (eventName === 'ready') continue; // Ignora o arquivo ready.js antigo para evitar conflitos
+                    if (eventName === 'clientReady') eventName = 'ready';
+
                     const eventClass = require(`.${path.sep}events${path.sep}${file}`);
+                    if (typeof eventClass !== 'function') {
+                        console.warn(`[EVENTS] Ignorando ${file}: exportação inválida (não é uma classe).`);
+                        continue;
+                    }
                     const event = new eventClass(this);
                     this.events.add(eventName, event);
                     count++;

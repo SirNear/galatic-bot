@@ -1,3 +1,5 @@
+const lembreteVerso = require("../api/cron/lembreteVerso.js");
+
 module.exports = class ClientReady {
   constructor(client) {
     this.client = client;
@@ -13,10 +15,11 @@ module.exports = class ClientReady {
         if (this.client.maintenance) console.log('[SYSTEM] Modo de manutenção ATIVO.');
     }
 
-    await this.client.registerSlashCommands();
-    await this.client.loadQuestCollectors();
+    this.client.emit('clientReady');
 
     const GUILD_ID = "731974689798488185";
     this.client.setupUnarchiveLoop(GUILD_ID);
+
+    lembreteVerso(this.client);
   }
 };
