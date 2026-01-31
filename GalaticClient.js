@@ -32,7 +32,7 @@ module.exports = class GalaticClient extends Client {
     this.slashCommands = new Collection();
     
     this.utils = new Util(this);
-    this.owners = options.owners;
+    this.owners = options.owners || [];
     this.events = new EventManager(this);
     this.activeCollector = false;
     this.maintenance = false;

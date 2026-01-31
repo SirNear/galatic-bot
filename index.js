@@ -13,7 +13,8 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages
-    ]
+    ],
+    owners: config.owners
 });
 
 (async () => {
