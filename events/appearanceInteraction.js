@@ -8,6 +8,7 @@ const {
     ButtonStyle,
 } = require('discord.js');
 const { google } = require("googleapis");
+const { logOperacao } = require("../api/APARENCIA/logAparencia.js");
 
 async function handleAppearanceInteraction(interaction, client) {
     const auth = new google.auth.GoogleAuth({
@@ -69,18 +70,14 @@ async function handleAppearanceInteraction(interaction, client) {
             
             await interaction.editReply({ content: `✅ Aparência liberada com sucesso! Você tem agora ${userDb.tokenAp} token(s) de aparência para registrar novas.`, components: [] });
 
+            // Log de Deleção
             if (rowData) {
-                const [aparencia, universo] = rowData;
-                const logChannel = await client.channels.fetch('1435999188230996091').catch(() => null);
-                if (logChannel) {
-                    const logEmbed = new EmbedBuilder().setColor('Red').setTitle('🗑️ Aparência Liberada')
-                        .addFields(
-                            { name: 'Aparência', value: aparencia || 'N/A' },
-                            { name: 'Universo', value: universo || 'N/A' },
-                            { name: 'Liberada por', value: `${interaction.user.tag} (${interaction.user.id})` }
-                        ).setTimestamp();
-                    await logChannel.send({ embeds: [logEmbed] });
-                }
+                const [aparencia, universo, personagem] = rowData;
+                await logOperacao(client, interaction.user, 'Liberar', 'Aparência', {
+                    nome: aparencia,
+                    universo: universo,
+                    personagem: personagem
+                });
             }
         }
     }
@@ -95,7 +92,11 @@ async function handleAppearanceInteraction(interaction, client) {
             await interaction.deferReply({ ephemeral: false });
 
             const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `INDIVIDUAIS!D${rowIndex}:D${rowIndex}` });
-            const jogador = res.data.values?.[0]?.[0] || '';
+            const jogador = res.data.values?.[0]?.[0] || ''; // Mantém o dono original
+
+            // Busca dados antigos para o log antes de atualizar
+            const resAntigo = await sheets.spreadsheets.values.get({ spreadsheetId, range: `INDIVIDUAIS!A${rowIndex}:C${rowIndex}` });
+            const [antigoNome, antigoUniverso, antigoPersonagem] = resAntigo.data.values?.[0] || ['', '', ''];
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId,
@@ -104,6 +105,17 @@ async function handleAppearanceInteraction(interaction, client) {
                 resource: {
                     values: [[novoNome, novoUniverso, novoPersonagem, jogador]],
                 },
+            });
+
+            await logOperacao(client, interaction.user, 'Editar', 'Aparência', {
+                nome: novoNome,
+                universo: novoUniverso,
+                personagem: novoPersonagem,
+                antigo: {
+                    nome: antigoNome,
+                    universo: antigoUniverso,
+                    personagem: antigoPersonagem
+                }
             });
 
             await interaction.editReply({ content: '✅ Os dados da aparência foram atualizados com sucesso!' });

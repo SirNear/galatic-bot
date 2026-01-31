@@ -24,6 +24,7 @@ const colors = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
 let intervalo, contador;
 let target;
+const { logOperacao } = require("../../api/APARENCIA/logAparencia.js");
 let { handleRegistro } = require("../../api/APARENCIA/registro.js");
 
 module.exports = class aparencia extends Command {
@@ -759,6 +760,15 @@ module.exports = class aparencia extends Command {
                                   resource: { values: [[novNom, novUso]] }
                                 });
 
+                                await logOperacao(this.client, ii.user, 'Editar', 'Verso', {
+                                    nome: novNom,
+                                    uso: novUso,
+                                    antigo: {
+                                        nome: objVer.verso,
+                                        uso: objVer.uso
+                                    }
+                                });
+
                                 await subMod.reply({ content: `✅ Verso atualizado para **${novNom}** com **${novUso}** de uso!`, ephemeral: false });
                                 return;
                               }
@@ -791,6 +801,12 @@ module.exports = class aparencia extends Command {
                                         }]
                                       }
                                     });
+
+                                    await logOperacao(this.client, d.user, 'Deletar', 'Verso', {
+                                        nome: objVer.verso,
+                                        uso: objVer.uso
+                                    });
+
                                     await d.editReply({ content: "🗑️ Verso excluído com sucesso!", components: [] });
                                   } else {
                                     await d.update({ content: "Operação cancelada.", components: [] });
