@@ -1,7 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-//isso aqui é 100% IA viu
-
 const genAI = new GoogleGenerativeAI("AIzaSyDnhSuH5QHC9HTJ31ew-gYq0MnGn--ZgMU");
 
 // Função para converter buffer de arquivo para o formato da API Gemini

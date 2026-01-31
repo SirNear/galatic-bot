@@ -62,7 +62,12 @@ async function handleAppearanceInteraction(interaction, client) {
             const rowData = res.data.values?.[0];
 
             await sheets.spreadsheets.values.clear({ spreadsheetId, range: `INDIVIDUAIS!A${rowIndex}:D${rowIndex}` });
-            await interaction.editReply({ content: '✅ Aparência liberada com sucesso!', components: [] });
+            const userDb = await client.database.userData.findOne({ uid: user.id, uServer: guild.id });
+
+            userDb.tokenAp += 1;
+            await userDb.save();
+            
+            await interaction.editReply({ content: `✅ Aparência liberada com sucesso! Você tem agora ${userDb.tokenAp} token(s) de aparência para registrar novas.`, components: [] });
 
             if (rowData) {
                 const [aparencia, universo] = rowData;
