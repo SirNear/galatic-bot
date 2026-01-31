@@ -283,8 +283,7 @@ async function handleLoreInteraction(interaction, client) {
                                                 const zipIdx = offset + i;
                                                 if (zipIdx < entZip.length) {
                                                     const isCurrentPage = pagComImg[i] === page;
-                                                    const isBroken = isCurrentPage || !await validateImageUrl(pagComImg[i].imageUrl);
-                                                    if (isBroken) {
+                                                    if (isCurrentPage) {
                                                         const bufImg = entZip[zipIdx].getData();
                                                         const msgImg = await canBac.send({ files: [new AttachmentBuilder(bufImg, { name: entZip[zipIdx].entryName })] });
                                                         pagComImg[i].imageUrl = msgImg.attachments.first().url;
@@ -292,7 +291,7 @@ async function handleLoreInteraction(interaction, client) {
                                                 }
                                             }
                                             await client.database.Lore.updateOne({ messageId: loreDoc.messageId }, { $set: { chapters: loreDoc.chapters } });
-                                            imgVal = await validateImageUrl(page.imageUrl);
+                                            imgVal = true;
                                         }
                                     }
                                 }

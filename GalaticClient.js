@@ -1,6 +1,5 @@
 const Util = require('./structures/Util.js')
-const { Client, Collection, Discord, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField, RESTJSONErrorCodes, AttachmentBuilder } = require("discord.js")
-const { readdir } = require("fs")
+const { Client, Collection, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ChannelType, PermissionsBitField, RESTJSONErrorCodes, AttachmentBuilder } = require("discord.js")
 const path = require('path');
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
@@ -38,6 +37,16 @@ module.exports = class GalaticClient extends Client {
     this.maintenance = false;
     this.fichaStates = new Map();
     this.unarchiveInterval = null;
+
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('[FATAL ERROR] Unhandled Rejection:', reason);
+        this.sendLog(`[FATAL ERROR] Unhandled Rejection:\n${reason instanceof Error ? reason.stack : reason}`, 'error');
+    });
+
+    process.on('uncaughtException', (error) => {
+        console.error('[FATAL ERROR] Uncaught Exception:', error);
+        this.sendLog(`[FATAL ERROR] Uncaught Exception:\n${error.stack}`, 'error');
+    });
 }
 
 	reloadCommand(commandName) {
@@ -188,7 +197,6 @@ module.exports = class GalaticClient extends Client {
                 try {
                     let eventName = file.split('.')[0];
                     if (eventName === 'ready') continue; // Ignora o arquivo ready.js antigo para evitar conflitos
-                    if (eventName === 'clientReady') eventName = 'ready';
 
                     const eventClass = require(`.${path.sep}events${path.sep}${file}`);
                     if (typeof eventClass !== 'function') {

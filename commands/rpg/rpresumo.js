@@ -1,28 +1,25 @@
 const {
   SlashCommandBuilder,
   EmbedBuilder,
-  AttachmentBuilder,
   ActionRowBuilder,
-  ChannelType,
   ButtonBuilder,
-} = require("discord.js");
-const Command = require("../../structures/Command");
-const error = require("../../api/error.js");
-const moment = require("moment");
-moment.locale("pt-br"); // Define o local para português do Brasil
-const { resumirRP, summarizeSummary } = require("../../api/resumir.js");
-
+  ButtonStyle,
+  ComponentType,
+  AttachmentBuilder,
+} = require('discord.js');
+const Command = require('../../structures/Command');
+const { resumirRP, summarizeSummary } = require('../../api/resumir.js');
 
 module.exports = class rpresumo extends Command {
   constructor(client) {
     super(client, {
-      name: "rpresumo", 
-      description: "Resume uma série de textos de um rp em um só texto", 
-      category: "rpg", 
-      aliases: ["rpr", "resumirrp", "rpbackup"],
-      UserPermission: [], 
-      clientPermission: [], 
-      OnlyDevs: false, 
+      name: "rpresumo",
+      description: "Resume um RP, identificando e incluindo conteúdo de Lores.",
+      category: "rpg",
+      aliases: ["resumir", "resumorpg"],
+      UserPermission: [],
+      clientPermission: [],
+      OnlyDevs: false,
       slash: true,
     });
 
@@ -30,234 +27,217 @@ module.exports = class rpresumo extends Command {
       this.data = new SlashCommandBuilder()
         .setName(this.config.name)
         .setDescription(this.config.description)
-        .addChannelOption((option) =>
-          option
-            .setName("canal")
-            .setDescription("O canal do qual você deseja extrair as mensagens.")
-            .setRequired(true)
-            .addChannelTypes(ChannelType.GuildText, ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.GuildForum)
-        )
-        .addStringOption((option) =>
-            option
-                .setName('data_inicio')
-                .setDescription('Data de início para filtrar as mensagens (DD/MM/AAAA).')
-                .setRequired(false)
-        )
-        .addStringOption((option) =>
-            option
-                .setName('data_fim')
-                .setDescription('Data de fim para filtrar as mensagens (DD/MM/AAAA).')
-                .setRequired(false)
-        );
+        .addStringOption(option => 
+            option.setName('inicio')
+                .setDescription('ID da mensagem inicial do RP')
+                .setRequired(false))
+        .addChannelOption(option => 
+            option.setName('canal')
+                .setDescription('Canal onde o RP ocorreu (opcional)')
+                .setRequired(false))
+        .addStringOption(option => 
+            option.setName('fim')
+                .setDescription('ID da mensagem final do RP (opcional)')
+                .setRequired(false));
     }
   }
 
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-
-    const channel = interaction.options.getChannel("canal");
-    const dataInicioStr = interaction.options.getString("data_inicio");
-    const dataFimStr = interaction.options.getString("data_fim");
-
-    let dataInicio, dataFim;
-
-    if (dataInicioStr) {
-        dataInicio = moment(dataInicioStr, 'DD/MM/YYYY').startOf('day');
-        if (!dataInicio.isValid()) return interaction.editReply({ content: '❌ A data de início é inválida. Use o formato DD/MM/AAAA.' });
-    }
-    if (dataFimStr) {
-        dataFim = moment(dataFimStr, 'DD/MM/YYYY').endOf('day');
-        if (!dataFim.isValid()) return interaction.editReply({ content: '❌ A data de fim é inválida. Use o formato DD/MM/AAAA.' });
-    }
-    if (dataInicio && dataFim && dataInicio.isAfter(dataFim)) return interaction.editReply({ content: '❌ A data de início não pode ser posterior à data de fim.' });
-
-    if(channel.id === '731974691228745820' || channel.id === '731974691228745823') return interaction.editReply({ content: 'mas ai você tá querendo abusar de mim né, pra que tu quer isso?' })
+  async fetchMessagesBetween(channel, startId, endId) {
+    const allMessages = [];
+    let lastId = endId;
+    let reachedStart = false;
 
     try {
-      await interaction.editReply({ content: `<a:chickendonut:1423040252460925000> | Coletando mensagens do canal <#${channel.id}>. Isso pode levar um tempo.${dataInicio || dataFim ? ' Aplicando filtro de data...' : ''}` });
+        const endMessage = await channel.messages.fetch(endId);
+        allMessages.push(endMessage);
+    } catch (e) {
+        console.error("Erro ao buscar mensagem final:", e);
+        return [];
+    }
 
-      let allMessages = [];
-      let lastId;
-      
-      if (channel.type === ChannelType.GuildForum) {
-        await interaction.editReply({ content: `<a:chickendonut:1423040252460925000> | Coletando postagens ativas e arquivadas do fórum <#${channel.id}>. Isso pode levar um tempo.` });
-        const activeThreads = await channel.threads.fetch();
-        const archivedThreads = await channel.threads.fetchArchived();
+    while (!reachedStart) {
+      const options = { limit: 100, before: lastId };
+      const messages = await channel.messages.fetch(options);
+
+      if (messages.size === 0) break;
+
+      for (const message of messages.values()) {
+        if (startId && message.id === startId) {
+          reachedStart = true;
+          allMessages.push(message);
+          break;
+        }
+        allMessages.push(message);
+      }
+      lastId = messages.last().id;
+    }
+    
+    try {
+        if (startId && !reachedStart) {
+            const startMessage = await channel.messages.fetch(startId);
+            allMessages.push(startMessage);
+        }
+    } catch (e) {
+        console.error("Erro ao buscar mensagem inicial:", e);
+    }
+    
+    return allMessages.reverse();
+  }
+
+  async execute(interaction) {
+    const startId = interaction.options.getString('inicio');
+    let endId = interaction.options.getString('fim');
+    const channel = interaction.options.getChannel('canal') || interaction.channel;
+
+    await interaction.deferReply({ flags: 64 });
+
+    if (!channel.isTextBased()) {
+        return interaction.editReply({ content: '❌ O canal selecionado deve ser um canal de texto.' });
+    }
+
+    try {
+        // Se não houver ID final, pega a última mensagem do canal
+        if (!endId) {
+            const lastMessages = await channel.messages.fetch({ limit: 1 });
+            if (lastMessages.size === 0) {
+                return interaction.editReply({ content: '❌ Não há mensagens neste canal para resumir.' });
+            }
+            endId = lastMessages.first().id;
+        }
+
+        // Validação básica de ordem (Snowflakes são cronológicos)
+        if (startId && BigInt(startId) > BigInt(endId)) {
+            return interaction.editReply({ content: '❌ O ID da mensagem inicial deve ser menor (mais antigo) que o ID da mensagem final.' });
+        }
+
+        await interaction.editReply({ content: '⏳ Coletando mensagens e verificando Lores...' });
+
+        const messages = await this.fetchMessagesBetween(channel, startId, endId);
         
-        const threads = [...activeThreads.threads.values(), ...archivedThreads.threads.values()];
+        // Otimização: Busca todas as Lores do canal de uma vez para evitar múltiplas consultas ao banco dentro do loop
+        const channelLores = await this.client.database.Lore.find({ channelId: channel.id });
+        const loreMap = new Map(channelLores.map(l => [l.messageId, l]));
+
+        let aiText = [];
+        let fileText = [];
+
+        fileText.push(`============================================================`);
+        fileText.push(`TRANSCRICAO DE RP - CANAL: ${channel.name}`);
+        fileText.push(`GERADO EM: ${new Date().toLocaleString('pt-BR')}`);
+        fileText.push(`============================================================\n`);
         
-        for (const thread of threads) {
-          if (allMessages.length >= 10000) break;
-          
-          let threadMessages = [];
-          let lastThreadMessageId;
-          while (true) {
-            const messages = await thread.messages.fetch({ limit: 100, before: lastThreadMessageId });
-            if (messages.size === 0) break;
+        for (const msg of messages) {
+            const lore = loreMap.get(msg.id);
+            const time = msg.createdAt ? msg.createdAt.toLocaleString('pt-BR') : 'Data desconhecida';
             
-            messages.forEach(msg => {
-              if(msg.content.includes('//') || msg.content.includes('off')) return;
-              const msgDate = moment(msg.createdAt);
-              const withinDateRange = 
-                (!dataInicio || msgDate.isSameOrAfter(dataInicio)) &&
-                (!dataFim || msgDate.isSameOrBefore(dataFim));
+            if (lore) {
+                aiText.push(`\n--- [INÍCIO DA LORE: ${lore.title}] ---\n`);
+                
+                fileText.push(`\n${'='.repeat(20)} [LORE: ${lore.title.toUpperCase()}] ${'='.repeat(20)}`);
+                fileText.push(`Autor: ${msg.author.username} | Data: ${time}\n`);
 
-              if (withinDateRange) threadMessages.push(msg);
-            });
-            lastThreadMessageId = messages.last()?.id;
-          }
-          allMessages.push(...threadMessages);
-        }
-      } else {
-        while (allMessages.length < 10000) {
-          const options = { limit: 100 };
-          if (lastId) {
-            options.before = lastId;
-          }
-  
-          const messages = await channel.messages.fetch(options);
-          if (messages.size === 0) {
-            break;
-          }
-  
-          messages.forEach(msg => {
-            const msgDate = moment(msg.createdAt);
-            const withinDateRange = 
-              (!dataInicio || msgDate.isSameOrAfter(dataInicio)) &&
-              (!dataFim || msgDate.isSameOrBefore(dataFim));
-
-            if (withinDateRange) allMessages.push(msg);
-          });
-          lastId = messages.last().id;
-        }
-      }
-
-      if (allMessages.length > 10000) {
-        allMessages = allMessages.slice(0, 10000);
-      }
-
-      if (allMessages.length === 0) {
-        return interaction.editReply({ content: "Não encontrei nenhuma mensagem nesse canal." });
-      }
-
-      const orderedMessages = allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-      const idsMen = orderedMessages.map((msg) => msg.id);
-      const lorEnc = await this.client.database.Lore.find({ messageId: { $in: idsMen } }).lean();
-      const mapLor = new Map(lorEnc.map((lor) => [lor.messageId, lor]));
-
-      const menFor = [];
-
-      for (const msg of orderedMessages) {
-        const dadLor = mapLor.get(msg.id);
-        if (dadLor) {
-          dadLor.chapters.forEach((cap) => {
-            const conCap = cap.pages.map((pag) => pag.content).join('\n\n');
-            menFor.push(`[${moment(msg.createdAt).format("DD/MM/YYYY HH:mm:ss")}] ${msg.author.tag} (Lore: ${dadLor.title} - ${cap.name}):\n${conCap}`);
-          });
-        } else {
-          menFor.push(`[${moment(msg.createdAt).format("DD/MM/YYYY HH:mm:ss")}] ${msg.author.tag}: ${msg.content}`);
-        }
-      }
-
-      const formattedText = menFor.join("\n\n---\n\n");
-
-      const logBuffer = Buffer.from(formattedText, "utf-8");
-      const logAttachment = new AttachmentBuilder(logBuffer, { name: `mensagens-${channel.name}.txt` });
-
-      await interaction.editReply({ content: `<a:typingpeped:1423040738983411843> | ${allMessages.length} mensagens coletadas! Agora, estou resumindo o RP...` });
-
-      const pages = await resumirRP(formattedText);
-      let currentPage = 0;
-
-      const summaryFullText = pages.join('\n\n---\n\n');
-      const summaryBuffer = Buffer.from(summaryFullText, "utf-8");
-      const summaryAttachment = new AttachmentBuilder(summaryBuffer, { name: `resumo-${channel.name}.txt` });
-
-      const generateEmbed = (pageIndex) => {
-        return new EmbedBuilder()
-          .setColor("Blue")
-          .setTitle(`📝 Resumo do RP em #${channel.name}`)
-          .setDescription(pages[pageIndex])
-          .setFooter({ text: `Página ${pageIndex + 1} de ${pages.length} | Arquivos .txt com todas as mensagens do chat e o resumo completo estão anexados.` });
-      };
-
-      const getButtons = (pageIndex) => {
-        const row = new ActionRowBuilder();
-
-        if (pages.length > 1) {
-          row.addComponents(
-            new ButtonBuilder()
-              .setCustomId('prev_page')
-              .setLabel('◀️ Anterior')
-              .setStyle('Primary')
-              .setDisabled(pageIndex === 0),
-            new ButtonBuilder()
-              .setCustomId('next_page')
-              .setLabel('Próximo ▶️')
-              .setStyle('Primary')
-              .setDisabled(pageIndex === pages.length - 1)
-          );
+                for (const chapter of lore.chapters) {
+                    aiText.push(`Capítulo: ${chapter.name}`);
+                    fileText.push(`\n>> CAPÍTULO: ${chapter.name}`);
+                    fileText.push('-'.repeat(40));
+                    for (const page of chapter.pages) {
+                        aiText.push(page.content);
+                        fileText.push(page.content);
+                    }
+                }
+                aiText.push(`\n--- [FIM DA LORE: ${lore.title}] ---\n`);
+                fileText.push(`\n${'='.repeat(20)} [FIM DA LORE] ${'='.repeat(20)}\n`);
+            } else {
+                if (msg.content && msg.content.trim().length > 0) {
+                    aiText.push(`${msg.author.username}: ${msg.content}`);
+                    fileText.push(`[${time}] ${msg.author.username}:`);
+                    fileText.push(`${msg.content}`);
+                    fileText.push('-'.repeat(60));
+                }
+            }
         }
 
-        row.addComponents(
-          new ButtonBuilder().setCustomId('summarize_page').setLabel('Resumir').setStyle('Secondary')
+        const textToSummarize = aiText.join('\n');
+        const textForFile = fileText.join('\n');
+
+        if (textToSummarize.length < 10) {
+                return interaction.editReply({ content: '❌ Texto insuficiente para resumir.' });
+        }
+
+        await interaction.editReply({ content: '🤖 Gerando resumo com IA... Isso pode levar alguns segundos.' });
+        
+        let summaryPages = await resumirRP(textToSummarize);
+        
+        let currentPage = 0;
+        const generateEmbed = (page) => new EmbedBuilder()
+            .setTitle('📄 Resumo do RP')
+            .setColor('#00ff00')
+            .setDescription(summaryPages[page] || "Resumo vazio.")
+            .setFooter({ text: `Página ${page + 1}/${summaryPages.length} | Gerado por IA` });
+
+        const getButtons = (page) => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('prev_sum').setLabel('◀').setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+            new ButtonBuilder().setCustomId('next_sum').setLabel('▶').setStyle(ButtonStyle.Primary).setDisabled(page === summaryPages.length - 1),
+            new ButtonBuilder().setCustomId('resumir_mais').setLabel('Resumir Mais').setStyle(ButtonStyle.Secondary).setEmoji('📉')
         );
 
-        return row;
-      };
+        const generateAttachments = (fullTxt, summaryPgs) => {
+            const transcriptBuffer = Buffer.from(fullTxt, 'utf-8');
+            const summaryBuffer = Buffer.from(summaryPgs.join('\n\n'), 'utf-8');
+            return [
+                new AttachmentBuilder(transcriptBuffer, { name: 'transcript_completo.txt' }),
+                new AttachmentBuilder(summaryBuffer, { name: 'resumo_final.txt' })
+            ];
+        };
 
-      const message = await interaction.editReply({
-        content: "✅ Resumo gerado com sucesso!",
-        embeds: [generateEmbed(currentPage)],
-        files: [logAttachment, summaryAttachment],
-        components: [getButtons(currentPage)],
-        ephemeral: false
-      });
+        const response = await interaction.editReply({ 
+            content: null, 
+            embeds: [generateEmbed(currentPage)], 
+            components: [getButtons(currentPage)],
+            files: generateAttachments(textForFile, summaryPages)
+        });
 
-      const collector = message.createMessageComponentCollector({
-        filter: (i) => i.user.id === interaction.user.id,
-        time: 900000 // 15 minutes
-      });
+        const collector = response.createMessageComponentCollector({ 
+            componentType: ComponentType.Button, 
+            time: 300000 
+        });
 
-      collector.on('collect', async (i) => {
-        if (i.customId === 'prev_page') {
-          currentPage--;
-        } else if (i.customId === 'next_page') {
-          currentPage++;
-        } else if (i.customId === 'summarize_page') {
-          await i.reply({ content: '<a:aNgErY:1423045205979828345> | Resumindo de novo... (preguiçoso do caralho)', ephemeral: true });
-          try {
-            const fullSummaryText = pages.join('\n\n');
-            const finalSummaryArray = await summarizeSummary(fullSummaryText);
+        collector.on('collect', async i => {
+            if (i.user.id !== interaction.user.id) return i.reply({ content: 'Apenas quem solicitou pode interagir.', ephemeral: true });
+            
+            if (i.customId === 'prev_sum') currentPage--;
+            if (i.customId === 'next_sum') currentPage++;
+            
+            if (i.customId === 'resumir_mais') {
+                await i.update({ content: '🤖 Condensando o resumo...', components: [] });
+                try {
+                    const currentSummaryText = summaryPages.join('\n');
+                    const newSummary = await summarizeSummary(currentSummaryText);
+                    summaryPages = newSummary; // Atualiza as páginas com o novo resumo
+                    currentPage = 0; // Volta para a primeira página
+                    
+                    await interaction.editReply({
+                        content: null,
+                        embeds: [generateEmbed(currentPage)],
+                        components: [getButtons(currentPage)],
+                        files: generateAttachments(textForFile, summaryPages)
+                    });
+                    return; // Retorna para não tentar dar update de novo abaixo
+                } catch (err) {
+                    console.error(err);
+                    await interaction.followUp({ content: '❌ Erro ao tentar resumir mais.', ephemeral: true });
+                }
+            }
 
-            const summaryEmbed = new EmbedBuilder()
-              .setColor("Gold")
-              .setTitle(`🤖 Resumo do Resumo`)
-              .setDescription(finalSummaryArray[0]);
-            await i.followUp({ content: '<:monkaStab:810735232458031145> | Ta ai, enche mais o saco não', embeds: [summaryEmbed], ephemeral: true });
-          } catch (summaryError) {
-            await i.followUp({ content: '❌ Ocorreu um erro ao tentar gerar o resumo final.', ephemeral: true }).catch(() => {});
-          }
-          return; 
-        }
-
-        await i.update({ embeds: [generateEmbed(currentPage)], components: [getButtons(currentPage)] });
-      });
-
-      collector.on('end', () => {
-        message.edit({ components: [] }).catch(() => {});
-      });
+            await i.update({ 
+                embeds: [generateEmbed(currentPage)], 
+                components: [getButtons(currentPage)] 
+            });
+        });
 
     } catch (err) {
-      console.error("Erro ao executar /rpresumo:", err);
-      if (err.status === 503) {
-        await interaction.editReply({ content: "🔧 O Gemini (IA que utilizo para resumir) está sobrecarregada no momento. Por favor, tente novamente em alguns minutos." }).catch(() => {});
-      } else if (err.status === 429) {
-        await interaction.editReply({ content: "⏳ O limite de uso da IA foi atingido (Quota Exceeded). Por favor, tente novamente mais tarde." }).catch(() => {});
-      } else {
-        await interaction.editReply({ content: "❌ Ocorreu um erro ao tentar buscar as mensagens ou gerar o resumo. Verifique se eu tenho permissão para ver o canal." }).catch(() => {});
-      }
+        console.error(err);
+        await interaction.editReply({ content: '❌ Ocorreu um erro ao processar o resumo. Verifique os IDs e permissões.' });
     }
   }
 };
