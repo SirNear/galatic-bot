@@ -730,7 +730,7 @@ module.exports = class aparencia extends Command {
                               if (!objVer) return ii.reply({ content: "Erro ao localizar verso.", ephemeral: true });
 
                               const keyFil = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
-                              const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https:
+                              const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
                               const sheWri = google.sheets({ version: "v4", auth: autGoo });
 
                               if (ii.customId.startsWith('edit_verso_')) {
