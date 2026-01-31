@@ -286,6 +286,7 @@ module.exports = class aparencia extends Command {
          
           coletorAparencia.on("collect", async (m) => {
             try {
+              await m.delete().catch(() => {});
               const nomeAparencia = await pararContador(
                 m.content,
                 intervalo,
@@ -667,7 +668,7 @@ module.exports = class aparencia extends Command {
                           case 'aparencia_lista':
                             
                             if (!resultados[pag]) {
-                              await ii.reply({ content: 'Nenhum resultado selecionado.', ephemeral: true });
+                              await ii.reply({ content: 'Nenhum resultado selecionado.', ephemeral: false });
                               return;
                             }
                             
@@ -675,7 +676,7 @@ module.exports = class aparencia extends Command {
                             const apps = await buscarAparencias(sheets, 'verso', versoAlvo);
                             
                             if (apps.length === 0) {
-                                await ii.reply({ content: `Nenhuma aparência encontrada para o verso **${versoAlvo}**.`, ephemeral: true });
+                                await ii.reply({ content: `Nenhuma aparência encontrada para o verso **${versoAlvo}**.`, ephemeral: false });
                                 return;
                             }
 
@@ -727,7 +728,7 @@ module.exports = class aparencia extends Command {
                             {
                               const idxBut = parseInt(ii.customId.split('_')[2]);
                               const objVer = resultados[idxBut];
-                              if (!objVer) return ii.reply({ content: "Erro ao localizar verso.", ephemeral: true });
+                              if (!objVer) return ii.reply({ content: "Erro ao localizar verso.", ephemeral: false });
 
                               const keyFil = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
                               const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
@@ -758,7 +759,7 @@ module.exports = class aparencia extends Command {
                                   resource: { values: [[novNom, novUso]] }
                                 });
 
-                                await subMod.reply({ content: `✅ Verso atualizado para **${novNom}** com **${novUso}** de uso!`, ephemeral: true });
+                                await subMod.reply({ content: `✅ Verso atualizado para **${novNom}** com **${novUso}** de uso!`, ephemeral: false });
                                 return;
                               }
 
@@ -768,7 +769,7 @@ module.exports = class aparencia extends Command {
                                   new ButtonBuilder().setCustomId('cancel_del_verso').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
                                 );
                                 
-                                const msgDel = await ii.reply({ content: `⚠️ Tem certeza que deseja excluir o verso **${objVer.verso}**? Essa ação não pode ser desfeita.`, components: [rowDel], ephemeral: true, fetchReply: true });
+                                const msgDel = await ii.reply({ content: `⚠️ Tem certeza que deseja excluir o verso **${objVer.verso}**? Essa ação não pode ser desfeita.`, components: [rowDel], ephemeral: false, fetchReply: true });
                                 
                                 const colDel = msgDel.createMessageComponentCollector({ time: 30000, max: 1 });
                                 colDel.on('collect', async d => {
@@ -936,6 +937,7 @@ module.exports = class aparencia extends Command {
           });
 
           coletorAparencia.on("collect", async (m) => {
+            await m.delete().catch(() => {});
             const nomeAparencia = await pararContador(
               m.content,
               intervalo,
@@ -1099,6 +1101,7 @@ module.exports = class aparencia extends Command {
           });
 
           coletorbotaoNavVerso.on("collect", async (m) => {
+            await m.delete().catch(() => {});
             const verseName = await pararContador(
               m.content,
               intervalo,
@@ -1175,7 +1178,7 @@ module.exports = class aparencia extends Command {
                 exactCollector.on('collect', async (ii) => {
                     if (ii.customId === 'aparencia_lista_exact') {
                         const apps = await buscarAparencias(sheets, 'verso', exactMatch.universo);
-                        if (apps.length === 0) return ii.reply({ content: "Nenhuma aparência encontrada.", ephemeral: true });
+                        if (apps.length === 0) return ii.reply({ content: "Nenhuma aparência encontrada.", ephemeral: false });
                         
                         let appPage = 0;
                         const generateAppListEmbed = (pageIndex) => {

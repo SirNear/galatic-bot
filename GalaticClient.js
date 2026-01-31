@@ -35,6 +35,7 @@ module.exports = class GalaticClient extends Client {
     this.owners = options.owners;
     this.events = new EventManager(this);
     this.activeCollector = false;
+    this.maintenance = false;
     this.fichaStates = new Map();
     this.unarchiveInterval = null;
 }

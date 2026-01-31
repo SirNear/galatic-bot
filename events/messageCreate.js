@@ -31,6 +31,15 @@ module.exports = class MessageReceive {
         });
     }
 
+    let prefix = server ? server.prefix : "g!";
+
+    if (this.client.maintenance && !this.client.owners.includes(message.author.id)) {
+        if (message.content.startsWith(prefix) || message.content.startsWith("G!")) {
+            return message.reply('🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.');
+        }
+        return;
+    }
+
     if (
       message.content.replace(/!/g, "") ===
       message.guild.members.me.toString().replace(/!/g, "")
@@ -213,8 +222,6 @@ module.exports = class MessageReceive {
             }
         }
     }
-
-    let prefix = server ? server.prefix : "g!";
 
     if (!message.content.startsWith(prefix || "G!")) return;
     const args = message.content.slice(prefix.length).trim().split(/ +/g);

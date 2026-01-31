@@ -25,12 +25,12 @@ async function handleAppearanceInteraction(interaction, client) {
 
             if (isNaN(rowIndex)) {
                 console.error("Erro: rowIndex inválido ao processar aparência. CustomID:", interaction.customId);
-                return interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação (ID de linha inválido).', flags: 64 });
+                return interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação (ID de linha inválido).', ephemeral: false });
             }
 
             const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `INDIVIDUAIS!A${rowIndex}:D${rowIndex}` });
             const rowData = res.data.values?.[0];
-            if (!rowData) return interaction.reply({ content: '❌ Não foi possível encontrar os dados desta aparência. Pode ter sido movida ou excluída.', flags: 64 });
+            if (!rowData) return interaction.reply({ content: '❌ Não foi possível encontrar os dados desta aparência. Pode ter sido movida ou excluída.', ephemeral: false });
 
             const [aparencia, universo] = rowData;
 
@@ -46,7 +46,7 @@ async function handleAppearanceInteraction(interaction, client) {
                     new ButtonBuilder().setCustomId(`confirm_delete_ap_${rowIndex}`).setLabel('Sim, liberar aparência').setStyle(ButtonStyle.Danger),
                     new ButtonBuilder().setCustomId('cancel_delete_ap').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
                 );
-                await interaction.reply({ content: `Tem certeza que deseja liberar a aparência **${aparencia}** do universo **${universo}**? Esta ação não pode ser desfeita.`, components: [confirmRow], flags: 64 });
+                await interaction.reply({ content: `Tem certeza que deseja liberar a aparência **${aparencia}** do universo **${universo}**? Esta ação não pode ser desfeita.`, components: [confirmRow], ephemeral: false });
             }
         }
 
@@ -92,7 +92,7 @@ async function handleAppearanceInteraction(interaction, client) {
             const novoUniverso = interaction.fields.getTextInputValue('edit_ap_universo');
             const novoPersonagem = interaction.fields.getTextInputValue('edit_ap_personagem');
 
-            await interaction.deferReply({ flags: 64 });
+            await interaction.deferReply({ ephemeral: false });
 
             const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `INDIVIDUAIS!D${rowIndex}:D${rowIndex}` });
             const jogador = res.data.values?.[0]?.[0] || '';

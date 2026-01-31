@@ -246,4 +246,10 @@ const LoreSchema = new mongoose.Schema({
 let Lore = mongoose.model('Lore', LoreSchema);
 module.exports.Lore = Lore;
 
+const botConfigSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    maintenance: { type: Boolean, default: false }
+});
+module.exports.BotConfig = mongoose.model("BotConfig", botConfigSchema);
+
 module.exports.connect = connectToDatabase;
