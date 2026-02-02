@@ -38,15 +38,6 @@ module.exports = class GalaticClient extends Client {
     this.fichaStates = new Map();
     this.unarchiveInterval = null;
 
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('[FATAL ERROR] Unhandled Rejection:', reason);
-        this.sendLog(`[FATAL ERROR] Unhandled Rejection:\n${reason instanceof Error ? reason.stack : reason}`, 'error');
-    });
-
-    process.on('uncaughtException', (error) => {
-        console.error('[FATAL ERROR] Uncaught Exception:', error);
-        this.sendLog(`[FATAL ERROR] Uncaught Exception:\n${error.stack}`, 'error');
-    });
 }
 
 	reloadCommand(commandName) {

@@ -18,20 +18,26 @@ const client = new Client({
 });
 
 (async () => {
-    await connect();
+    try {
+        await connect();
 
-    await client.loadEvents();
-    await client.loadCommands();
+        await client.loadEvents();
+        await client.loadCommands();
 
-    client.once('clientReady', async () => {
-        console.log(`Bot logado como ${client.user.tag}!`);
-        logger.defAva(client.user.displayAvatarURL());
-        await client.registerSlashCommands();
-        await client.loadQuestCollectors();
-    });
+        client.once('clientReady', async () => {
+            console.log(`Bot logado como ${client.user.tag}!`);
+            logger.defAva(client.user.displayAvatarURL());
+            await client.registerSlashCommands();
+            await client.loadQuestCollectors();
+        });
 
-    await client.login(config.token);
-    
+        await client.login(config.token);
+    } catch (erro) {
+        // Captura o erro da conexão com o banco de dados ou outras falhas na inicialização
+        await lidarErroFatal(erro, 'Inicialização do Bot');
+        // Encerra o processo após logar o erro fatal
+        process.exit(1);
+    }
 })();
 
 const webhookFatal = config.webhookURL ? new WebhookClient({ url: config.webhookURL }) : null;

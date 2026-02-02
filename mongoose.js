@@ -14,7 +14,7 @@ async function connectToDatabase() {
         console.log('MONGOOSE | Conectado ao banco de dados!');
     } catch (err) {
         console.error(`MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
-        process.exit(1); // Encerra o processo se não conseguir conectar
+        throw err; // Lança o erro para ser tratado no ponto de chamada
     }
 }
 
