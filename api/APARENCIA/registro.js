@@ -216,14 +216,12 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
           content: `<:berror:1406837900556898304> | **Registro Bloqueado!**\n\nVocê possui universos com uso incompleto. Para registrar uma nova aparência, você deve completar seus universos atuais ou registrar a aparência em um universo que você já possui.\n\n**Suas Pendências:**\n${listaPendencias}\n\n**Universo tentado:** ${args.argUniverso}`,
           flags: 64
         });
-      }
+      }else if(userDb.tokenAp > 0) {
+        userDb.tokenAp -= 1;
+        await userDb.save();
+        await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
+     }
     }
-  }
-
-  if(userDb.tokenAp > 0) {
-    userDb.tokenAp -= 1;
-    await userDb.save();
-    await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
   }
 
   // Salvar na planilha

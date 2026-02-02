@@ -34,7 +34,7 @@ module.exports = class MessageReceive {
     let prefix = server ? server.prefix : "g!";
 
     if (this.client.maintenance && !this.client.owners.includes(message.author.id)) {
-        if (message.content.startsWith(prefix) || message.content.startsWith("G!")) {
+        if (message.content.startsWith(prefix) || message.content.startsWith("g!")) {
             return message.reply('🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.');
         }
         return;

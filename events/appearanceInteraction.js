@@ -73,6 +73,18 @@ async function handleAppearanceInteraction(interaction, client) {
             // Log de Deleção
             if (rowData) {
                 const [aparencia, universo, personagem] = rowData;
+
+                const channelDescarte = await client.channels.fetch('1435999188230996091').catch(() => null);
+                if (channelDescarte) {
+                    const embedDescarte = new EmbedBuilder()
+                        .setTitle(`🗑️ APARÊNCIA DESCARTADA`)
+                        .setDescription(`A aparência **${aparencia}** de **${universo}** foi descartada e está livre para uso!`)
+                        .setColor("#ff0000")
+                        .setFooter({ text: `Descartada por: ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+                        .setTimestamp();
+                    await channelDescarte.send({ embeds: [embedDescarte] });
+                }
+
                 await logOperacao(client, interaction.user, 'Liberar', 'Aparência', {
                     nome: aparencia,
                     universo: universo,

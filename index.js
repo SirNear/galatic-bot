@@ -1,7 +1,7 @@
 const Client = require('./GalaticClient')
 const { GatewayIntentBits, WebhookClient, EmbedBuilder } = require('discord.js')
 const config = require('./config')
-const { connect } = require('./mongoose');
+const { connect, BotConfig } = require('./mongoose');
 const Logger = require('./api/Logger');
 
 const logger = new Logger(config.webhookURL);
@@ -27,12 +27,25 @@ const client = new Client({
         // Usamos o evento 'ready' padrão do discord.js para centralizar a lógica de inicialização.
         client.once('ready', async () => {
             console.log(`Bot logado como ${client.user.tag}!`);
+
+            // Carregar configuração de manutenção do banco de dados
+            const configBot = await BotConfig.findById('global');
+            if (configBot) {
+                client.maintenance = configBot.maintenance;
+                if (client.maintenance) console.log('[SYSTEM] Modo de manutenção ATIVO (carregado do banco).');
+            }
+
             logger.defAva(client.user.displayAvatarURL());
             await client.registerSlashCommands();
             await client.loadQuestCollectors();
             // Centralizando a chamada do loop de reabertura de tópicos aqui.
             // O ID do servidor foi pego de outros comandos, verifique se está correto.
             client.setupUnarchiveLoop('731974689798488185');
+
+            // Carregar cron jobs e emitir evento clientReady (migrado de events/clientReady.js)
+            const lembreteVerso = require("./api/cron/lembreteVerso.js");
+            lembreteVerso(client);
+            client.emit('clientReady');
         });
 
         await client.login(config.token);

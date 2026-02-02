@@ -66,6 +66,10 @@ module.exports = class {
                 }
             }
         } catch (err) {
+            if (err.code === 10062 || err.code === 40060) {
+                console.warn(`[INTERACTION] Erro ${err.code} ao processar interação (ignorado): ${err.message}`);
+                return;
+            }
             console.error('Erro global ao processar interação:', err);
             if (interaction.replied || interaction.deferred) return;
             await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', flags: 64 }).catch(() => {});
