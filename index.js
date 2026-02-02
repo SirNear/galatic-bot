@@ -24,11 +24,15 @@ const client = new Client({
         await client.loadEvents();
         await client.loadCommands();
 
-        client.once('clientReady', async () => {
+        // Usamos o evento 'ready' padrão do discord.js para centralizar a lógica de inicialização.
+        client.once('ready', async () => {
             console.log(`Bot logado como ${client.user.tag}!`);
             logger.defAva(client.user.displayAvatarURL());
             await client.registerSlashCommands();
             await client.loadQuestCollectors();
+            // Centralizando a chamada do loop de reabertura de tópicos aqui.
+            // O ID do servidor foi pego de outros comandos, verifique se está correto.
+            client.setupUnarchiveLoop('731974689798488185');
         });
 
         await client.login(config.token);
