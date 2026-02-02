@@ -2,7 +2,7 @@
     "prefix": "n!",
     "token": "NjM0MjE2Mjk0NzEwNzcxNzEz.Gu_RgQ.TWoj_JoqBUDlkK916iNki0lDku0O6bVNudEaEc",
     "mongoose": "mongodb+srv://atrevibot:atrevibot-admod@cluster0.csoj25b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-    "owners": ["540725346241216534", "611264312316788758"],
+    "owners": ["540725346241216534"],
     "block": [""],
     "logChannelId": "1423848686391394454",
     "webhookURL": "https://discord.com/api/webhooks/1439644988651606206/sZ-vYnx75ZjiplshhWYJxMrf_FBJSsXEmm41MzkRVToc-eBZUfrZfu7GDcu2huBkr53C"
