@@ -193,7 +193,8 @@ module.exports = class perfil extends Command {
                         { name: 'Jogador', value: nomeJogador },
                         { name: 'Carteira', value: carteiraTxt },
                         { name: 'Personagens', value: `${personagens.length}`, inline: true },
-                        { name: 'Aparências', value: `${aparenciasSalvas.length}`, inline: true }
+                        { name: 'Aparências', value: `${aparenciasSalvas.length}`, inline: true },
+                        { name: 'Tokens de Aparência', value: `${jogadorDb.tokenAp || 0}`, inline: true }
                     )
                     .setTimestamp();
                 if (aparenciasSalvas.length > 0 && aparenciasSalvas[0].imagem) {
