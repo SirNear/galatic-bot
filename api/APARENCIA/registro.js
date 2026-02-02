@@ -228,7 +228,15 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
 
   // Salvar na planilha
   const res = await sheetsUp.spreadsheets.values.get({ spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo", range: config.range });
-  const nextRow = (res.data.values || []).length + 1;
+  const rows = res.data.values || [];
+  
+  let nextRow = rows.length + 1;
+  for (let i = 0; i < rows.length; i++) {
+    if (!rows[i] || rows[i].length === 0 || !rows[i][0]) {
+      nextRow = i + 1;
+      break;
+    }
+  }
 
   const values = config.mapearLinha(args);
   const [sheetName] = config.range.split("!");
