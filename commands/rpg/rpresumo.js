@@ -185,8 +185,8 @@ module.exports = class rpresumo extends Command {
             const transcriptBuffer = Buffer.from(fullTxt, 'utf-8');
             const summaryBuffer = Buffer.from(summaryPgs.join('\n\n'), 'utf-8');
             return [
-                new AttachmentBuilder(transcriptBuffer, { name: 'transcript_completo.txt' }),
-                new AttachmentBuilder(summaryBuffer, { name: 'resumo_final.txt' })
+                new AttachmentBuilder(transcriptBuffer, { name: `mensanges ${channelLores.name}.txt` }),
+                new AttachmentBuilder(summaryBuffer, { name: `resumo_final_${channelLores.name}.txt` })
             ];
         };
 
