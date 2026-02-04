@@ -6,6 +6,7 @@ const {
   ButtonStyle,
   ComponentType,
   AttachmentBuilder,
+  ChannelType,
 } = require('discord.js');
 const Command = require('../../structures/Command');
 const { resumirRP, summarizeSummary } = require('../../api/resumir.js');
@@ -42,99 +43,135 @@ module.exports = class rpresumo extends Command {
     }
   }
 
-  async fetchMessagesBetween(channel, startId, endId) {
-    const allMessages = [];
-    let lastId = endId;
-    let reachedStart = false;
+  async fetchMessages(channel, startId, endId) {
+    const messages = [];
+    let cursor = endId;
+    let stop = false;
+
+    // Tenta incluir a mensagem final se ela pertencer a este canal e for válida
+    if (endId) {
+        try {
+            const endMsg = await channel.messages.fetch(endId);
+            messages.push(endMsg);
+        } catch (e) {
+            // Mensagem não existe neste canal, apenas usamos o ID como referência de tempo
+        }
+    }
+
+    while (!stop) {
+        const options = { limit: 100 };
+        if (cursor) options.before = cursor;
 
     try {
-        const endMessage = await channel.messages.fetch(endId);
-        allMessages.push(endMessage);
-    } catch (e) {
-        console.error("Erro ao buscar mensagem final:", e);
-        return [];
-    }
+        const fetched = await channel.messages.fetch(options);
+        if (fetched.size === 0) break;
 
-    while (!reachedStart) {
-      const options = { limit: 100, before: lastId };
-      const messages = await channel.messages.fetch(options);
-
-      if (messages.size === 0) break;
-
-      for (const message of messages.values()) {
-        if (startId && message.id === startId) {
-          reachedStart = true;
-          allMessages.push(message);
-          break;
+        for (const msg of fetched.values()) {
+            if (startId && BigInt(msg.id) < BigInt(startId)) {
+                stop = true;
+                break;
+            }
+            if (msg.id !== endId) messages.push(msg);
         }
-        allMessages.push(message);
-      }
-      lastId = messages.last().id;
-    }
-    
-    try {
-        if (startId && !reachedStart) {
-            const startMessage = await channel.messages.fetch(startId);
-            allMessages.push(startMessage);
-        }
+        cursor = fetched.last()?.id;
     } catch (e) {
-        console.error("Erro ao buscar mensagem inicial:", e);
+        console.error(`Erro ao buscar mensagens no canal ${channel.name}:`, e);
+        break;
     }
-    
-    return allMessages.reverse();
+    }
+    return messages;
   }
 
   async execute(interaction) {
     const startId = interaction.options.getString('inicio');
     let endId = interaction.options.getString('fim');
-    const channel = interaction.options.getChannel('canal') || interaction.channel;
+    const targetChannel = interaction.options.getChannel('canal') || interaction.channel;
+    const ehCategoria = targetChannel.type === ChannelType.GuildCategory;
 
     await interaction.deferReply({ flags: 64 });
 
-    if (!channel.isTextBased()) {
-        return interaction.editReply({ content: '❌ O canal selecionado deve ser um canal de texto.' });
+    // Identificar canais para processar
+    let channelsToProcess = [];
+    
+    if (ehCategoria) {
+        // Garante que os canais estão em cache
+        await interaction.guild.channels.fetch();
+        const children = interaction.guild.channels.cache.filter(c => c.parentId === targetChannel.id);
+        
+        for (const child of children.values()) {
+            if (child.isTextBased() && child.type !== ChannelType.GuildForum) {
+                channelsToProcess.push(child);
+            } else if (child.type === ChannelType.GuildForum) {
+                try {
+                    const active = await child.threads.fetchActive();
+                    const archived = await child.threads.fetchArchived({ type: 'public', limit: 50 });
+                    channelsToProcess.push(...active.threads.values(), ...archived.threads.values());
+                } catch (e) { console.error(e); }
+            }
+        }
+    } else if (targetChannel.type === ChannelType.GuildForum) {
+        try {
+            const active = await targetChannel.threads.fetchActive();
+            const archived = await targetChannel.threads.fetchArchived({ type: 'public', limit: 50 });
+            channelsToProcess.push(...active.threads.values(), ...archived.threads.values());
+        } catch (e) { console.error(e); }
+    } else if (targetChannel.isTextBased()) {
+        channelsToProcess.push(targetChannel);
+    } else {
+        return interaction.editReply({ content: '❌ Tipo de canal inválido ou não suportado.' });
+    }
+
+    if (channelsToProcess.length === 0) {
+        return interaction.editReply({ content: '❌ Nenhum canal de texto encontrado para processar.' });
     }
 
     try {
-        // Se não houver ID final, pega a última mensagem do canal
-        if (!endId) {
-            const lastMessages = await channel.messages.fetch({ limit: 1 });
-            if (lastMessages.size === 0) {
-                return interaction.editReply({ content: '❌ Não há mensagens neste canal para resumir.' });
-            }
-            endId = lastMessages.first().id;
-        }
-
         // Validação básica de ordem (Snowflakes são cronológicos)
         if (startId && BigInt(startId) > BigInt(endId)) {
             return interaction.editReply({ content: '❌ O ID da mensagem inicial deve ser menor (mais antigo) que o ID da mensagem final.' });
         }
 
-        await interaction.editReply({ content: '⏳ Coletando mensagens e verificando Lores...' });
+        let allMessages = [];
+        let processedCount = 0;
 
-        const messages = await this.fetchMessagesBetween(channel, startId, endId);
+        await interaction.editReply({ content: `⏳ Coletando mensagens de ${channelsToProcess.length} canais/tópicos...` });
+
+        for (const ch of channelsToProcess) {
+            const msgs = await this.fetchMessages(ch, startId, endId);
+            allMessages.push(...msgs);
+            processedCount++;
+            
+            if (processedCount % 2 === 0 || processedCount === channelsToProcess.length) {
+                await interaction.editReply({ content: `⏳ Coletando mensagens... (${processedCount}/${channelsToProcess.length} canais processados | ${allMessages.length} mensagens coletadas)` });
+            }
+        }
+
+        // Ordena todas as mensagens cronologicamente
+        allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
         
-        // Otimização: Busca todas as Lores do canal de uma vez para evitar múltiplas consultas ao banco dentro do loop
-        const channelLores = await this.client.database.Lore.find({ channelId: channel.id });
+        // Busca Lores de todos os canais envolvidos
+        const channelIds = channelsToProcess.map(c => c.id);
+        const channelLores = await this.client.database.Lore.find({ channelId: { $in: channelIds } });
         const loreMap = new Map(channelLores.map(l => [l.messageId, l]));
 
         let aiText = [];
         let fileText = [];
 
         fileText.push(`============================================================`);
-        fileText.push(`TRANSCRICAO DE RP - CANAL: ${channel.name}`);
+        fileText.push(`TRANSCRICAO DE RP - ALVO: ${targetChannel.name}`);
         fileText.push(`GERADO EM: ${new Date().toLocaleString('pt-BR')}`);
         fileText.push(`============================================================\n`);
         
-        for (const msg of messages) {
+        for (const msg of allMessages) {
             const lore = loreMap.get(msg.id);
             const time = msg.createdAt ? msg.createdAt.toLocaleString('pt-BR') : 'Data desconhecida';
+            const channelName = msg.channel.name || 'Desconhecido';
             
             if (lore) {
                 aiText.push(`\n--- [INÍCIO DA LORE: ${lore.title}] ---\n`);
                 
                 fileText.push(`\n${'='.repeat(20)} [LORE: ${lore.title.toUpperCase()}] ${'='.repeat(20)}`);
-                fileText.push(`Autor: ${msg.author.username} | Data: ${time}\n`);
+                fileText.push(`Canal: ${channelName} | Autor: ${msg.author.username} | Data: ${time}\n`);
 
                 for (const chapter of lore.chapters) {
                     aiText.push(`Capítulo: ${chapter.name}`);
@@ -150,7 +187,7 @@ module.exports = class rpresumo extends Command {
             } else {
                 if (msg.content && msg.content.trim().length > 0) {
                     aiText.push(`${msg.author.username}: ${msg.content}`);
-                    fileText.push(`[${time}] ${msg.author.username}:`);
+                    fileText.push(`[${time}] [${channelName}] ${msg.author.username}:`);
                     fileText.push(`${msg.content}`);
                     fileText.push('-'.repeat(60));
                 }
@@ -162,6 +199,18 @@ module.exports = class rpresumo extends Command {
 
         if (textToSummarize.length < 10) {
                 return interaction.editReply({ content: '❌ Texto insuficiente para resumir.' });
+        }
+
+        if (ehCategoria) {
+            const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+            const nomCan = targetChannel.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const traBuf = Buffer.from(textForFile, 'utf-8');
+            const anexo = new AttachmentBuilder(traBuf, { name: `mensagens-${nomCan}-${datAtu}.txt` });
+
+            return interaction.editReply({
+                content: '📝 Modo de categoria ativado. O resumo por IA foi pulado para economizar recursos. Apenas a transcrição completa foi gerada.',
+                files: [anexo]
+            });
         }
 
         await interaction.editReply({ content: '🤖 Gerando resumo com IA... Isso pode levar alguns segundos.' });
@@ -184,9 +233,13 @@ module.exports = class rpresumo extends Command {
         const generateAttachments = (fullTxt, summaryPgs) => {
             const transcriptBuffer = Buffer.from(fullTxt, 'utf-8');
             const summaryBuffer = Buffer.from(summaryPgs.join('\n\n'), 'utf-8');
+
+            const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+            const nomCan = targetChannel.name;
+
             return [
-                new AttachmentBuilder(transcriptBuffer, { name: `mensanges ${channelLores.name}.txt` }),
-                new AttachmentBuilder(summaryBuffer, { name: `resumo_final_${channelLores.name}.txt` })
+                new AttachmentBuilder(transcriptBuffer, { name: `mensagens-${nomCan}-${datAtu}.txt` }),
+                new AttachmentBuilder(summaryBuffer, { name: `resumo-${nomCan}-${datAtu}.txt` })
             ];
         };
 
