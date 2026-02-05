@@ -1,5 +1,6 @@
+require('dotenv').config();
 const Client = require('./GalaticClient')
-const { GatewayIntentBits, WebhookClient, EmbedBuilder } = require('discord.js')
+const { GatewayIntentBits, WebhookClient, EmbedBuilder } = require('discord.js');
 const config = require('./config')
 const { connect, BotConfig } = require('./mongoose');
 const Logger = require('./api/Logger');

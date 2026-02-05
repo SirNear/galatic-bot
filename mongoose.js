@@ -1,7 +1,6 @@
-const config = require('./config.json')
-const mongoose = require('mongoose').config()
+const mongoose = require('mongoose')
 
-const connectionOptions = {
+const conOpt = {
     connectTimeoutMS: 30000, // Aumenta o tempo de espera para conexão
     serverSelectionTimeoutMS: 30000, // Aumenta o tempo para o driver encontrar um servidor
     socketTimeoutMS: 45000, // Aumenta o tempo de inatividade do socket
@@ -10,7 +9,11 @@ const connectionOptions = {
 
 async function connectToDatabase() {
     try {
-        await mongoose.connect(config.mongoose, connectionOptions);
+        if (!process.env.MONGO_URI || (!process.env.MONGO_URI.startsWith("mongodb://") && !process.env.MONGO_URI.startsWith("mongodb+srv://"))) {
+            throw new Error("A variável de ambiente MONGO_URI no arquivo .env é inválida. Ela deve começar com 'mongodb://' ou 'mongodb+srv://'. Atualize o arquivo .env com sua string de conexão real.");
+        }
+
+        await mongoose.connect(process.env.mongoose, conOpt);
         console.log('MONGOOSE | Conectado ao banco de dados!');
     } catch (err) {
         console.error(`MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
