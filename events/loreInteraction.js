@@ -243,7 +243,7 @@ async function handleLoreInteraction(interaction, client) {
                         imgVal = await validateImageUrl(page.imageUrl);
                         if (!imgVal) {
                             try {
-                                const canBacId = '1437124928737509559';
+                                const canBacId = process.env.BACKUP_CHANNEL_ID;
                                 const canBac = await client.channels.fetch(canBacId).catch(() => null);
                                 if (canBac) {
                                     const menBac = await canBac.messages.fetch({ limit: 100 });
@@ -462,9 +462,8 @@ async function handleLoreInteraction(interaction, client) {
 
                     await interaction.editReply({ content: 'Processando e adicionando o novo capítulo... Isso pode levar um momento.' });
 
-                    const backupChannelId = '1437124928737509559';
-                    const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null);
-                    if (!backupChannel) return interaction.followUp({ content: '⚠️ Ocorreu um erro crítico: o canal de backup não foi encontrado. A operação foi cancelada para evitar perda de dados.', flags: 64 });
+                    const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
+                    if (!bacCha) return interaction.followUp({ content: '⚠️ Ocorreu um erro crítico: o canal de backup não foi encontrado. A operação foi cancelada para evitar perda de dados.', flags: 64 });
 
                     try {
                         const loreCommand = client.commands.get('lore');
@@ -502,7 +501,7 @@ async function handleLoreInteraction(interaction, client) {
                                 processTextBlock();
                                 let persistentImageUrl = imageAttachment.url; // Fallback para a URL original
                                 try {
-                                    const backupMsg = await backupChannel.send({ files: [imageAttachment] });
+                                    const backupMsg = await bacCha.send({ files: [imageAttachment] });
                                     persistentImageUrl = backupMsg.attachments.first()?.url;
                                 } catch (imgErr) {
                                     console.warn(`Falha ao fazer backup da imagem individual (Discord 500/403). Usando URL original. Erro: ${imgErr.message}`);
@@ -536,7 +535,7 @@ async function handleLoreInteraction(interaction, client) {
                         };
                         const anexos = criarAnexos();
 
-                        const backupEnviado = await backupChannel.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: anexos }).catch(() => null);
+                        const backupEnviado = await bacCha.send({ content: `Backup do novo capítulo **${newChapterName}** para a lore **${loreDB.title}**.`, files: anexos }).catch(() => null);
                         if (!backupEnviado) return interaction.followUp({ content: '⚠️ O capítulo foi salvo, mas ocorreu um erro crítico ao enviar o backup para o servidor. As mensagens originais não foram excluídas para evitar perda de dados.', flags: 64 });
 
                         const linhaConfirmacao = new ActionRowBuilder().addComponents(
@@ -551,11 +550,13 @@ async function handleLoreInteraction(interaction, client) {
                         coletor.on('collect', async i => {
                             try {
                                 if (i.customId === 'lore_dm_confirm_yes') {
+                                    let dmEnviada = true;
                                     await i.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: anexos }).catch(() => {
-                                        i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade.', components: [] });
-                                        return;
+                                        dmEnviada = false;
                                     });
-                                    await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                                    
+                                    if (dmEnviada) await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                                    else await i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade. Iniciando limpeza...', components: [] });
                                 } else {
                                     await i.update({ content: 'Ok! O backup não será enviado por DM. Iniciando limpeza das mensagens originais...', components: [] });
                                 }
@@ -617,8 +618,54 @@ async function handleLoreInteraction(interaction, client) {
                     const conteudos = correspondencias
                         .map(corr => corr[1].trim())
                         .filter(cont => cont && !cont.startsWith('[Mensagem sem texto]') && !cont.startsWith('[Anexo:'));
-                    const contApe = conteudos.join('\n\n');
+                    let contApe = conteudos.join('\n\n');
+
+                    if (!contApe.trim() && backupText.trim().length > 0) {
+                        contApe = backupText;
+                    }
+
                     if (!contApe.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
+
+                    // Formatação automática (estilo /formatar)
+                    const linTex = contApe.split(/\r?\n/);
+                    const linFor = [];
+                    let emPen = false;
+
+                    for (let lin of linTex) {
+                        let linTri = lin.trim();
+
+                        if (linTri.length === 0) {
+                            linFor.push(lin);
+                            continue;
+                        }
+
+                        if (/^[-—•]/.test(linTri)) {
+                            let conFal = linTri.replace(/^[-—•]\s*/, '');
+                            const parFal = conFal.split('—');
+                            let linNov = `— ${parFal[0].trim()}`;
+
+                            for (let i = 1; i < parFal.length; i++) {
+                                let parAtu = parFal[i].trim();
+                                if (!parAtu) continue;
+                                if (i % 2 !== 0) linNov += ` — **${parAtu}**`;
+                                else linNov += ` — ${parAtu}`;
+                            }
+                            linFor.push(linNov);
+                            emPen = false;
+                        } else if (emPen || (linTri.startsWith('('))) {
+                            if (!emPen) {
+                                if (linTri.endsWith(')')) linFor.push(`*${linTri}*`);
+                                else { emPen = true; linFor.push(`*${linTri}`); }
+                            } else {
+                                if (linTri.endsWith(')')) { emPen = false; linFor.push(`${linTri}*`); }
+                                else linFor.push(linTri);
+                            }
+                        } else {
+                            linFor.push(`**${linTri}**`);
+                            emPen = false;
+                        }
+                    }
+                    contApe = linFor.join('\n');
 
                     const { paginateText } = require('../commands/rpg/lore.js');
                     const paginasTex = paginateText(contApe);
@@ -633,16 +680,15 @@ async function handleLoreInteraction(interaction, client) {
                             const zipEntries = zip.getEntries();
                             
                             // Extrair e fazer upload das imagens
-                            const backupChannelId = '1437124928737509559';
-                            const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null);
+                            const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
                             
-                            if (backupChannel) {
+                            if (bacCha) {
                                 for (let i = 0; i < zipEntries.length; i++) {
                                     const entry = zipEntries[i];
                                     if (!entry.isDirectory && entry.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
                                         try {
                                             const imagemBuffer = entry.getData();
-                                            const backupMsg = await backupChannel.send({ 
+                                            const backupMsg = await bacCha.send({ 
                                                 files: [new AttachmentBuilder(imagemBuffer, { name: entry.name })] 
                                             });
                                             const imagemUrl = backupMsg.attachments.first()?.url;
@@ -769,15 +815,14 @@ async function handleLoreInteraction(interaction, client) {
                 await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi salva com sucesso!`, flags: 64 });
 
                 // Lógica de Backup
-                const backupChannelId = '1437124928737509559';
-                const backupChannel = await client.channels.fetch(backupChannelId).catch(() => null); //
-                if (!backupChannel) return interaction.followUp({ content: '⚠️ A lore foi salva, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
+                const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null); //
+                if (!bacCha) return interaction.followUp({ content: '⚠️ A lore foi salva, mas o canal de backup não foi encontrado. As mensagens originais não foram excluídas.', flags: 64 });
 
                 const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
                 const anexos = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
                 if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
 
-                const backupEnviado = await backupChannel.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: anexos }).catch(() => null);
+                const backupEnviado = await bacCha.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: anexos }).catch(() => null);
                 if (!backupEnviado) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro crítico ao enviar o backup para o servidor. As mensagens originais não foram excluídas para evitar perda de dados.', flags: 64 });
 
                 const linhaConfirmacao = new ActionRowBuilder().addComponents(
@@ -791,11 +836,13 @@ async function handleLoreInteraction(interaction, client) {
 
                 coletor.on('collect', async i => {
                     if (i.customId === 'lore_dm_confirm_yes') {
+                        let dmEnviada = true;
                         await i.user.send({ content: `Backup da sua lore **${title}**.`, files: anexos }).catch(() => {
-                            i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade.', components: [] });
-                            return;
+                            dmEnviada = false;
                         });
-                        await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                        
+                        if (dmEnviada) await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
+                        else await i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade. Iniciando limpeza...', components: [] });
                     } else {
                         await i.update({ content: 'Ok! O backup não será enviado por DM. Iniciando limpeza das mensagens originais...', components: [] });
                     }

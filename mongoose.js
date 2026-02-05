@@ -1,5 +1,5 @@
 const config = require('./config.json')
-const mongoose = require('mongoose')
+const mongoose = require('mongoose').config()
 
 const connectionOptions = {
     connectTimeoutMS: 30000, // Aumenta o tempo de espera para conexão
@@ -176,6 +176,43 @@ const lojaSchema = new mongoose.Schema({
         }]
     }]
 })
+
+const embedSchema = new mongoose.Schema({
+    messageId: { type: String, required: false, unique: true, sparse: true },
+    guildId: { type: String, required: true },
+    titulo: { type: String, required: true },
+    descricao: { type: String, required: true },
+    cor: { type: String, required: true },
+    footer: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    createdBy: { type: String, required: true },
+    canal: { type: String, required: true },
+    fields: [{
+        name: { type: String, required: true },
+        value: { type: String, required: true },
+        inline: { type: Boolean, required: false }
+    }],
+    buttons: [{
+        label: { type: String, required: true },
+        url: { type: String, required: false },
+        emoji: { type: String, required: false },
+        id: { type: String, required: true },
+        style: { type: String, required: true }
+    }],
+    selectMenus: [{
+        id: { type: String, required: true },
+        placeholder: { type: String, required: true },
+        options: [{
+            label: { type: String, required: true },
+            value: { type: String, required: true },
+            emoji: { type: String, required: false }
+        }]
+    }]
+
+})
+
+let EmbedModel = mongoose.model("Embed", embedSchema);
+module.exports.EmbedModel = EmbedModel;
 
 let LojaModel = mongoose.model("Loja", lojaSchema);
 module.exports.LojaModel = LojaModel;

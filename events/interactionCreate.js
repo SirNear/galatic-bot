@@ -6,6 +6,7 @@ const { handleAppearanceInteraction } = require('./appearanceInteraction.js');
 const { handleFichaInteraction } = require('./fichaInteraction.js');
 const { handleQuestInteraction } = require('./questInteraction.js');
 const { handleLojaInteraction } = require('./lojaInteraction.js');
+const { handleEmbedEditInteraction } = require('./embedInteraction.js');
 
 module.exports = class {
     constructor(client) {
@@ -63,6 +64,8 @@ module.exports = class {
                     customId.startsWith('modal_add_image_subhab_')
                 ) {
                     await handleFichaInteraction(interaction, this.client);
+                }else if(customId === 'btn_edit') {
+                    await handleEmbedEditInteraction(interaction, this.client);
                 }
             }
         } catch (err) {
