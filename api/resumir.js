@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const genAI = new GoogleGenerativeAI("AIzaSyDnhSuH5QHC9HTJ31ew-gYq0MnGn--ZgMU");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Função para converter buffer de arquivo para o formato da API Gemini
 function fileToGenerativePart(buffer, mimeType) {

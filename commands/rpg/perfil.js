@@ -10,10 +10,11 @@ const {
 const Command = require('../../structures/Command');
 const error = require('../../api/error.js');
 const color = require('../../api/colors.json');
+const path = require('path');
 const { google } = require('googleapis');
 
 const auth = new google.auth.GoogleAuth({
-    keyFile: "./api/regal-primacy-233803-4fc7ea1a8a5a.json",
+    keyFile: path.join(__dirname, "../../api/gen-lang-client-0033510257-453bedd541c0.json"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 const sheets = google.sheets({ version: "v4", auth });
@@ -143,7 +144,7 @@ module.exports = class perfil extends Command {
             let aparenciasEncontradas = [];
             try {
                 const res = await sheets.spreadsheets.values.get({
-                    spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                    spreadsheetId: process.env.SPREADSHEET_ID,
                     range: "INDIVIDUAIS!A:E",
                 });
                 const rows = res.data.values || [];

@@ -18,8 +18,11 @@ const error = require("../../api/error.js");
 const logs = require("../../api/logs.js");
 const { google } = require("googleapis");
 const ms = require("ms");
-const API_KEY = "AIzaSyCulP8QuMiKOq5l1FvAbvHX7vjX1rWJUOQ";
-const sheets = google.sheets({ version: "v4", auth: API_KEY });
+const auth = new google.auth.GoogleAuth({
+    keyFile: path.join(__dirname, "../../api/gen-lang-client-0033510257-453bedd541c0.json"),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+});
+const sheets = google.sheets({ version: "v4", auth: auth });
 const colors = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
 let intervalo, contador;
@@ -507,7 +510,7 @@ module.exports = class aparencia extends Command {
 
                   try {
                     const res = await sheets.spreadsheets.values.get({
-                      spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                      spreadsheetId: process.env.SPREADSHEET_ID,
                       range: "UNIVERSO!A:C",
                     });
                     const rows = res.data.values || [];
@@ -731,10 +734,6 @@ module.exports = class aparencia extends Command {
                               const objVer = resultados[idxBut];
                               if (!objVer) return ii.reply({ content: "Erro ao localizar verso.", ephemeral: false });
 
-                              const keyFil = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
-                              const autGoo = new google.auth.GoogleAuth({ keyFile: keyFil, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
-                              const sheWri = google.sheets({ version: "v4", auth: autGoo });
-
                               if (ii.customId.startsWith('edit_verso_')) {
                                 const modEdi = new ModalBuilder()
                                   .setCustomId(`modal_edit_verso_${objVer.rowIndex}`)
@@ -753,8 +752,8 @@ module.exports = class aparencia extends Command {
                                 const novNom = subMod.fields.getTextInputValue('edit_verso_nome');
                                 const novUso = subMod.fields.getTextInputValue('edit_verso_uso');
 
-                                await sheWri.spreadsheets.values.update({
-                                  spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                                await sheets.spreadsheets.values.update({
+                                  spreadsheetId: process.env.SPREADSHEET_ID,
                                   range: `UNIVERSO!A${objVer.rowIndex}:B${objVer.rowIndex}`,
                                   valueInputOption: "USER_ENTERED",
                                   resource: { values: [[novNom, novUso]] }
@@ -786,8 +785,8 @@ module.exports = class aparencia extends Command {
                                   if (d.customId === 'confirm_del_verso') {
                                     await d.deferUpdate();
                                     
-                                    await sheWri.spreadsheets.batchUpdate({
-                                      spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                                    await sheets.spreadsheets.batchUpdate({
+                                      spreadsheetId: process.env.SPREADSHEET_ID,
                                       resource: {
                                         requests: [{
                                           deleteDimension: {
@@ -1131,7 +1130,7 @@ module.exports = class aparencia extends Command {
 
             try {
               const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+                spreadsheetId: process.env.SPREADSHEET_ID,
                 range: "UNIVERSO!A:C",
               });
               const rows = res.data.values || [];
@@ -1277,7 +1276,7 @@ function calcularDistanciaLev(a, b) {
 
 async function buscarAparencias(sheets, tipo, target) {
     const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+        spreadsheetId: process.env.SPREADSHEET_ID,
         range: "INDIVIDUAIS!A:D",
     });
     const rows = res.data.values || [];

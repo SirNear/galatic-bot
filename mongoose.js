@@ -293,4 +293,19 @@ const botConfigSchema = new mongoose.Schema({
 });
 module.exports.BotConfig = mongoose.model("BotConfig", botConfigSchema);
 
+const scannedSheetSchema = new mongoose.Schema({
+    userId: { type: String, required: true, unique: true },
+    personagem: {
+        dados_basicos: { type: Map, of: String, default: {} },
+        status: { type: Map, of: String, default: {} },
+        habilidades: [{
+            nome: String,
+            descricao: String,
+            tipo: { type: String, default: 'Indefinido' }
+        }]
+    },
+    lastUpdate: { type: Date, default: Date.now }
+});
+module.exports.ScannedSheet = mongoose.model("ScannedSheet", scannedSheetSchema);
+
 module.exports.connect = connectToDatabase;
