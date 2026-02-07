@@ -187,8 +187,10 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
     jogador: userDb?.jogador || interaction.user.username
   };
 
-  const keyFilePath = path.join(__dirname, "../../api/regal-primacy-233803-4fc7ea1a8a5a.json");
-  const auth = new google.auth.GoogleAuth({ keyFile: keyFilePath, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+  });
   const sheetsUp = google.sheets({ version: "v4", auth });
 
   if (config.nomeItem === 'Aparência') {

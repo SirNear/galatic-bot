@@ -344,14 +344,9 @@ function criaEmbedResultados(resultados, configEmbed){
                             for (i = 0; i < rows.length; i++) {
                                 if (!rows[i][0]) break;
                             }
-                            const path = require("path");
-                            const keyFilePath = path.join(
-                                __dirname,
-                                "../../api/regal-primacy-233803-4fc7ea1a8a5a.json"
-                            );
 
                             let authUp = new google.auth.GoogleAuth({
-                                keyFile: keyFilePath,
+                                credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
                                 scopes: [
                                     "https://www.googleapis.com/auth/spreadsheets",
                                 ],
