@@ -126,7 +126,7 @@ module.exports = class GalaticClient extends Client {
             });
 
             const { REST, Routes } = require('discord.js');
-            const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+            const rest = new REST({ version: '10' }).setToken(this.token);
 
             const data = await rest.put(
                 Routes.applicationCommands(this.user.id),

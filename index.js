@@ -49,7 +49,11 @@ const client = new Client({
             client.emit('clientReady');
         });
 
-        await client.login(config.token);
+        const token = process.env.DISCORD_TOKEN || config.token;
+        if (!token) {
+            throw new Error("Token do Discord não encontrado. Verifique o arquivo .env ou config.js.");
+        }
+        await client.login(token.trim());
     } catch (erro) {
         // Captura o erro da conexão com o banco de dados ou outras falhas na inicialização
         await lidarErroFatal(erro, 'Inicialização do Bot');
