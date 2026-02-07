@@ -14,7 +14,7 @@ async function connectToDatabase() {
             throw new Error("A variável de ambiente MONGO_URI no arquivo .env é inválida. Ela deve começar com 'mongodb://' ou 'mongodb+srv://'. Atualize o arquivo .env com sua string de conexão real.");
         }
 
-        await mongoose.connect(process.env.mongoose, conOpt);
+        await mongoose.connect(process.env.MONGO_URI, conOpt);
         console.log('MONGOOSE | Conectado ao banco de dados!');
     } catch (err) {
         console.error(`MONGOOSE | Erro ao conectar ao banco de dados: ${err}`);
