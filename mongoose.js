@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+require('dotenv').config();
 
 const conOpt = {
     connectTimeoutMS: 30000, // Aumenta o tempo de espera para conexão

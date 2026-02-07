@@ -3,6 +3,8 @@ const { Client, Collection, GatewayIntentBits, Partials, EmbedBuilder, ActionRow
 const path = require('path');
 const config = require('./config.json')
 const EventManager = require('./structures/EventManager.js')
+require('dotenv').config();
+
 
 module.exports = class GalaticClient extends Client {
   constructor(options = {}) {
