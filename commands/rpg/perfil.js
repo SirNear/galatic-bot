@@ -13,11 +13,17 @@ const color = require('../../api/colors.json');
 const path = require('path');
 const { google } = require('googleapis');
 
-const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(__dirname, "../../api/gen-lang-client-0033510257-453bedd541c0.json"),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-const sheets = google.sheets({ version: "v4", auth });
+let sheets;
+try {
+    const auth = new google.auth.GoogleAuth({
+        credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    sheets = google.sheets({ version: "v4", auth });
+} catch (err) {
+    console.error("[ERRO] Falha ao carregar credenciais do Google (perfil.js):", err.message);
+}
+
 
 
 module.exports = class perfil extends Command {
@@ -143,8 +149,12 @@ module.exports = class perfil extends Command {
 
             let aparenciasEncontradas = [];
             try {
+                if (!sheets) {
+                    throw new Error("Planilha não configurada (credenciais ausentes).");
+                }
+
                 const res = await sheets.spreadsheets.values.get({
-                    spreadsheetId: process.env.SPREADSHEET_ID,
+                    spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                     range: "INDIVIDUAIS!A:E",
                 });
                 const rows = res.data.values || [];

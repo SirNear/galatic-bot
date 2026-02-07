@@ -18,11 +18,18 @@ const error = require("../../api/error.js");
 const logs = require("../../api/logs.js");
 const { google } = require("googleapis");
 const ms = require("ms");
-const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(__dirname, "../../api/gen-lang-client-0033510257-453bedd541c0.json"),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-const sheets = google.sheets({ version: "v4", auth: auth });
+
+let sheets;
+try {
+    const auth = new google.auth.GoogleAuth({
+        credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    sheets = google.sheets({ version: "v4", auth: auth });
+} catch (err) {
+    console.error("[ERRO] Falha ao carregar credenciais do Google (aparencia.js):", err.message);
+}
+
 const colors = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
 let intervalo, contador;
@@ -510,7 +517,7 @@ module.exports = class aparencia extends Command {
 
                   try {
                     const res = await sheets.spreadsheets.values.get({
-                      spreadsheetId: process.env.SPREADSHEET_ID,
+                      spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                       range: "UNIVERSO!A:C",
                     });
                     const rows = res.data.values || [];
@@ -753,7 +760,7 @@ module.exports = class aparencia extends Command {
                                 const novUso = subMod.fields.getTextInputValue('edit_verso_uso');
 
                                 await sheets.spreadsheets.values.update({
-                                  spreadsheetId: process.env.SPREADSHEET_ID,
+                                  spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                                   range: `UNIVERSO!A${objVer.rowIndex}:B${objVer.rowIndex}`,
                                   valueInputOption: "USER_ENTERED",
                                   resource: { values: [[novNom, novUso]] }
@@ -786,7 +793,7 @@ module.exports = class aparencia extends Command {
                                     await d.deferUpdate();
                                     
                                     await sheets.spreadsheets.batchUpdate({
-                                      spreadsheetId: process.env.SPREADSHEET_ID,
+                                      spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                                       resource: {
                                         requests: [{
                                           deleteDimension: {
@@ -1130,7 +1137,7 @@ module.exports = class aparencia extends Command {
 
             try {
               const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: process.env.SPREADSHEET_ID,
+                spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
                 range: "UNIVERSO!A:C",
               });
               const rows = res.data.values || [];
@@ -1275,8 +1282,9 @@ function calcularDistanciaLev(a, b) {
 }
 
 async function buscarAparencias(sheets, tipo, target) {
+    if (!sheets) return [];
     const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SPREADSHEET_ID,
+        spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
         range: "INDIVIDUAIS!A:D",
     });
     const rows = res.data.values || [];

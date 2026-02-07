@@ -12,11 +12,11 @@ const { logOperacao } = require("../api/APARENCIA/logAparencia.js");
 
 async function handleAppearanceInteraction(interaction, client) {
     const auth = new google.auth.GoogleAuth({
-        keyFile: "./api/regal-primacy-233803-4fc7ea1a8a5a.json",
+        credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
         scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
     const sheets = google.sheets({ version: "v4", auth });
-    const spreadsheetId = "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo";
+    const spreadsheetId = process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo";
 
     if (interaction.isButton()) {
         if (interaction.customId.startsWith('edit_appearance_') || interaction.customId.startsWith('delete_appearance_')) {
