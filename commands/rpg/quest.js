@@ -85,14 +85,18 @@ module.exports = class quest extends Command {
         }).catch(() => null);
 
         if (!modalSubmit) {
-            return; 
+            return;
         }
 
         try {
             await modalSubmit.deferReply({ flags: 64 });
         } catch (error) {
-            if (error.code === 10062) { 
-                console.log("A interação do modal de criação de quest expirou antes do envio.");
+            // Se a interação já foi respondida (40060) ou não existe mais (10062),
+            // apenas logamos e paramos a execução, pois não podemos mais interagir.
+            if (error.code === 40060 || error.code === 10062) {
+                console.warn(`[QUEST] Falha ao adiar resposta do modal (código: ${error.code}). A interação já foi respondida ou expirou.`);
+            } else {
+                console.error('[QUEST] Erro inesperado ao adiar resposta do modal:', error);
             }
             return;
         }

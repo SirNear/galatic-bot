@@ -39,6 +39,10 @@ module.exports = class rpresumo extends Command {
         .addStringOption(option => 
             option.setName('fim')
                 .setDescription('ID da mensagem final do RP (opcional)')
+                .setRequired(false))
+        .addBooleanOption(option =>
+            option.setName('sem_resumo')
+                .setDescription('Se verdadeiro, gera apenas o arquivo bruto sem resumo.')
                 .setRequired(false));
     }
   }
@@ -67,6 +71,11 @@ module.exports = class rpresumo extends Command {
         if (fetched.size === 0) break;
 
         for (const msg of fetched.values()) {
+            if (startId && msg.id === startId) {
+                messages.push(msg);
+                stop = true;
+                break;
+            }
             if (startId && BigInt(msg.id) < BigInt(startId)) {
                 stop = true;
                 break;
@@ -86,6 +95,8 @@ module.exports = class rpresumo extends Command {
     const startId = interaction.options.getString('inicio');
     let endId = interaction.options.getString('fim');
     const targetChannel = interaction.options.getChannel('canal') || interaction.channel;
+    const semResumoOption = interaction.options.getBoolean('sem_resumo');
+    const semResumo = semResumoOption === true;
     const ehCategoria = targetChannel.type === ChannelType.GuildCategory;
 
     await interaction.deferReply({ flags: 64 });
@@ -130,6 +141,10 @@ module.exports = class rpresumo extends Command {
         if (startId && BigInt(startId) > BigInt(endId)) {
             return interaction.editReply({ content: '❌ O ID da mensagem inicial deve ser menor (mais antigo) que o ID da mensagem final.' });
         }
+        
+        if ((startId && !/^\d+$/.test(startId)) || (endId && !/^\d+$/.test(endId))) {
+             return interaction.editReply({ content: '❌ Os IDs fornecidos devem ser numéricos (Snowflakes).' });
+        }
 
         let allMessages = [];
         let processedCount = 0;
@@ -141,7 +156,7 @@ module.exports = class rpresumo extends Command {
             allMessages.push(...msgs);
             processedCount++;
             
-            if (processedCount % 2 === 0 || processedCount === channelsToProcess.length) {
+            if (processedCount % 5 === 0 || processedCount === channelsToProcess.length) {
                 await interaction.editReply({ content: `⏳ Coletando mensagens... (${processedCount}/${channelsToProcess.length} canais processados | ${allMessages.length} mensagens coletadas)` });
             }
         }
@@ -157,10 +172,46 @@ module.exports = class rpresumo extends Command {
         let aiText = [];
         let fileText = [];
 
-        fileText.push(`============================================================`);
-        fileText.push(`TRANSCRICAO DE RP - ALVO: ${targetChannel.name}`);
-        fileText.push(`GERADO EM: ${new Date().toLocaleString('pt-BR')}`);
-        fileText.push(`============================================================\n`);
+        // Lógica para determinar metadados do cabeçalho
+        let catName = 'N/A';
+        let forumChanName = 'N/A';
+        let postTitle = 'N/A';
+
+        if (targetChannel.type === ChannelType.GuildCategory) {
+            catName = targetChannel.name;
+            forumChanName = 'Categoria Inteira';
+            postTitle = 'Vários Tópicos';
+        } else if (targetChannel.isThread()) {
+            postTitle = targetChannel.name;
+            if (targetChannel.parent) {
+                forumChanName = targetChannel.parent.name;
+                if (targetChannel.parent.parent) catName = targetChannel.parent.parent.name;
+            }
+        } else {
+            forumChanName = targetChannel.name;
+            if (targetChannel.parent) catName = targetChannel.parent.name;
+        }
+
+        fileText.push(`======================================================================`);
+        fileText.push(`                        ARQUIVO DE REGISTRO DE RP`);
+        fileText.push(`======================================================================\n`);
+        fileText.push(`LEGENDA:`);
+        fileText.push(`- Categoria: A categoria de canais onde o RP ocorreu.`);
+        fileText.push(`- Fórum/Canal: O canal ou fórum específico.`);
+        fileText.push(`- Título da Postagem: O nome do tópico/thread (se aplicável).`);
+        fileText.push(`- Intervalo de Mensagens: Do ID da primeira à última mensagem incluída.`);
+        fileText.push(`- Modo: ${semResumo ? 'Texto Bruto (Sem Resumo)' : 'Resumo com IA'}\n`);
+        fileText.push(`----------------------------------------------------------------------`);
+        fileText.push(`                            INFORMAÇÕES`);
+        fileText.push(`----------------------------------------------------------------------\n`);
+        fileText.push(`- Categoria: ${catName}`);
+        fileText.push(`- Fórum/Canal: ${forumChanName}`);
+        fileText.push(`- Título da Postagem: ${postTitle}`);
+        fileText.push(`- Intervalo de Mensagens: ${startId || 'Início'} a ${endId || 'Fim'}`);
+        fileText.push(`- Data de Geração: ${new Date().toLocaleString('pt-BR')}\n`);
+        fileText.push(`======================================================================`);
+        fileText.push(`                        CONTEÚDO`);
+        fileText.push(`======================================================================\n`);
         
         for (const msg of allMessages) {
             const lore = loreMap.get(msg.id);
@@ -201,14 +252,18 @@ module.exports = class rpresumo extends Command {
                 return interaction.editReply({ content: '❌ Texto insuficiente para resumir.' });
         }
 
-        if (ehCategoria) {
+        if (ehCategoria || semResumo === true) {
             const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
             const nomCan = targetChannel.name.replace(/[^a-zA-Z0-9-_]/g, '_');
             const traBuf = Buffer.from(textForFile, 'utf-8');
             const anexo = new AttachmentBuilder(traBuf, { name: `mensagens-${nomCan}-${datAtu}.txt` });
 
+            const msgContent = ehCategoria 
+                ? '📝 Modo de categoria ativado. O resumo por IA foi pulado para economizar recursos.' 
+                : '📝 Modo sem resumo ativado.';
+
             return interaction.editReply({
-                content: '📝 Modo de categoria ativado. O resumo por IA foi pulado para economizar recursos. Apenas a transcrição completa foi gerada.',
+                content: `${msgContent} Arquivo gerado com sucesso.`,
                 files: [anexo]
             });
         }
@@ -290,7 +345,17 @@ module.exports = class rpresumo extends Command {
 
     } catch (err) {
         console.error(err);
-        await interaction.editReply({ content: '❌ Ocorreu um erro ao processar o resumo. Verifique os IDs e permissões.' });
+        if (err.code === 10062 || err.code === 40060) { // Unknown Interaction or Interaction Not Acknowledged
+            try {
+                await interaction.channel.send({ content: `<@${interaction.user.id}>, a sua solicitação demorou muito e a interação expirou. Ocorreu um erro durante o processamento.` });
+            } catch (erroFal) {
+                console.error("Falha ao enviar mensagem de fallback de erro no canal:", erroFal);
+            }
+        } else {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ content: '❌ Ocorreu um erro ao processar o resumo. Verifique os IDs, permissões e se o bot pode ver o histórico do canal.' }).catch(() => {});
+            }
+        }
     }
   }
 };
