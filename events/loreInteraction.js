@@ -221,7 +221,7 @@ async function handleLoreInteraction(interaction, client) {
                 }
                 return parts;
             };
-            const validateImageUrl = async (url) => { try { const response = await fetch(url); return response.ok && response.headers.get('content-type')?.startsWith('image/'); } catch { return false; } };
+            const validateImageUrl = async (url) => { try { const response = await fetch(url, { headers: { 'User-Agent': 'GalaticBot/1.0' } }); return response.ok && response.headers.get('content-type')?.startsWith('image/'); } catch { return false; } };
 
             // Geração de Embed
             const generateEphemeralEmbed = async (loreDoc, chapIdx, pIdx, descPIdx) => {
@@ -480,16 +480,19 @@ async function handleLoreInteraction(interaction, client) {
                                 const fullText = textBlock.join('\n\n');
                                 const textPages = paginateText(fullText);
                                 textPages.forEach((pageContent, index) => {
-                                    const imgUrl = (index === 0 && imageUrl) ? imageUrl : null;
+                                    const imgUrl = imageUrl;
                                     newPagesAsObjects.push({ content: pageContent, imageUrl: imgUrl });
                                 });
                                 textBlock = [];
                             } else if (imageUrl) {
-                                // Se não há texto mas há imagem, adiciona página com apenas a imagem
-                                newPagesAsObjects.push({
-                                    content: ' ',
-                                    imageUrl: imageUrl
-                                });
+                                if (newPagesAsObjects.length > 0 && !newPagesAsObjects[newPagesAsObjects.length - 1].imageUrl) {
+                                    newPagesAsObjects[newPagesAsObjects.length - 1].imageUrl = imageUrl;
+                                } else {
+                                    newPagesAsObjects.push({
+                                        content: ' ',
+                                        imageUrl: imageUrl
+                                    });
+                                }
                             }
                         };
 
@@ -774,6 +777,7 @@ async function handleLoreInteraction(interaction, client) {
             if (!lore.chapters[chapterIndex]?.pages[pageIndex]) return interaction.editReply({ content: '❌ Página não encontrada na lore.' });
 
             lore.chapters[chapterIndex].pages[pageIndex].imageUrl = imageUrl;
+            lore.markModified('chapters');
             await lore.save();
 
             await interaction.editReply({ content: '✅ Imagem adicionada com sucesso!' });

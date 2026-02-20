@@ -135,7 +135,7 @@ module.exports = class lore extends Command {
                                 const fullText = textBlock.join('\n\n');
                                 const textPages = paginateText(fullText);
                                 textPages.forEach((pageContent, index) => {
-                                    const imgUrl = (index === 0 && imageUrl) ? imageUrl : null;
+                                    const imgUrl = imageUrl;
                                     finalPages.push({
                                         content: pageContent,
                                         imageUrl: imgUrl
@@ -143,11 +143,14 @@ module.exports = class lore extends Command {
                                 });
                                 textBlock = [];
                             } else if (imageUrl) {
-                                // Se não há texto mas há imagem, adiciona página com apenas a imagem
-                                finalPages.push({
-                                    content: ' ',
-                                    imageUrl: imageUrl
-                                });
+                                if (finalPages.length > 0 && !finalPages[finalPages.length - 1].imageUrl) {
+                                    finalPages[finalPages.length - 1].imageUrl = imageUrl;
+                                } else {
+                                    finalPages.push({
+                                        content: ' ',
+                                        imageUrl: imageUrl
+                                    });
+                                }
                             }
                         };
 
