@@ -39,15 +39,12 @@ const client = new Client({
             logger.defAva(client.user.displayAvatarURL());
             await client.registerSlashCommands();
             await client.loadQuestCollectors();
-            // Centralizando a chamada do loop de reabertura de tópicos aqui.
-            // O ID do servidor foi pego de outros comandos, verifique se está correto.
-            client.setupUnarchiveLoop('731974689798488185');
 
             // Carregar cron jobs e emitir evento clientReady (migrado de events/clientReady.js)
             const lembreteVerso = require("./api/cron/lembreteVerso.js");
             lembreteVerso(client);
             client.emit('clientReady');
-        });
+        })
 
         const token = process.env.DISCORD_TOKEN || config.token;
         if (!token) {

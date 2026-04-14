@@ -38,7 +38,6 @@ module.exports = class GalaticClient extends Client {
     this.activeCollector = false;
     this.maintenance = false;
     this.fichaStates = new Map();
-    this.unarchiveInterval = null;
 
 }
 
@@ -280,75 +279,6 @@ module.exports = class GalaticClient extends Client {
         }
     }
 	
-    /**
-     * Busca e reabre todas as threads arquivadas em um servidor específico.
-     * @param {Snowflake} guildId O ID do servidor.
-     */
-    async unarchiveAllThreads(guildId) {
-      const summary = {
-        reopened: 0,
-        failed: 0,
-        errors: [],
-      };
-
-      try {
-        const guild = await this.guilds.fetch(guildId);
-        if (!guild) {
-          console.error(`[Thread Unarchiver] Guild com ID ${guildId} não encontrada.`);
-          return;
-        }
-        
-        const forumChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildForum);
-        if (forumChannels.size === 0) {
-          return;
-        }
-
-        for (const forum of forumChannels.values()) {
-          try {
-            const archivedThreads = await forum.threads.fetchArchived();
-            if (archivedThreads.threads.size > 0) {
-              for (const thread of archivedThreads.threads.values()) {
-                try {
-                  if (thread.archived) {
-                    await thread.setArchived(false, 'Reabertura automática de postagens.');
-                    summary.reopened++;
-                  }
-                } catch (err) {
-                  summary.failed++;
-                  if (err.code !== RESTJSONErrorCodes.MissingAccess) {
-                    summary.errors.push(`- Falha ao reabrir "${thread.name}" em #${forum.name}: ${err.message}`);
-                  }
-                }
-              }
-            }
-          } catch (forumError) {
-            summary.failed++;
-            summary.errors.push(`- Erro ao processar o fórum #${forum.name}: ${forumError.message}`);
-          }
-        }
-
-      } catch (error) {
-        if (error.code === 10004) {
-            console.warn(`[OPEN TOPICS SYSTEM] Servidor ${guildId} não encontrado (Unknown Guild).`);
-        } else {
-            console.error(`[OPEN TOPICS SYSTEM] Erro crítico ao processar o servidor ${guildId}:`, error);
-        }
-      } finally {
-        let logMessage = `[OPEN TOPICS SYSTEM] Processo concluído. Total de postagens reabertas: ${summary.reopened}.`;
-        if (summary.failed > 0) {
-          logMessage += ` Falhas: ${summary.failed}.\nErros detalhados:\n${summary.errors.join('\n')}`;
-        }
-        console.log(logMessage);
-      }
-    }
-
-    setupUnarchiveLoop(guildId, interval = 24 * 60 * 60 * 1000) { // 24 horas
-      this.unarchiveAllThreads(guildId); // Executa imediatamente
-      if (this.unarchiveInterval) clearInterval(this.unarchiveInterval); // Limpa intervalo antigo se houver
-      this.unarchiveInterval = setInterval(() => this.unarchiveAllThreads(guildId), interval);
-      console.log(`[OPEN TOPICS SYSTEM] Loop de reabertura automática configurado para cada 24 horas.`);
-    }
-
     async loadQuestCollectors() {
         console.log('Carregando coletores de quests...');
         const openQuests = await this.database.Quest.find({ status: 'aberta' });
