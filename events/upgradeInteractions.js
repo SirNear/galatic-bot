@@ -713,8 +713,8 @@ async function envioUpg(interaction, client, listaUpg) {
         upgrades: listaUpg.upgrades
     });
 
-    const filaChannel = await client.channels.fetch('931334789322129438').catch(() => null);
-    const pendentAdmChannel = await client.channels.fetch('1408850402740404356').catch(() => null);
+    const filaChannel = await client.channels.fetch('1502919510787887104').catch(() => null);
+    const pendentAdmChannel = await client.channels.fetch('1502919601107763252').catch(() => null);
     const posicaoFila = await client.database.UpgradeModel.countDocuments({ status: 'pendente' });
     const tempoPendencia = 'Menos de 1m';
     const timestampAtu = Math.floor(Date.now() / 1000);
