@@ -17,7 +17,7 @@ async function handleEmbedEditInteraction(interaction, client) {
     let embMsg = interaction.message || await interaction.channel.messages.fetch(interaction.message.id);
 
     if (!embDb || embDb.createdBy !== interaction.user.id) {
-        return interaction.reply({ content: '❌ Não foi possível encontrar os dados deste embed no banco de dados ou você não tem permissão para editá-lo.', ephemeral: true });
+        return interaction.reply({ content: '❌ Não foi possível encontrar os dados deste embed no banco de dados ou você não tem permissão para editá-lo.', flags: 64 });
     }
 
     const embEdiMsg = new EmbedBuilder()
@@ -51,7 +51,7 @@ async function handleEmbedEditInteraction(interaction, client) {
         .setStyle(ButtonStyle.Danger)
         .setEmoji('🗑️');
     
-    let ediMsgEmb = await interaction.reply({ embeds: [embEdiMsg], components: [new ActionRowBuilder().addComponents(menEdi), new ActionRowBuilder().addComponents(btnExc)], ephemeral: true, fetchReply: true });
+    let ediMsgEmb = await interaction.reply({ embeds: [embEdiMsg], components: [new ActionRowBuilder().addComponents(menEdi), new ActionRowBuilder().addComponents(btnExc)], flags: 64, fetchReply: true });
 
     const filter = i => i.user.id === interaction.user.id;
     const colMen = ediMsgEmb.createMessageComponentCollector({ filter, componentType: ComponentType.StringSelect, time: 300000 });
@@ -82,7 +82,7 @@ async function handleEmbedEditInteraction(interaction, client) {
                     embDb.titulo = novTit;
                     await embDb.save();
 
-                    await subFor.reply({ content: `✅ Título atualizado para: **${novTit}**`, ephemeral: true });
+                    await subFor.reply({ content: `✅ Título atualizado para: **${novTit}**`, flags: 64 });
 
                     const embAtu = EmbedBuilder.from(embMsg.embeds[0]).setTitle(novTit);
                     await embMsg.edit({ embeds: [embAtu] });
@@ -112,7 +112,7 @@ async function handleEmbedEditInteraction(interaction, client) {
                     embDb.descricao = novDesc;
                     await embDb.save();
 
-                    await subFor.reply({ content: `✅ Descrição atualizada para: **${novDesc}**`, ephemeral: true });
+                    await subFor.reply({ content: `✅ Descrição atualizada para: **${novDesc}**`, flags: 64 });
 
                     const embAtu = EmbedBuilder.from(embMsg.embeds[0]).setDescription(novDesc);
                     await embMsg.edit({ embeds: [embAtu] });
@@ -141,7 +141,7 @@ async function handleEmbedEditInteraction(interaction, client) {
                     embDb.cor = novCor;
                     await embDb.save();
 
-                    await subFor.reply({ content: `✅ Cor atualizada para: **${novCor}**`, ephemeral: true });
+                    await subFor.reply({ content: `✅ Cor atualizada para: **${novCor}**`, flags: 64 });
                     const embAtu = EmbedBuilder.from(embMsg.embeds[0]).setColor(novCor);
                     await embMsg.edit({ embeds: [embAtu] });
                 }
@@ -169,12 +169,12 @@ async function handleEmbedEditInteraction(interaction, client) {
                     embDb.footer = novFooter;
                     await embDb.save();
 
-                    await subFor.reply({ content: `✅ Rodapé atualizado para: **${novFooter}**`, ephemeral: true });
+                    await subFor.reply({ content: `✅ Rodapé atualizado para: **${novFooter}**`, flags: 64 });
                     const embAtu = EmbedBuilder.from(embMsg.embeds[0]).setFooter({ text: novFooter });
                     await embMsg.edit({ embeds: [embAtu] });
                 }
             }else if (i.values[0] === 'imagem') {
-                i.reply({ content: 'Envie a imagem que deseja definir para o embed (como anexo ou URL) dentro de 2 minutos.', ephemeral: true });
+                i.reply({ content: 'Envie a imagem que deseja definir para o embed (como anexo ou URL) dentro de 2 minutos.', flags: 64 });
 
                 const filterImg = msg => msg.author.id === interaction.user.id && (msg.attachments.size > 0 || msg.content.match(/https?:\/\/\S+\.(jpg|jpeg|png|gif|webp)/i));
                 const colImg = interaction.channel.createMessageCollector({ filter: filterImg, max: 1, time: 120000 });
@@ -193,16 +193,16 @@ async function handleEmbedEditInteraction(interaction, client) {
                     embDb.imagem = imgUrl.attachments.first().url;
                     await embDb.save();
 
-                    await msg.reply({ content: `✅ Imagem atualizada`, ephemeral: true });
+                    await msg.reply({ content: `✅ Imagem atualizada`, flags: 64 });
                     
             })
         }else if (i.values[0] === 'add_campo') {
 
             if (maxCharacters <= 0) {
-                return i.reply({ content: '❌ O embed já atingiu o número máximo de caracteres nos campos (6000).', ephemeral: true });
+                return i.reply({ content: '❌ O embed já atingiu o número máximo de caracteres nos campos (6000).', flags: 64 });
                 
             }else if (maxFields <= 0) {
-                return i.reply({ content: '❌ O embed já atingiu o número máximo de campos (25).', ephemeral: true });
+                return i.reply({ content: '❌ O embed já atingiu o número máximo de campos (25).', flags: 64 });
             }
 
 
@@ -239,7 +239,7 @@ async function handleEmbedEditInteraction(interaction, client) {
                 embDb.campos.push({ name: nomeCampo, value: valorCampo, inline: false });
                 await embDb.save();
 
-                await subFor.reply({ content: `✅ Campo adicionado com sucesso! Você ainda tem ${maxFields - 1} campos disponíveis e ${maxCharacters - (nomeCampo.length + valorCampo.length)} caracteres disponíveis para o embed`, ephemeral: true });
+                await subFor.reply({ content: `✅ Campo adicionado com sucesso! Você ainda tem ${maxFields - 1} campos disponíveis e ${maxCharacters - (nomeCampo.length + valorCampo.length)} caracteres disponíveis para o embed`, flags: 64 });
                 const embAtu = EmbedBuilder.from(embMsg.embeds[0]).addFields({ name: nomeCampo, value: valorCampo, inline: false });
                 await embMsg.edit({ embeds: [embAtu] });
             }        
@@ -308,7 +308,7 @@ async function handleEmbedEditInteraction(interaction, client) {
                         { label: 'Remover Cargo', value: `removeRole_${inpLabel}` }
                     );
 
-                await subFor.reply({ content: `✅ Botão adicionado com sucesso! Vamos configurar a ação dele agora...`, components: [new ActionRowBuilder().addComponents(menuOptBtn)], ephemeral: true });
+                await subFor.reply({ content: `✅ Botão adicionado com sucesso! Vamos configurar a ação dele agora...`, components: [new ActionRowBuilder().addComponents(menuOptBtn)], flags: 64 });
 
                 
             }

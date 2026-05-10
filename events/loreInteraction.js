@@ -95,16 +95,21 @@ async function handleLoreInteraction(interaction, client) {
                 chapterIndex = parseInt(parts[3] || '0', 10);
                 pageIndex = parseInt(parts[4] || '0', 10);
                 descPageIndex = parseInt(parts[5] || '0', 10);
-            } else if (['add', 'move-chapter', 'delete', 'edit', 'add-image'].includes(action)) {
+            } else if (['add', 'move-chapter', 'delete', 'edit', 'add-image', 'upg'].includes(action)) {
                 messageId = parts[2]; // ID da mensagem é sempre o 3º elemento
                 if (action === 'add' && type === 'chapter') messageId = parts[3];
                 if (action === 'add' && type === 'backup') messageId = parts[3];
                 if (action === 'move-chapter' || (action === 'delete' && type === 'chapter')) messageId = parts[3];
                 if (['edit', 'delete', 'add-image'].includes(action) && type === 'page') messageId = parts[3];
+                if (action === 'upg') messageId = parts[3];
 
                 if (action === 'edit' && type === 'page') {
                     chapterIndex = parseInt(parts[4] || '0', 10);
                     pageIndex = parseInt(parts[5] || '0', 10);
+                } else if (action === 'upg') {
+                    chapterIndex = parseInt(parts[4] || '0', 10);
+                    pageIndex = parseInt(parts[5] || '0', 10);
+                    descPageIndex = parseInt(parts[6] || '0', 10);
                 } else {
                     let idxPos = 3;
                     if (action === 'move-chapter') idxPos = 4;
@@ -113,7 +118,7 @@ async function handleLoreInteraction(interaction, client) {
                     chapterIndex = parseInt(parts[idxPos] || '0', 10);
                     pageIndex = parseInt(parts[4] || '0', 10);
                 }
-                descPageIndex = 0;
+                if (action !== 'upg') descPageIndex = 0;
             } else {
                  return; // Ação desconhecida
             }
@@ -132,6 +137,26 @@ async function handleLoreInteraction(interaction, client) {
                     else if (type === 'chapter' && chapterIndex < lore.chapters.length - 1) { chapterIndex++; pageIndex = 0; descPageIndex = 0; }
                     else if (type === 'desc') { descPageIndex++; }
                     break;
+                case 'upg': {
+                    if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para usar isso.', flags: 64 });
+                    
+                    // Upgrade abrange o capítulo inteiro (contexto geral)
+                    const loreText = lore.chapters[chapterIndex].pages.map(p => p.content).join('\n\n');
+
+                    const { cacheUpgradeSystem } = require('./upgradeInteractions.js');
+                    cacheUpgradeSystem.set(interaction.user.id, { loreText: loreText, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
+                    
+                    const embAi = new EmbedBuilder()
+                        .setTitle('<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | <a:MEE6_LEVLEUP:1503159176690405426>')
+                        .setDescription('Lore capturada com sucesso!\n\n**Como você deseja enviar os seus upgrades?**')
+                        .setColor('#2b2d31');
+                    const rowAi = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary)
+                    );
+                    
+                    return interaction.update({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi], files: [] });
+                }
                 case 'chapters-list': {
                     const isCreator = interaction.user.id === lore.createdBy;
                     const validChapters = lore.chapters.filter(c => c && c.name);
@@ -236,79 +261,8 @@ async function handleLoreInteraction(interaction, client) {
                     if (descriptionParts.length > 1) footerParts.push(`Parte ${descPIdx + 1} de ${descriptionParts.length}`);
 
                     const embed = new EmbedBuilder().setTitle(loreDoc.title || 'Lore').setColor('#0099ff').setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() }).setDescription(currentDescription).setFooter({ text: footerParts.join(' | ') }).setTimestamp();
-                    let files = [];
                     
-                    let imgVal = false;
-                    if (page.imageUrl) {
-                        imgVal = await validateImageUrl(page.imageUrl);
-                        if (!imgVal) {
-                            try {
-                                const canBacId = process.env.BACKUP_CHANNEL_ID;
-                                const canBac = await client.channels.fetch(canBacId).catch(() => null);
-                                if (canBac) {
-                                    const menBac = await canBac.messages.fetch({ limit: 100 });
-                                    const nomZipCap = `capitulo_${chapter.name}_imagens.zip`;
-                                    const nomZipLor = `lore_imagens_${loreDoc.messageId}.zip`;
-                                    const normalizeName = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                                    
-                                    let msgZip = menBac.find(m => m.attachments.some(a => normalizeName(a.name) === normalizeName(nomZipCap)));
-                                    let isGlobalZip = false;
-
-                                    if (!msgZip) {
-                                        msgZip = menBac.find(m => m.attachments.some(a => normalizeName(a.name) === normalizeName(nomZipLor)));
-                                        if (msgZip) isGlobalZip = true;
-                                    }
-
-                                    if (msgZip) {
-                                        const aneZip = msgZip.attachments.find(a => isGlobalZip ? normalizeName(a.name) === normalizeName(nomZipLor) : normalizeName(a.name) === normalizeName(nomZipCap));
-                                        if (!aneZip) throw new Error('Anexo ZIP não encontrado na mensagem de backup.');
-
-                                        const resZip = await fetch(aneZip.url);
-                                        const bufZip = Buffer.from(await resZip.arrayBuffer());
-                                        const arqZip = new AdmZip(bufZip);
-                                        const entZip = arqZip.getEntries().filter(e => !e.isDirectory && /\.(png|jpe?g|gif)$/i.test(e.entryName)).sort((a, b) => a.entryName.localeCompare(b.entryName, undefined, { numeric: true }));
-                                        const pagComImg = chapter.pages.filter(p => p.imageUrl);
-
-                                        let offset = 0;
-                                        if (isGlobalZip) {
-                                            for (let c = 0; c < chapIdx; c++) {
-                                                if (loreDoc.chapters[c] && loreDoc.chapters[c].pages) {
-                                                    offset += loreDoc.chapters[c].pages.filter(p => p.imageUrl).length;
-                                                }
-                                            }
-                                        }
-
-                                        if (entZip.length > 0) {
-                                            for (let i = 0; i < pagComImg.length; i++) {
-                                                const zipIdx = offset + i;
-                                                if (zipIdx < entZip.length) {
-                                                    const isCurrentPage = pagComImg[i] === page;
-                                                    if (isCurrentPage) {
-                                                        const bufImg = entZip[zipIdx].getData();
-                                                        const msgImg = await canBac.send({ files: [new AttachmentBuilder(bufImg, { name: entZip[zipIdx].entryName })] });
-                                                        pagComImg[i].imageUrl = msgImg.attachments.first().url;
-                                                    }
-                                                }
-                                            }
-                                            await client.database.Lore.updateOne({ messageId: loreDoc.messageId }, { $set: { chapters: loreDoc.chapters } });
-                                            imgVal = true;
-                                        }
-                                    }
-                                }
-                            } catch (errRec) { console.error('Erro ao recuperar imagens do backup:', errRec); }
-                        }
-                    }
-
-                    if (page.imageUrl && imgVal) {
-                        try {
-                            const response = await fetch(page.imageUrl);
-                            const imageBuffer = Buffer.from(await response.arrayBuffer());
-                            const attachment = new AttachmentBuilder(imageBuffer, { name: 'lore_image.png' });
-                            files.push(attachment);
-                            embed.setImage('attachment://lore_image.png');
-                        } catch (fetchError) { console.error(`Falha ao baixar a imagem da URL: ${page.imageUrl}`, fetchError); }
-                    }
-                    return { embed, files };
+                    return { embed, files: [] };
                 } catch (error) {
                     console.error('Erro ao gerar embed:', error);
                     return { embed: new EmbedBuilder().setColor('Red').setTitle('❌ Erro ao carregar página').setDescription('Ocorreu um erro ao carregar esta página da lore.'), files: [] };
@@ -333,10 +287,16 @@ async function handleLoreInteraction(interaction, client) {
                     ));
                 }
 
-                components.push(new ActionRowBuilder().addComponents(
+                const row2 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_prev_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('<< Cap. Anterior').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx === 0),
                     new ButtonBuilder().setCustomId(`lore_next_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Cap. Próximo >>').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx >= totalChapters - 1)
-                ));
+                );
+                
+                if (interaction.user.id === loreDoc.createdBy) {
+                    row2.addComponents(new ButtonBuilder().setCustomId(`lore_upg_chap_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setEmoji('1503159176690405426').setStyle(ButtonStyle.Success));
+                }
+                components.push(row2);
+
                 components.push(new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_prev_page_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('◀️ Página').setStyle(ButtonStyle.Primary).setDisabled(pIdx === 0),
                     new ButtonBuilder().setCustomId(`lore_next_page_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Página ▶️').setStyle(ButtonStyle.Primary).setDisabled(pIdx >= totalPagesInChapter - 1),
@@ -354,14 +314,16 @@ async function handleLoreInteraction(interaction, client) {
 
             if (action === 'read') {
                 if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 });
-            } else {
+            } else if (action !== 'upg') {
                 if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             }
 
-            const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
-            const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex) };
+            if (action !== 'upg') {
+                const { embed, files } = await generateEphemeralEmbed(lore, chapterIndex, pageIndex, descPageIndex);
+                const responseOptions = { embeds: [embed], files: files, components: getEphemeralButtons(lore, chapterIndex, pageIndex, descPageIndex) };
 
-            await interaction.editReply(responseOptions);
+                await interaction.editReply(responseOptions);
+            }
         }
 
         if (interaction.customId.startsWith('lore_delete_chapter_confirm_')) {

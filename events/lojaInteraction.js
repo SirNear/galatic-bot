@@ -9,7 +9,7 @@ async function handleLojaInteraction(interaction, client) {
     if (!temPermissao) {
         return interaction.reply({
             content: 'Você não tem permissão para interagir com a criação de lojas.',
-            ephemeral: true,
+            flags: 64,
         });
     }
 
@@ -22,7 +22,7 @@ async function handleLojaInteraction(interaction, client) {
 
             const temCargoAdmod = interaction.member.roles.cache.has('1438672389918556310') || interaction.member.roles.cache.has('1409771551099715645');
             if (!temCargoAdmod) {
-                return interaction.reply({ content: '❌ Apenas AdMods podem aprovar ou rejeitar lojas.', ephemeral: true });
+                return interaction.reply({ content: '❌ Apenas AdMods podem aprovar ou rejeitar lojas.', flags: 64 });
             }
 
             const lojaPen = await LojaModel.findById(lojaId);
@@ -60,15 +60,15 @@ async function handleLojaInteraction(interaction, client) {
             const [, lojaId, nomeCat] = interaction.customId.split('_');
 
             const lojaDb = await LojaModel.findOne({ messageId: interaction.message.id });
-            if (!lojaDb) return interaction.reply({ content: 'A loja foi excluida ou está desatualizada no banco de dados.', ephemeral: true });
+            if (!lojaDb) return interaction.reply({ content: 'A loja foi excluida ou está desatualizada no banco de dados.', flags: 64 });
         
             const categoria = lojaDb.categorias.find(cat => cat.nome.toLowerCase() === nomeCat.toLowerCase());
-            if (!categoria) return interaction.reply({ content: 'Categoria não encontrada na loja.', ephemeral: true });
+            if (!categoria) return interaction.reply({ content: 'Categoria não encontrada na loja.', flags: 64 });
             
             const itensCat = categoria.itens;
 
             if(!itensCat || itensCat.length === 0) {
-                return interaction.reply({ content: 'Nenhum item disponível nesta categoria.', ephemeral: true });
+                return interaction.reply({ content: 'Nenhum item disponível nesta categoria.', flags: 64 });
             }
 
             let pagAtual = 0;
@@ -109,7 +109,7 @@ async function handleLojaInteraction(interaction, client) {
             const resposta = await interaction.reply({
                 embeds: [await gerarEmbedItem(pagAtual)],
                 components: [gerarBotoesItem(pagAtual)],
-                ephemeral: true,
+                flags: 64,
                 fetchReply: true,
             });
 
@@ -135,7 +135,7 @@ async function handleLojaInteraction(interaction, client) {
 
                     const itemComprar = itensCat.find(it => it.nome === nomeItem);
                     if (!itemComprar) {
-                        await i.reply({ content: `Item não encontrado.`, ephemeral: true });
+                        await i.reply({ content: `Item não encontrado.`, flags: 64 });
                         return;
                     }
 
@@ -143,7 +143,7 @@ async function handleLojaInteraction(interaction, client) {
                     const saldoUsu = dadosUsu.moeda.get(itemComprar.moeda.toLowerCase()) || 0;
 
                     if (saldoUsu < itemComprar.preco) {
-                        await i.reply({ content: `❌ Você não tem ${itemComprar.preco} ${confMoeda?.emoji || ''} ${itemComprar.moeda} para comprar **${itemComprar.nome}**. Saldo atual: ${saldoUsu} ${confMoeda?.emoji || ''} ${itemComprar.moeda}`, ephemeral: true });
+                        await i.reply({ content: `❌ Você não tem ${itemComprar.preco} ${confMoeda?.emoji || ''} ${itemComprar.moeda} para comprar **${itemComprar.nome}**. Saldo atual: ${saldoUsu} ${confMoeda?.emoji || ''} ${itemComprar.moeda}`, flags: 64 });
                         return;
                     }
 
@@ -151,7 +151,7 @@ async function handleLojaInteraction(interaction, client) {
                     dadosUsu.moeda.set(itemComprar.moeda.toLowerCase(), novoSaldo);
                     await dadosUsu.save();
 
-                    await i.reply({ content: `✅ Você comprou **${itemComprar.nome}** por ${itemComprar.preco} ${confMoeda?.emoji || ''} ${itemComprar.moeda}. Saldo restante: ${novoSaldo} ${confMoeda?.emoji || ''} ${itemComprar.moeda}`, ephemeral: true });
+                    await i.reply({ content: `✅ Você comprou **${itemComprar.nome}** por ${itemComprar.preco} ${confMoeda?.emoji || ''} ${itemComprar.moeda}. Saldo restante: ${novoSaldo} ${confMoeda?.emoji || ''} ${itemComprar.moeda}`, flags: 64 });
                     return;
                 }
 

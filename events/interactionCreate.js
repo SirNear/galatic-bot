@@ -18,7 +18,7 @@ module.exports = class {
         try {
             if (this.client.maintenance && !this.client.owners.includes(interaction.user.id)) {
                 if (interaction.isRepliable()) {
-                    return interaction.reply({ content: '🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.', ephemeral: true }).catch(() => {});
+                    return interaction.reply({ content: '🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.', flags: 64 }).catch(() => {});
                 }
                 return;
             }

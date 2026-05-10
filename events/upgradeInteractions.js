@@ -39,7 +39,7 @@ function getFakeChannel(interaction) {
     return {
         send: async (opts) => {
             if (typeof opts === 'string') opts = { content: opts };
-            opts.ephemeral = true;
+            opts.flags = 64;
             opts.fetchReply = true;
             try {
                 const msg = await interaction.followUp(opts);
@@ -49,7 +49,7 @@ function getFakeChannel(interaction) {
                 };
                 return msg;
             } catch (e) {
-                opts.ephemeral = false;
+                delete opts.flags;
                 return await interaction.channel.send(opts);
             }
         }
@@ -60,7 +60,7 @@ async function safeEditReply(interaction, options) {
     try {
         await interaction.editReply(options);
     } catch (e) {
-        options.ephemeral = false;
+        delete options.flags;
         await interaction.channel.send(options).then(m => setTimeout(() => m.delete().catch(()=>null), 30000));
     }
 }
@@ -71,7 +71,7 @@ async function sendTimeoutError(interaction, actionDesc) {
         .setTitle('⏳ Tempo Esgotado')
         .setDescription(`O tempo limite para **${actionDesc}** expirou.\nA operação foi cancelada. Por favor, inicie o comando novamente quando estiver pronto.`);
     try {
-        await interaction.followUp({ embeds: [emb], ephemeral: true });
+        await interaction.followUp({ embeds: [emb], flags: 64 });
     } catch (e) {
         await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [emb] }).then(m => setTimeout(() => m.delete().catch(()=>{}), 15000));
     }
@@ -120,54 +120,80 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
 
 async function chamarIA(systemInstruction, promptText) {
     const models = [
-        'gemini-3.1-pro-preview',
-        'gemini-2.5-pro',
+        'gemini-1.5-flash',
+        'gemini-2.0-flash',
         'gemini-2.5-flash',
-        'gemini-flash-latest'
+        'gemini-1.5-pro',
+        'gemini-2.5-pro',
+        'gemini-3.1-pro-preview'
     ];
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.error('[IA UPGRADE] Chave GEMINI_API_KEY ausente no .env.');
-        return null;
-    }
+    
+    let success = false;
+    let jsonResult = null;
 
-    for (const model of models) {
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: systemInstruction }] },
-                    contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { temperature: 0.2 }
-                })
-            });
-            if (response.ok) {
-                const data = await response.json();
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    let texto = data.candidates[0].content.parts[0].text;
-                    
-                    // Puxa estritamente o conteúdo entre a primeira chave { e a última }
-                    const matchJson = texto.match(/\{[\s\S]*\}/);
-                    if (matchJson) {
-                        try {
-                            return JSON.parse(matchJson[0]);
-                        } catch (errParse) {
-                            console.error(`[IA UPGRADE] Falha ao fazer parse do JSON no modelo ${model}:`, errParse);
-                            console.error(`[IA UPGRADE] Texto bruto Extraído:`, matchJson[0]);
+    if (apiKey) {
+        for (const model of models) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: systemInstruction }] },
+                        contents: [{ parts: [{ text: promptText }] }],
+                        generationConfig: { temperature: 0.2 }
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.candidates && data.candidates[0].content.parts[0].text) {
+                        let texto = data.candidates[0].content.parts[0].text;
+                        const matchJson = texto.match(/\{[\s\S]*\}/);
+                        if (matchJson) {
+                            try {
+                                jsonResult = JSON.parse(matchJson[0]);
+                                success = true;
+                                break;
+                            } catch (errParse) {}
                         }
-                    } else {
-                        console.error(`[IA UPGRADE] Formato JSON não foi retornado pelo modelo ${model}. Resposta:`, texto);
                     }
+                } else if (response.status === 429) {
+                    // Apenas silencia os erros 429 para evitar o flood no console
+                    continue;
+                } else {
+                    const errText = await response.text();
+                    console.error(`[IA UPGRADE] Erro na API Gemini (Status: ${response.status}) no modelo ${model}:`, errText);
                 }
-            } else {
-                const errText = await response.text();
-                console.error(`[IA UPGRADE] Erro na API Gemini (Status: ${response.status}) no modelo ${model}:`, errText);
+            } catch (e) {
+                console.error(`[IA UPGRADE] Exceção ao se comunicar com o modelo ${model}:`, e.message);
             }
-        } catch (e) {
-            console.error(`[IA UPGRADE] Exceção ao se comunicar com o modelo ${model}:`, e);
         }
     }
+
+    if (success) return jsonResult;
+
+    // Fallback gratuito sem necessidade de chave via Pollinations.ai (Roda ChatGPT ou Llama)
+    try {
+        const resPol = await fetch('https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'openai',
+                messages: [
+                    { role: 'system', content: systemInstruction },
+                    { role: 'user', content: promptText }
+                ],
+                temperature: 0.2
+            })
+        });
+        if (resPol.ok) {
+            const data = await resPol.json();
+            let texto = data.choices[0].message.content;
+            const matchJson = texto.match(/\{[\s\S]*\}/);
+            if (matchJson) return JSON.parse(matchJson[0]);
+        }
+    } catch (e) {}
+
     return null;
 }
 
@@ -650,7 +676,7 @@ async function listenerInteractionUpg(interaction, client) {
     }
 }
 
-module.exports = { listenerInteractionUpg };
+module.exports = { listenerInteractionUpg, cacheUpgradeSystem, QntUpg, chamarIA };
 
 async function QntUpg(interaction, qntAtual, qntNova = false) {
     const emb = new EmbedBuilder().setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>').setAuthor({name: 'Sistema de Treinos', iconURL: interaction.guild.iconURL()}).setDescription('Ajuste quantos upgrades deseja registrar.').setColor('#2b2d31');
@@ -662,9 +688,9 @@ async function QntUpg(interaction, qntAtual, qntNova = false) {
     const opcQntd = { content: `<@${interaction.user.id}>`, embeds: [emb], components: [row] };
     try {
         if (qntNova) { await interaction.editReply(opcQntd); } 
-        else { opcQntd.ephemeral = true; await interaction.followUp(opcQntd); }
+        else { opcQntd.flags = 64; await interaction.followUp(opcQntd); }
     } catch (e) {
-        opcQntd.ephemeral = false;
+        delete opcQntd.flags;
         await interaction.channel.send(opcQntd);
     }
 }
@@ -696,9 +722,9 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     const payload = { embeds: [embed], components: [rowNav, rowAcao] };
     try {
         if (isUpdate) { await interaction.editReply(payload); }
-        else { payload.ephemeral = true; await interaction.followUp(payload); }
+        else { payload.flags = 64; await interaction.followUp(payload); }
     } catch (e) {
-        payload.ephemeral = false;
+        delete payload.flags;
         await interaction.channel.send(payload);
     }
 }
