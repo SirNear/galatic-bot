@@ -1,6 +1,9 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
 
+const FILA_CHANNEL_ID = '1502919510787887104';
+const ADM_CHANNEL_ID = '1502919601107763252';
+
 const cacheUpgradeSystem = new Map();
 const cacheAdmNavigationState = new Map();
 
@@ -771,8 +774,8 @@ async function envioUpg(interaction, client, listaUpg) {
         upgrades: listaUpg.upgrades
     });
 
-    const filaChannel = await client.channels.fetch('1502919510787887104').catch(() => null);
-    const pendentAdmChannel = await client.channels.fetch('1502919601107763252').catch(() => null);
+    const filaChannel = await client.channels.fetch(FILA_CHANNEL_ID).catch(() => null);
+    const pendentAdmChannel = await client.channels.fetch(ADM_CHANNEL_ID).catch(() => null);
     const posicaoFila = await client.database.UpgradeModel.countDocuments({ status: 'pendente' });
     const tempoPendencia = 'Menos de 1m';
     const timestampAtu = Math.floor(Date.now() / 1000);
@@ -869,8 +872,8 @@ async function mosLorUpg(interaction, upgDocDb, pagina = 0) {
 }
 
 async function atualStatusUpg(interaction, client, upgDocDb, result) {
-    const filaChannel = await client.channels.fetch('1502919510787887104').catch(() => null);
-    const pendentUpgChannel = await client.channels.fetch('1502919601107763252').catch(() => null);
+    const filaChannel = await client.channels.fetch(FILA_CHANNEL_ID).catch(() => null);
+    const pendentUpgChannel = await client.channels.fetch(ADM_CHANNEL_ID).catch(() => null);
 
     const isAllRejected = upgDocDb.upgrades.every(u => u.status === 'recusado');
     const isSomeRejected = upgDocDb.upgrades.some(u => u.status === 'recusado');

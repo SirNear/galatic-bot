@@ -9,6 +9,10 @@ module.exports = class Ask extends Command {
       name: "ask",
       description: "Consulta a lore do RPG usando IA",
       category: "rpg",
+          aliases: [],
+          UserPermission: [],
+          clientPermission: [],
+          OnlyDevs: false,
       slash: true,
     });
 
