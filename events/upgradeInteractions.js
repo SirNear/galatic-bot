@@ -1,6 +1,8 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
 
+const FILA_CHANNEL_ID = '1502919601107763252';
+const ADM_CHANNEL_ID = '1502919510787887104';
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
 
@@ -198,15 +200,17 @@ async function listenerInteractionUpg(interaction, client) {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_queue_open_')) {
+        await interaction.deferReply({ flags: 64 });
         const upgId = interaction.customId.split('_')[3];
         const upgDoc = await client.database.UpgradeModel.findById(upgId);
-        if (!upgDoc) return interaction.reply({ content: '❌ Este upgrade não foi encontrado ou já foi excluído.', flags: 64 });
-        if (upgDoc.userId !== interaction.user.id) return interaction.reply({ content: '❌ Você não é o dono destes upgrades e não pode visualizá-los desta forma.', flags: 64 });
+        if (!upgDoc) return interaction.editReply({ content: '❌ Este upgrade não foi encontrado ou já foi excluído.' });
+        if (upgDoc.userId !== interaction.user.id) return interaction.editReply({ content: '❌ Você não é o dono destes upgrades e não pode visualizá-los desta forma.' });
 
         return mosFilaUpg(interaction, upgDoc, 0);
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_queue_nav_')) {
+        await interaction.deferUpdate();
         const parts = interaction.customId.split('_');
         const navDir = parts[3];
         const upgId = parts[4];
@@ -214,8 +218,8 @@ async function listenerInteractionUpg(interaction, client) {
         if (navDir === 'prev') index--;
         if (navDir === 'next') index++;
         const upgDoc = await client.database.UpgradeModel.findById(upgId);
-        if (!upgDoc) return interaction.update({ content: '❌ Upgrade não encontrado no sistema.', embeds: [], components: [] });
-        if (upgDoc.userId !== interaction.user.id) return interaction.reply({ content: '❌ Você não é o dono destes upgrades.', flags: 64 });
+        if (!upgDoc) return interaction.editReply({ content: '❌ Upgrade não encontrado no sistema.', embeds: [], components: [] });
+        if (upgDoc.userId !== interaction.user.id) return interaction.followUp({ content: '❌ Você não é o dono destes upgrades.', flags: 64 });
         return mosFilaUpg(interaction, upgDoc, index, true);
     }
 
@@ -265,16 +269,16 @@ async function listenerInteractionUpg(interaction, client) {
                 client.removeListener('messageReactionAdd', lidFimUpg);
 
                 if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
-                    await interaction.editReply({ content: '❌ A mensagem inicial deve ser anterior à final. Vamos recomeçar o processo!', embeds: [embedCapturaTreino] });
+                    await safeEditReply(interaction, { content: '❌ A mensagem inicial deve ser anterior à final. Vamos recomeçar o processo!', embeds: [embedCapturaTreino] });
                     const novoContadorIni = await iniciarContador(300, 'marcar a primeira mensagem com ➕', interaction.channel);
                     intervaloIni = novoContadorIni.intervalo;
                     contadorIni = novoContadorIni.contador;
                     client.on('messageReactionAdd', lidIniUpg);
-                    timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); interaction.editReply({ content: '❌ Tempo esgotado para marcar o início.', embeds: [] }).catch(() => {}); }, 300000);
+                    timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
                     return;
                 }
 
-                await interaction.editReply({ content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Coletando mensagens do treino...`, embeds: [] });
+                await safeEditReply(interaction, { content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Coletando mensagens do treino...`, embeds: [] });
 
                 const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
                 if (!listaMsg) return;
@@ -295,18 +299,22 @@ async function listenerInteractionUpg(interaction, client) {
                     new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary)
                 );
                 
-                await interaction.followUp({ embeds: [embAi], components: [rowAi], flags: 64 });
+                try {
+                    await interaction.followUp({ embeds: [embAi], components: [rowAi], flags: 64 });
+                } catch(e) {
+                    await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] }).then(m => setTimeout(() => m.delete().catch(()=>{}), 60000));
+                }
             };
             client.on('messageReactionAdd', lidFimUpg);
-            timeoutFimReaction = setTimeout(() => { client.removeListener('messageReactionAdd', lidFimUpg); interaction.editReply({ content: '❌ Tempo esgotado para marcar o fim.', embeds: [] }).catch(() => {}); }, 300000);
+            timeoutFimReaction = setTimeout(() => { client.removeListener('messageReactionAdd', lidFimUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o fim.', embeds: [] }); }, 300000);
         };
         client.on('messageReactionAdd', lidIniUpg);
-        timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); interaction.editReply({ content: '❌ Tempo esgotado para marcar o início.', embeds: [] }).catch(() => {}); }, 300000);
+        timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
     }
 
     if (interaction.isButton() && interaction.customId === 'upgrade_mode_manual') {
         const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
-        if (!cacheUpgradeSystemAtu) return;
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
         await interaction.deferUpdate();
         await QntUpg(interaction, 1, true);
     }
@@ -343,10 +351,10 @@ async function listenerInteractionUpg(interaction, client) {
                 client.removeListener('messageReactionAdd', lidFimUpg);
 
                 if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
-                    return interaction.editReply({ content: '❌ A mensagem inicial deve ser anterior à final. Você precisará recomeçar o processo de upgrades (use o comando /upgrade novamente).', embeds: [] });
+                    return safeEditReply(interaction, { content: '❌ A mensagem inicial deve ser anterior à final. Você precisará recomeçar o processo de upgrades (use o comando /upgrade novamente).', embeds: [] });
                 }
 
-                await interaction.editReply({ content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Lendo upgrades e gerando resumos com a IA... Isso pode levar alguns segundos.`, embeds: [] });
+                await safeEditReply(interaction, { content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Lendo upgrades e gerando resumos com a IA... Isso pode levar alguns segundos.`, embeds: [] });
 
                 const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
                 if (!listaMsg) return;
@@ -357,7 +365,8 @@ async function listenerInteractionUpg(interaction, client) {
                 const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText);
                 
                 if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
-                    return interaction.editReply({ content: '❌ Houve um erro ao extrair com a IA. Redirecionando para o modo manual...' }).then(() => QntUpg(interaction, 1, false));
+                    await safeEditReply(interaction, { content: '❌ Houve um erro ao extrair com a IA. Redirecionando para o modo manual...' });
+                    return QntUpg(interaction, 1, false);
                 }
                 
                 cacheUpgradeSystemAtu.aiMode = true;
@@ -368,10 +377,10 @@ async function listenerInteractionUpg(interaction, client) {
                 await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
             };
             client.on('messageReactionAdd', lidFimUpg);
-            timeoutFimReaction = setTimeout(() => { client.removeListener('messageReactionAdd', lidFimUpg); interaction.editReply({ content: '❌ Tempo esgotado para marcar o fim.', embeds: [] }).catch(() => {}); }, 300000);
+            timeoutFimReaction = setTimeout(() => { client.removeListener('messageReactionAdd', lidFimUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o fim.', embeds: [] }); }, 300000);
         };
         client.on('messageReactionAdd', lidIniUpg);
-        timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); interaction.editReply({ content: '❌ Tempo esgotado para marcar o início.', embeds: [] }).catch(() => {}); }, 300000);
+        timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_ai_nav_')) {
@@ -414,7 +423,7 @@ async function listenerInteractionUpg(interaction, client) {
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_qntUpgrade_')) {
         const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
-        if (!cacheUpgradeSystemAtu) return;
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
 
         const acaoQntdUpgd = interaction.customId.split('_')[2];
         if (acaoQntdUpgd === 'confirmar') return mosModUpg(interaction, cacheUpgradeSystemAtu.currentStep, cacheUpgradeSystemAtu.upgAmount);
@@ -480,11 +489,13 @@ async function listenerInteractionUpg(interaction, client) {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_adm_avaliar_')) {
+        await interaction.deferReply({ flags: 64 });
         const idUpgAtual = interaction.customId.split('_')[3];
         const docDbUpgAtual = await client.database.UpgradeModel.findById(idUpgAtual);
         
+        if (!docDbUpgAtual) return interaction.editReply({ content: '❌ Upgrade não encontrado.' });
         if (docDbUpgAtual.lockAdmod?.userId && docDbUpgAtual.lockAdmod.expiresAt > Date.now() && docDbUpgAtual.lockAdmod.userId !== interaction.user.id) {
-            return interaction.reply({ content: `🔒 Em avaliação por <@${docDbUpgAtual.lockAdmod.userId}>`, flags: 64 });
+            return interaction.editReply({ content: `🔒 Em avaliação por <@${docDbUpgAtual.lockAdmod.userId}>` });
         }
 
         docDbUpgAtual.lockAdmod = { userId: interaction.user.id, expiresAt: Date.now() + 1200000 };
@@ -497,11 +508,13 @@ async function listenerInteractionUpg(interaction, client) {
         if (interaction.customId.includes('_accept_') || interaction.customId.includes('_reject_') || interaction.customId.includes('_lorePrev_') || interaction.customId.includes('_loreNext_')) {
             // Deixa a interação passar para o handler adequado abaixo
         } else {
+            await interaction.deferUpdate();
             const [, , , acaoNavAdm, idNav] = interaction.customId.split('_');
             const cacheAdmNavigationStateAtu = cacheAdmNavigationState.get(interaction.user.id);
-            if (!cacheAdmNavigationStateAtu) return interaction.reply({ content: 'Sua sessão expirou.', flags: 64 });
+            if (!cacheAdmNavigationStateAtu) return interaction.editReply({ content: 'Sua sessão expirou.', embeds: [], components: [] });
             
             const docNavUpg = await client.database.UpgradeModel.findById(idNav);
+            if (!docNavUpg) return interaction.editReply({ content: '❌ Upgrade não encontrado.' });
             
             if (acaoNavAdm === 'previousUpgd') { cacheAdmNavigationStateAtu.currentIndex--; }
             if (acaoNavAdm === 'nextUpgd') { cacheAdmNavigationStateAtu.currentIndex++; }
@@ -509,7 +522,7 @@ async function listenerInteractionUpg(interaction, client) {
             if (acaoNavAdm === 'close') {
                 docNavUpg.lockAdmod = null;
                 await docNavUpg.save();
-                return interaction.update({ content: 'Painel fechado.', embeds: [], components: [] });
+                return interaction.editReply({ content: 'Painel fechado.', embeds: [], components: [] });
             }
             await navAdmUpg(interaction, client, docNavUpg, true);
             return;
@@ -517,6 +530,7 @@ async function listenerInteractionUpg(interaction, client) {
     }
 
     if (interaction.isButton() && (interaction.customId.startsWith('upgrade_adm_navegar_lorePrev_') || interaction.customId.startsWith('upgrade_adm_navegar_loreNext_'))) {
+        await interaction.deferUpdate();
         const parts = interaction.customId.split('_');
         const isNext = parts[3] === 'loreNext';
         const idNav = parts[4];
@@ -524,7 +538,7 @@ async function listenerInteractionUpg(interaction, client) {
         pagina = isNext ? pagina + 1 : Math.max(0, pagina - 1);
         
         const docNavUpg = await client.database.UpgradeModel.findById(idNav);
-        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+        if (!docNavUpg) return interaction.editReply({ content: '❌ Upgrade não encontrado.' });
         return mosLorUpg(interaction, docNavUpg, pagina);
     }
 
@@ -533,8 +547,6 @@ async function listenerInteractionUpg(interaction, client) {
         const acao = parts[3]; // accept ou reject
         const escopo = parts[4]; // currentUpgd ou allUpgd
         const idDocDbUpg = parts[5]; // O ID do documento
-        const docDecUpg = await client.database.UpgradeModel.findById(idDocDbUpg);
-        const cacheAdmNavigationStateAtu = cacheAdmNavigationState.get(interaction.user.id);
 
         if (acao === 'accept') {
             if (escopo === 'allUpgd') {
@@ -717,7 +729,13 @@ async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
         new ButtonBuilder().setCustomId(`upgrade_queue_nav_next_${upgDoc._id}_${index}`).setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(index === upgDoc.upgrades.length - 1)
     );
     const payload = { embeds: [embed], components: [row], flags: 64 };
-    isUpdate ? await interaction.update(payload) : await interaction.reply(payload);
+    if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(payload);
+    } else if (isUpdate) {
+        await interaction.update(payload);
+    } else {
+        await interaction.reply(payload);
+    }
 }
 
 async function mosModUpg(interaction, qntdAtual, qntdTotal, prefill = null) {
@@ -842,9 +860,10 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
     );
 
     const botoesEmbedAdm = { embeds: [embedUpgAtual], components: [row1, row2], flags: 64 };
-    if (updated) { 
-        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+    if (interaction.deferred || interaction.replied) { 
         await interaction.editReply(botoesEmbedAdm);
+    } else if (updated) { 
+        await interaction.update(botoesEmbedAdm);
     } else { 
         await interaction.reply(botoesEmbedAdm);
     }
