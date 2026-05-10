@@ -32,19 +32,65 @@ function formatLocalTime(ms) {
     return `${minutos > 0 ? minutos : 1}m`;
 }
 
+function getFakeChannel(interaction) {
+    return {
+        send: async (opts) => {
+            if (typeof opts === 'string') opts = { content: opts };
+            opts.ephemeral = true;
+            opts.fetchReply = true;
+            try {
+                const msg = await interaction.followUp(opts);
+                const originalEdit = msg.edit.bind(msg);
+                msg.edit = async (editOpts) => {
+                    try { return await originalEdit(editOpts); } catch (e) { return msg; }
+                };
+                return msg;
+            } catch (e) {
+                opts.ephemeral = false;
+                return await interaction.channel.send(opts);
+            }
+        }
+    };
+}
+
+async function safeEditReply(interaction, options) {
+    try {
+        await interaction.editReply(options);
+    } catch (e) {
+        options.ephemeral = false;
+        await interaction.channel.send(options).then(m => setTimeout(() => m.delete().catch(()=>null), 30000));
+    }
+}
+
+async function sendTimeoutError(interaction, actionDesc) {
+    const emb = new EmbedBuilder()
+        .setColor('Red')
+        .setTitle('⏳ Tempo Esgotado')
+        .setDescription(`O tempo limite para **${actionDesc}** expirou.\nA operação foi cancelada. Por favor, inicie o comando novamente quando estiver pronto.`);
+    try {
+        await interaction.followUp({ embeds: [emb], ephemeral: true });
+    } catch (e) {
+        await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [emb] }).then(m => setTimeout(() => m.delete().catch(()=>{}), 15000));
+    }
+}
+
 async function buscaMsg(canal, msgIniId, msgFimId) {
     const listaMsg = [];
     let lastMsgId = msgFimId;
     let reachIniMsg = false;
     let fetchedTotal = 0;
     
-    const msgFim = await canal.messages.fetch(msgFimId);
-    listaMsg.push(msgFim); //ultimsg msg entra primeiro na lista, posição 0
+    const msgFim = await canal.messages.fetch(msgFimId).catch(() => null);
+    if (!msgFim) {
+        canal.send(`❌ Não consegui encontrar a mensagem final. Certifique-se de que ela está no mesmo canal e tente novamente.`).catch(() => null);
+        return null;
+    }
+    listaMsg.push(msgFim); 
 
     while (!reachIniMsg) {
         const opcBusca = { limit: 100, before: lastMsgId };
-        const msgs = await canal.messages.fetch(opcBusca);
-        if (msgs.size === 0) {
+        const msgs = await canal.messages.fetch(opcBusca).catch(() => null);
+        if (!msgs || msgs.size === 0) {
             canal.send(`❌ Não consegui encontrar a mensagem inicial do treino. Certifique-se de que ela está no mesmo canal e tente novamente.`).catch(() => null);
             return null;
         }
@@ -59,13 +105,13 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
         lastMsgId = msgs.last().id; //ultima msg logo após a msgFimId fica por ultimo na lista
         fetchedTotal += msgs.size;
         
-        if (!reachIniMsg && fetchedTotal >= 300) {
-            canal.send(`❌ O limite de busca segura foi atingido (300 mensagens). Tente dividir seu treino ou verifique se marcou as mensagens no canal correto.`).catch(() => null);
+        if (!reachIniMsg && fetchedTotal >= 5000) {
+            canal.send(`❌ O limite de busca segura foi atingido (5000 mensagens). Tente dividir seu treino ou verifique se marcou as mensagens no canal correto.`).catch(() => null);
             return null;
         }
     }
-    const msgIni = await canal.messages.fetch(msgIniId);
-    listaMsg.push(msgIni);
+    const msgIni = await canal.messages.fetch(msgIniId).catch(() => null);
+    if (msgIni) listaMsg.push(msgIni);
     return listaMsg.reverse(); //inverte pra ordenar certo
 }
 
@@ -600,8 +646,14 @@ async function QntUpg(interaction, qntAtual, qntNova = false) {
         new ButtonBuilder().setCustomId('upgrade_qntUpgrade_confirmar').setLabel(`${qntAtual}`).setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('upgrade_qntUpgrade_aumentar').setLabel('➕').setStyle(ButtonStyle.Secondary)
     );
-    const opcQntd = { content: `<@${interaction.user.id}>`, embeds: [emb], components: [row], flags: 64 };
-    qntNova ? await interaction.editReply(opcQntd) : await interaction.followUp(opcQntd);
+    const opcQntd = { content: `<@${interaction.user.id}>`, embeds: [emb], components: [row] };
+    try {
+        if (qntNova) { await interaction.editReply(opcQntd); } 
+        else { opcQntd.ephemeral = true; await interaction.followUp(opcQntd); }
+    } catch (e) {
+        opcQntd.ephemeral = false;
+        await interaction.channel.send(opcQntd);
+    }
 }
 
 async function mosAiUpg(interaction, cacheData, isUpdate = false) {
@@ -628,8 +680,14 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
         new ButtonBuilder().setCustomId('upgrade_ai_nav_confirm').setLabel('Confirmar e Enviar').setStyle(ButtonStyle.Success).setEmoji('✅')
     );
 
-    const payload = { embeds: [embed], components: [rowNav, rowAcao], flags: 64 };
-    isUpdate ? await interaction.editReply(payload) : await interaction.followUp(payload);
+    const payload = { embeds: [embed], components: [rowNav, rowAcao] };
+    try {
+        if (isUpdate) { await interaction.editReply(payload); }
+        else { payload.ephemeral = true; await interaction.followUp(payload); }
+    } catch (e) {
+        payload.ephemeral = false;
+        await interaction.channel.send(payload);
+    }
 }
 
 async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
