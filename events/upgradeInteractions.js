@@ -120,10 +120,10 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
 
 async function chamarIA(systemInstruction, promptText) {
     const models = [
+        'gemini-3.1-pro-preview',
         'gemini-2.5-pro',
         'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-pro-latest'
+        'gemini-flash-latest'
     ];
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
