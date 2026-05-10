@@ -870,7 +870,7 @@ async function mosLorUpg(interaction, upgDocDb, pagina = 0) {
 
 async function atualStatusUpg(interaction, client, upgDocDb, result) {
     const filaChannel = await client.channels.fetch('1502919510787887104').catch(() => null);
-    const pendentUpgChannel = await client.channels.fetch('1422258818183729355').catch(() => null);
+    const pendentUpgChannel = await client.channels.fetch('1502919601107763252').catch(() => null);
 
     const isAllRejected = upgDocDb.upgrades.every(u => u.status === 'recusado');
     const isSomeRejected = upgDocDb.upgrades.some(u => u.status === 'recusado');

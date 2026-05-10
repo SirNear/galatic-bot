@@ -7,8 +7,8 @@ module.exports = (client) => {
             const pendentes = await client.database.UpgradeModel.find({ status: 'pendente' });
             if (pendentes.length === 0) return;
 
-            const filaChannel = await client.channels.fetch('931334789322129438').catch(() => null);
-            const pendentAdmChannel = await client.channels.fetch('1408850402740404356').catch(() => null);
+            const filaChannel = await client.channels.fetch('1502919510787887104').catch(() => null);
+            const pendentAdmChannel = await client.channels.fetch('1502919601107763252').catch(() => null);
 
             const timestampAtu = Math.floor(Date.now() / 1000);
 
