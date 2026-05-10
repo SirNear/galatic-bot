@@ -6,7 +6,7 @@ const { gerarRespostaComFallback } = require('../../api/IAUtils');
 module.exports = class Ask extends Command {
   constructor(client) {
     super(client, {
-      name: "Ask",
+      name: "ask",
       description: "Consulta a lore do RPG usando IA",
       category: "rpg",
       slash: true,
