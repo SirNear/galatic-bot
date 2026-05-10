@@ -1,8 +1,6 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
 
-const FILA_CHANNEL_ID = '1502919601107763252';
-const ADM_CHANNEL_ID = '1502919510787887104';
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
 
