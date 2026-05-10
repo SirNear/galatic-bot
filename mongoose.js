@@ -2,10 +2,11 @@ const mongoose = require('mongoose')
 require('dotenv').config();
 
 const conOpt = {
-    connectTimeoutMS: 30000, // Aumenta o tempo de espera para conexão
-    serverSelectionTimeoutMS: 30000, // Aumenta o tempo para o driver encontrar um servidor
-    socketTimeoutMS: 45000, // Aumenta o tempo de inatividade do socket
-    bufferCommands: false, // Desativa o buffer de comandos do Mongoose globalmente
+    connectTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+    family: 4
 };
 
 async function connectToDatabase() {
@@ -54,6 +55,32 @@ let Puni = new mongoose.Schema({
   data: {type: String}
 
 })
+
+const UpgradeSchema = new mongoose.Schema({
+    userId: { type: String, required: true },
+    status: { type: String, default: 'pendente' },
+    loreText: { type: [String], default: [] },
+    upgrades: [{
+        tipo: String,
+        categoria: String,
+        nome: String,
+        descricao: String,
+        resumo: String,
+        status: { type: String, default: 'pendente' },
+        motivo: { type: String, default: null }
+    }],
+    AdmodAvaliou: { type: String, default: null },
+    lockAdmod: {
+        userId: String,
+        expiresAt: Date
+    },
+    filaMessageId: String,
+    pendenteMessageId: String,
+    createdAt: { type: Date, default: Date.now }
+});
+
+let upgrade = mongoose.model("Upgrade", UpgradeSchema);
+module.exports.UpgradeModel = upgrade;
 
 let uD = new mongoose.Schema({
   _id: {type: String, required: true}, 

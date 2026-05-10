@@ -84,6 +84,84 @@ module.exports = class lore extends Command {
   }
 
   async execute(interaction) {
+    if (this.client.maintenance && this.client.owners.includes(interaction.user.id)) {
+        const textoLorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n".repeat(15);
+
+        await interaction.reply({ content: '🛠️ Modo desenvolvedor ativo: Auto-preenchendo lore com Lorem Ipsum...', flags: 64 });
+
+        const finalPages = [];
+        const textPages = paginateText(textoLorem);
+        textPages.forEach(pageContent => {
+            finalPages.push({ content: pageContent, imageUrl: null });
+        });
+
+        let currentPage = 0;
+        const generateEmbed = (pageIndex) => {
+            return new EmbedBuilder()
+                .setTitle(`<a:spinnyman:1433853169884205106> | Lore Organizada (DEV MODE)`)
+                .setDescription(finalPages[pageIndex].content.substring(0, 4096))
+                .setColor('#0099ff')
+                .setFooter({ text: `Página ${pageIndex + 1} de ${finalPages.length}` });
+        };
+
+        const getButtons = (pageIndex) => {
+            return new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('prev_page').setLabel('◀️ Anterior').setStyle(ButtonStyle.Primary).setDisabled(pageIndex === 0),
+                new ButtonBuilder().setCustomId('next_page').setLabel('Próximo ▶️').setStyle(ButtonStyle.Primary).setDisabled(pageIndex >= finalPages.length - 1)
+            );
+        };
+
+        const confirmButton = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('confirm_lore').setLabel('Salvar Lore').setStyle(ButtonStyle.Success).setEmoji('✅'),
+            new ButtonBuilder().setCustomId('cancel_lore').setLabel('Cancelar').setStyle(ButtonStyle.Danger).setEmoji('❌')
+        );
+
+        await interaction.editReply({
+            embeds: [generateEmbed(currentPage)],
+            components: finalPages.length > 1 ? [getButtons(currentPage), confirmButton] : [confirmButton],
+            content: 'Pré-visualização da sua lore:'
+        });
+
+        const loreMessage = await interaction.fetchReply();
+        const allComponentsCollector = loreMessage.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            filter: i => i.user.id === interaction.user.id,
+            time: 300000 
+        });
+
+        allComponentsCollector.on('collect', async (i) => {
+            if (i.customId === 'prev_page') {
+                currentPage--;
+                await i.update({ embeds: [generateEmbed(currentPage)], components: [getButtons(currentPage), confirmButton] });
+            } else if (i.customId === 'next_page') {
+                currentPage++;
+                await i.update({ embeds: [generateEmbed(currentPage)], components: [getButtons(currentPage), confirmButton] });
+            } else if (i.customId === 'confirm_lore') {
+                const mockMsg = { createdTimestamp: Date.now(), deletable: false, delete: async () => {}, content: textoLorem, author: interaction.user, channel: interaction.channel, attachments: { size: 0, find: () => null } };
+                
+                this.client.fichaStates.set(interaction.user.id, {
+                    pages: finalPages,
+                    rawMessages: [mockMsg] 
+                });
+
+                const modal = new ModalBuilder().setCustomId('lore_modal_config').setTitle('Configuração Final da Lore');
+                const titleInput = new TextInputBuilder().setCustomId('lore_title').setLabel("Título da Lore").setStyle(TextInputStyle.Short).setValue("Lore de Teste Dev").setRequired(true);
+                const chapterInput = new TextInputBuilder().setCustomId('lore_chapter').setLabel("Nome/Número do Capítulo").setStyle(TextInputStyle.Short).setValue("Capítulo 1").setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(chapterInput));
+
+                await i.showModal(modal);
+                allComponentsCollector.stop();
+
+            } else if (i.customId === 'cancel_lore') {
+                await i.update({ content: '❌ Operação de lore cancelada.', embeds: [], components: [] });
+                allComponentsCollector.stop();
+            }
+        });
+
+        return;
+    }
+
     const embed = new EmbedBuilder()
       .setTitle('<a:spinnyman:1433853169884205106> | Organização de Lore')
       .setDescription('Reaja com o emoji 1️⃣ na **primeira** mensagem do seu RP.')

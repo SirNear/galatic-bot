@@ -7,6 +7,7 @@ const { handleFichaInteraction } = require('./fichaInteraction.js');
 const { handleQuestInteraction } = require('./questInteraction.js');
 const { handleLojaInteraction } = require('./lojaInteraction.js');
 const { handleEmbedEditInteraction } = require('./embedInteraction.js');
+const { listenerInteractionUpg } = require('./upgradeInteractions.js');
 
 module.exports = class {
     constructor(client) {
@@ -64,6 +65,8 @@ module.exports = class {
                     customId.startsWith('modal_add_image_subhab_')
                 ) {
                     await handleFichaInteraction(interaction, this.client);
+                } else if (customId === 'upgrade_start' || customId.startsWith('upgrade_') || customId.startsWith('upgrade_modal_') || customId.startsWith('upgrade_adm_navegar_reject_')) {
+                    await listenerInteractionUpg(interaction, this.client);
                 }else if(customId === 'btn_edit') {
                     await handleEmbedEditInteraction(interaction, this.client);
                 }

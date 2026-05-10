@@ -43,6 +43,10 @@ const client = new Client({
             // Carregar cron jobs e emitir evento clientReady (migrado de events/clientReady.js)
             const lembreteVerso = require("./api/cron/lembreteVerso.js");
             lembreteVerso(client);
+            
+            const atualizarUpgrades = require("./api/cron/atualizarUpgrades.js");
+            atualizarUpgrades(client);
+            
             client.emit('clientReady');
         })
 

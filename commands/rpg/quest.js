@@ -75,8 +75,9 @@ module.exports = class quest extends Command {
         const userHasApprovalRole = interaction.member.roles.cache.has(approvalRoleId);
 
         const nomeDaQuest = interaction.options.getString('nome', true);
+        const isDev = this.client.maintenance && this.client.owners.includes(interaction.user.id);
 
-        const modal = this.buildCreateQuestModal();
+        const modal = this.buildCreateQuestModal({}, isDev);
         await interaction.showModal(modal);
 
         const modalSubmit = await interaction.awaitModalSubmit({
@@ -264,38 +265,42 @@ module.exports = class quest extends Command {
     }
   }
 
-  buildCreateQuestModal(prefillData = {}) {
+  buildCreateQuestModal(prefillData = {}, isDev = false) {
     const modal = new ModalBuilder()
       .setCustomId("criar_quest_modal")
       .setTitle("CRIAÇÃO DE QUEST");
+      
+    const loremShort = "Lorem ipsum dolor sit amet.";
+    const loremLong = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.";
 
-    const descricaoInput = new TextInputBuilder().setCustomId("descricao").setLabel("Descrição da História").setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(prefillData.descricao || '');
+    const descricaoInput = new TextInputBuilder().setCustomId("descricao").setLabel("Descrição da História").setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(isDev ? loremLong : (prefillData.descricao || ''));
     const maxPlayersInput = new TextInputBuilder()
         .setCustomId("maxPlayers")
         .setLabel("Número Máximo de Jogadores")
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setPlaceholder("Apenas números. Ex: 4")
-        .setValue(prefillData.maxPlayers?.toString() || '');
+        .setValue(isDev ? "4" : (prefillData.maxPlayers?.toString() || ''));
     const regrasInput = new TextInputBuilder()
         .setCustomId("regras")
         .setLabel("Regras da Quest")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
-        .setValue('Regras, todas as regras da quest devem estar em seu anúncio e quem participar, significa que aceitou narrar nessas condições. Criar regras durante a quest é proibido, muitas vezes isso é para seguir um fluxo imaginário decente narrado por uma pessoa só, com exceção do personagem sofrer alguma penalidade (maldições, estigmas e coisas do tipo) por consequências da missão, mas não trate essa parte como absoluto. Leve em conta também número limite de personagens e claro, se a pessoa quiser sair, é decisão dela, assim como expulsão é do mestre, desde que compense o tempo perdido.');
+        .setValue(isDev ? loremLong : 'Regras, todas as regras da quest devem estar em seu anúncio e quem participar, significa que aceitou narrar nessas condições. Criar regras durante a quest é proibido, muitas vezes isso é para seguir um fluxo imaginário decente narrado por uma pessoa só, com exceção do personagem sofrer alguma penalidade (maldições, estigmas e coisas do tipo) por consequências da missão, mas não trate essa parte como absoluto. Leve em conta também número limite de personagens e claro, se a pessoa quiser sair, é decisão dela, assim como expulsão é do mestre, desde que compense o tempo perdido.');
     const recompensaInput = new TextInputBuilder()
         .setCustomId("recompensa")
         .setLabel("Recompensa da Quest")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
-        .setPlaceholder('Uma ideia base do que pode ser adquirido.');
+        .setPlaceholder('Uma ideia base do que pode ser adquirido.')
+        .setValue(isDev ? loremShort : '');
     const dataInicioInput = new TextInputBuilder()
         .setCustomId("dataInicio")
         .setLabel("Data e Hora de Início (DD/MM/AAAA HH:mm)")
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setPlaceholder("Ex: 25/12/2025 20:30")
-        .setValue(prefillData.dataInicio || '');
+        .setValue(isDev ? "25/12/2025 20:30" : (prefillData.dataInicio || ''));
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(descricaoInput),

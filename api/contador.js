@@ -1,3 +1,10 @@
+function formatarTempo(segundos) {
+    const m = Math.floor(segundos / 60);
+    const s = segundos % 60;
+    if (m > 0 && s > 0) return `${m} minuto${m > 1 ? 's' : ''} e ${s} segundo${s !== 1 ? 's' : ''}`;
+    if (m > 0) return `${m} minuto${m > 1 ? 's' : ''}`;
+    return `${s} segundo${s !== 1 ? 's' : ''}`;
+}
 
 // Função de inicializar o contador
 async function iniciarContador(tempoRestante, sujeito, msgAlvo, message) {
@@ -15,9 +22,9 @@ async function iniciarContador(tempoRestante, sujeito, msgAlvo, message) {
         // Se for Message, usar .reply(), se for Channel usar .send()
         let contador;
         if (isMessage) {
-            contador = await msgAlvo.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
+            contador = await msgAlvo.reply({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${formatarTempo(tempoRestante)} para ${sujeito}... ` });
         } else {
-            contador = await msgAlvo.send({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}... ` });
+            contador = await msgAlvo.send({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${formatarTempo(tempoRestante)} para ${sujeito}... ` });
         }
         
         let intervalo = setInterval(() => {
@@ -30,8 +37,11 @@ async function iniciarContador(tempoRestante, sujeito, msgAlvo, message) {
                     contador.edit({ content: 'Tempo esgotado.' }).catch(() => { });
                 }
             } else {
-                if (contador && typeof contador.edit === 'function') {
-                    contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${tempoRestante} segundos para ${sujeito}...` }).catch(() => { });
+                // Atualiza a cada 1s se faltar menos de 1 minuto, ou a cada 5s se faltar mais (evita Rate Limit na API do Discord)
+                if (tempoRestante <= 60 || tempoRestante % 5 === 0) {
+                    if (contador && typeof contador.edit === 'function') {
+                        contador.edit({ content: `<a:AmongUs3D:1407001955699785831> | Você tem ${formatarTempo(tempoRestante)} para ${sujeito}...` }).catch(() => { });
+                    }
                 }
             }
         }, 1000);
