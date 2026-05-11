@@ -320,6 +320,13 @@ const botConfigSchema = new mongoose.Schema({
 });
 module.exports.BotConfig = mongoose.model("BotConfig", botConfigSchema);
 
+const aiTrainingSchema = new mongoose.Schema({
+    tipo: { type: String, required: true },
+    exemplos: { type: Array, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+module.exports.AiTraining = mongoose.model("AiTraining", aiTrainingSchema);
+
 const scannedSheetSchema = new mongoose.Schema({
     userId: { type: String, required: true, unique: true },
     personagem: {

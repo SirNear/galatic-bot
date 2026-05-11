@@ -197,22 +197,52 @@ async function chamarIA(systemInstruction, promptText) {
     return null;
 }
 
-async function processarIA_Extrair(upgradeText, loreText) {
+async function processarIA_Extrair(upgradeText, loreText, client) {
+    let exemplosTreino = "";
+    if (client) {
+        try {
+            const treinos = await client.database.AiTraining.find({ tipo: 'estilo_resumo' }).sort({ createdAt: -1 }).limit(5);
+            if (treinos && treinos.length > 0) {
+                exemplosTreino = "\n\nEXEMPLOS DE BONS RESUMOS (USE COMO INSPIRAÇÃO DE ESTILO E TAMANHO):\n";
+                treinos.forEach(t => {
+                    t.exemplos.forEach(ex => {
+                        exemplosTreino += `- ${ex.nome}: ${ex.resumo}\n`;
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
     const sys = `Você é um assistente de RPG de mesa. O usuário fornecerá dois textos: "UPGRADES" (onde ele lista seus ganhos) e "LORE" (a narrativa do treino).
 Sua função é APENAS estruturar os upgrades solicitados no texto "UPGRADES". Para cada um, preencha as chaves e gere um "resumo" em um parágrafo que justifique a habilidade usando a "LORE". Não invente upgrades que não estejam listados.
 Atenção para a chave "categoria": Se for melhoria de uma habilidade principal, use "Principal"; se for sub-habilidade, use "sub-habilidade"; se for uma técnica, use "técnica". Se a habilidade ou sub-habilidade for nova ou constar como desbloqueio, insira "(NOVA) " antes do nome da categoria (Ex: "(NOVA) Principal").
 Retorne EXATAMENTE um objeto JSON neste formato:
-{ "upgrades": [ { "tipo": "Física, Mágica ou Passiva", "categoria": "Principal, sub-habilidade, técnica, etc", "nome": "Nome do atributo, poder ou item (Ex: Força)", "descricao": "Melhoria obtida (Ex: +3T)", "resumo": "Justificativa/Feito resumido da lore para este upgrade em específico." } ] }`;
+{ "upgrades": [ { "tipo": "Física, Mágica ou Passiva", "categoria": "Principal, sub-habilidade, técnica, etc", "nome": "Nome do atributo, poder ou item (Ex: Força)", "descricao": "Melhoria obtida (Ex: +3T)", "resumo": "Justificativa/Feito resumido da lore para este upgrade em específico." } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${upgradeText}`;
     return await chamarIA(sys, prompt);
 }
 
-async function processarIA_Resumo(upgradesObj, loreText) {
+async function processarIA_Resumo(upgradesObj, loreText, client) {
+    let exemplosTreino = "";
+    if (client) {
+        try {
+            const treinos = await client.database.AiTraining.find({ tipo: 'estilo_resumo' }).sort({ createdAt: -1 }).limit(5);
+            if (treinos && treinos.length > 0) {
+                exemplosTreino = "\n\nEXEMPLOS DE BONS RESUMOS (USE COMO INSPIRAÇÃO DE ESTILO E TAMANHO):\n";
+                treinos.forEach(t => {
+                    t.exemplos.forEach(ex => {
+                        exemplosTreino += `- ${ex.nome}: ${ex.resumo}\n`;
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
     const sys = `Você é um assistente de RPG de mesa. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
 Sua função é ler os upgrades e, para aqueles cujo campo "resumo" estiver vazio, gerar um resumo sinérgico (1 parágrafo) que justifique o ganho usando a "LORE".
 Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido e sem blocos markdown):
-{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Novo resumo justificado aqui" } ] }`;
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Novo resumo justificado aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
     return await chamarIA(sys, prompt);
@@ -386,7 +416,7 @@ async function listenerInteractionUpg(interaction, client) {
                 let upgradeText = ``;
                 listaMsg.forEach(m => { if (m.author.id === interaction.user.id && m.content) upgradeText += `${m.content}\n\n`; });
 
-                const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText);
+                const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText, client);
                 
                 if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
                     await safeEditReply(interaction, { content: '❌ Houve um erro ao extrair com a IA. Redirecionando para o modo manual...' });
@@ -422,7 +452,19 @@ async function listenerInteractionUpg(interaction, client) {
             cacheUpgradeSystemAtu.currentStep++;
             await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'edit') {
+            cacheUpgradeSystemAtu.addingNew = false;
             await mosModUpg(interaction, cacheUpgradeSystemAtu.currentStep + 1, cacheUpgradeSystemAtu.upgAmount, cacheUpgradeSystemAtu.upgrades[cacheUpgradeSystemAtu.currentStep]);
+        } else if (acao === 'add') {
+            cacheUpgradeSystemAtu.addingNew = true;
+            await mosModUpg(interaction, cacheUpgradeSystemAtu.upgAmount + 1, cacheUpgradeSystemAtu.upgAmount + 1);
+        } else if (acao === 'remove') {
+            if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+            cacheUpgradeSystemAtu.upgrades.splice(cacheUpgradeSystemAtu.currentStep, 1);
+            cacheUpgradeSystemAtu.upgAmount--;
+            if (cacheUpgradeSystemAtu.currentStep >= cacheUpgradeSystemAtu.upgAmount) {
+                cacheUpgradeSystemAtu.currentStep = Math.max(0, cacheUpgradeSystemAtu.upgAmount - 1);
+            }
+            await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'editsummary') {
             const upgAtual = cacheUpgradeSystemAtu.upgrades[cacheUpgradeSystemAtu.currentStep];
             const modSumm = new ModalBuilder().setCustomId('upgrade_ai_modal_summary').setTitle('Editar Resumo do Upgrade');
@@ -472,7 +514,14 @@ async function listenerInteractionUpg(interaction, client) {
         };
 
         if (cacheUpgradeSystemAtual.aiMode) {
-            cacheUpgradeSystemAtual.upgrades[cacheUpgradeSystemAtual.currentStep] = dadosHabilidade;
+            if (cacheUpgradeSystemAtual.addingNew) {
+                cacheUpgradeSystemAtual.upgrades.push(dadosHabilidade);
+                cacheUpgradeSystemAtual.upgAmount++;
+                cacheUpgradeSystemAtual.currentStep = cacheUpgradeSystemAtual.upgAmount - 1;
+                cacheUpgradeSystemAtual.addingNew = false;
+            } else {
+                cacheUpgradeSystemAtual.upgrades[cacheUpgradeSystemAtual.currentStep] = dadosHabilidade;
+            }
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             return mosAiUpg(interaction, cacheUpgradeSystemAtual, true);
         }
@@ -491,7 +540,7 @@ async function listenerInteractionUpg(interaction, client) {
                 if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
                 await interaction.editReply({ content: '<a:discordchristmas:1502159689528512612> Gerando resumos automáticos com a IA baseando-se no seu treino...', embeds: [], components: [] });
                 
-                const resultadoIA = await processarIA_Resumo(cacheUpgradeSystemAtual.upgrades, cacheUpgradeSystemAtual.loreText);
+                const resultadoIA = await processarIA_Resumo(cacheUpgradeSystemAtual.upgrades, cacheUpgradeSystemAtual.loreText, client);
                 if (resultadoIA && resultadoIA.upgrades) {
                     cacheUpgradeSystemAtual.upgrades = resultadoIA.upgrades.map(u => ({...u, status: 'pendente'}));
                     cacheUpgradeSystemAtual.aiMode = true; 
@@ -586,7 +635,14 @@ async function listenerInteractionUpg(interaction, client) {
         }
 
         if (acao === 'reject') {
-            const modRejUpg = new ModalBuilder().setCustomId(`upgrade_adm_modal_reject_${idDocDbUpg}`).setTitle('Motivo da Rejeição');
+            if (escopo === 'allUpgd') {
+                const rowConfirm = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`upgrade_adm_confirmRejectAll_${idDocDbUpg}`).setLabel('Tenho certeza, rejeitar todos').setStyle(ButtonStyle.Danger)
+                );
+                return interaction.reply({ content: '⚠️ **Tem certeza?** Você está prestes a REJEITAR TODOS os upgrades dessa solicitação. A mesma justificativa será aplicada a todos.', components: [rowConfirm], flags: 64 });
+            }
+
+            const modRejUpg = new ModalBuilder().setCustomId(`upgrade_adm_modal_reject_${escopo}_${idDocDbUpg}`).setTitle('Motivo da Rejeição');
             modRejUpg.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('upgrade_adm_modal_reject_input_motif').setLabel('Justificativa').setStyle(TextInputStyle.Paragraph).setRequired(true)));
             return interaction.showModal(modRejUpg);
         }
@@ -599,11 +655,22 @@ async function listenerInteractionUpg(interaction, client) {
         return interaction.showModal(modAccUpg);
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_adm_confirmRejectAll_')) {
+        const idDocDbUpg = interaction.customId.split('_')[3];
+        const modRejUpg = new ModalBuilder().setCustomId(`upgrade_adm_modal_reject_allUpgd_${idDocDbUpg}`).setTitle('Rejeitar Todos Upgrades');
+        modRejUpg.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('upgrade_adm_modal_reject_input_motif').setLabel('Justificativa Geral').setStyle(TextInputStyle.Paragraph).setRequired(true)));
+        return interaction.showModal(modRejUpg);
+    }
+
     if (interaction.isModalSubmit() && interaction.customId.startsWith('upgrade_adm_modal_accept_')) {
         await interaction.deferUpdate();
         const parts = interaction.customId.split('_');
-        const escopo = parts[4];
-        const idAccUpg = parts[5];
+        let escopo = parts[4];
+        let idAccUpg = parts[5];
+        if (!idAccUpg) {
+            idAccUpg = escopo;
+            escopo = 'currentUpgd';
+        }
         const feedbackUpg = interaction.fields.getTextInputValue('upgrade_adm_modal_accept_input_motif');
         const docDbAccUpg = await client.database.UpgradeModel.findById(idAccUpg);
         const cacheAdmNavigationStateAtu = cacheAdmNavigationState.get(interaction.user.id);
@@ -638,19 +705,24 @@ async function listenerInteractionUpg(interaction, client) {
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('upgrade_adm_modal_reject_')) {
         await interaction.deferUpdate();
-        const idRejectedUpg = interaction.customId.split('_')[4];
+        const parts = interaction.customId.split('_');
+        let escopo = parts[4];
+        let idRejectedUpg = parts[5];
+        if (!idRejectedUpg) {
+            idRejectedUpg = escopo;
+            escopo = 'currentUpgd';
+        }
         const motifRejectedUpg = interaction.fields.getTextInputValue('upgrade_adm_modal_reject_input_motif');
         const docDbRejectedUpg = await client.database.UpgradeModel.findById(idRejectedUpg);
         const cacheAdmNavigationStateAtu = cacheAdmNavigationState.get(interaction.user.id);
         
-        if (docDbRejectedUpg.upgrades.length === 1) {
+        if (escopo === 'allUpgd' || docDbRejectedUpg.upgrades.length === 1) {
             docDbRejectedUpg.status = 'recusado';
-            docDbRejectedUpg.upgrades[0].status = 'recusado';
-            docDbRejectedUpg.upgrades[0].motivo = motifRejectedUpg;
+            docDbRejectedUpg.upgrades.forEach(u => { u.status = 'recusado'; u.motivo = motifRejectedUpg; });
             docDbRejectedUpg.AdmodAvaliou = interaction.user.id;
             await docDbRejectedUpg.save();
-            await atualStatusUpg(interaction, client, docDbRejectedUpg, `Recusado: ${motifRejectedUpg}`);
-            return interaction.editReply({ content: '❌ Avaliação concluída (Recusado)!', embeds: [], components: [] });
+            await atualStatusUpg(interaction, client, docDbRejectedUpg, `Recusados: ${motifRejectedUpg}`);
+            return interaction.editReply({ content: '❌ Avaliação concluída (Todos Recusados)!', embeds: [], components: [] });
         }
 
         const upgIndex = cacheAdmNavigationStateAtu.currentIndex;
@@ -715,6 +787,8 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     );
 
     const rowAcao = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_add').setLabel('Adicionar').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_remove').setLabel('Remover').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(cacheData.upgAmount <= 1),
         new ButtonBuilder().setCustomId('upgrade_ai_nav_editsummary').setLabel('Editar Resumo').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('upgrade_ai_nav_confirm').setLabel('Confirmar e Enviar').setStyle(ButtonStyle.Success).setEmoji('✅')
     );
@@ -851,6 +925,19 @@ async function envioUpg(interaction, client, listaUpg) {
     }
 
     await upgDoc.save();
+    
+    if (listaUpg.aiMode) {
+        try {
+            const resumosTreino = listaUpg.upgrades.filter(u => u.resumo && u.resumo.length > 20).map(u => ({ nome: u.nome, resumo: u.resumo }));
+            if (resumosTreino.length > 0) {
+                await client.database.AiTraining.create({
+                    tipo: 'estilo_resumo',
+                    exemplos: resumosTreino
+                });
+            }
+        } catch(e) {}
+    }
+
     cacheUpgradeSystem.delete(interaction.user.id);
     await interaction.editReply({ content: `✅ Upgrades enviados! Aguarde avaliação e acompanhe o status em ${filaChannel ? filaChannel.toString() : 'nossa fila'}! Você receberá notificação na DM quando for avaliado.`, embeds: [] });
 }
@@ -880,10 +967,25 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_accept_currentUpgd_${upgDocDb._id}`).setEmoji('☑️').setStyle(ButtonStyle.Success).setDisabled(upgAtual.status !== 'pendente'),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_accept_allUpgd_${upgDocDb._id}`).setEmoji('✅').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_currentUpgd_${upgDocDb._id}`).setEmoji('🚫').setStyle(ButtonStyle.Primary).setDisabled(upgAtual.status !== 'pendente')
+        new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_currentUpgd_${upgDocDb._id}`).setEmoji('🚫').setStyle(ButtonStyle.Danger).setDisabled(upgAtual.status !== 'pendente'),
+        new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_allUpgd_${upgDocDb._id}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
     );
 
-    const botoesEmbedAdm = { embeds: [embedUpgAtual], components: [row1, row2], flags: 64 };
+    const embedLegenda = new EmbedBuilder()
+        .setColor('Grey')
+        .setTitle('Legenda de Ações')
+        .setDescription(
+            `🔙 **Anterior** - Navega para o upgrade anterior.\n` +
+            `🔜 **Próximo** - Navega para o próximo upgrade.\n` +
+            `👁‍🗨 **Ver Lore** - Abre a narrativa enviada pelo jogador.\n` +
+            `❌ **Fechar Painel** - Sai do modo de avaliação e libera para outro Admod.\n` +
+            `☑️ **Aprovar Atual** - Aprova apenas o upgrade selecionado na tela.\n` +
+            `✅ **Aprovar Todos** - Aprova toda a solicitação de uma vez.\n` +
+            `🚫 **Recusar Atual** - Recusa apenas o upgrade selecionado.\n` +
+            `🗑️ **Recusar Todos** - Recusa toda a solicitação de uma vez.`
+        );
+
+    const botoesEmbedAdm = { embeds: [embedUpgAtual, embedLegenda], components: [row1, row2], flags: 64 };
     if (interaction.deferred || interaction.replied) { 
         await interaction.editReply(botoesEmbedAdm);
     } else if (updated) { 
