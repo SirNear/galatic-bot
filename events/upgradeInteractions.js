@@ -1,5 +1,6 @@
-const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder } = require('discord.js');
+const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder, AttachmentBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
+const fetch = global.fetch || require('node-fetch');
 
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
@@ -118,63 +119,112 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
     return listaMsg.reverse(); //inverte pra ordenar certo
 }
 
-async function chamarIA(systemInstruction, promptText) {
+async function chamarIA(systemInstruction, promptText, debugInfo = null) {
     const models = [
         'gemini-2.5-flash',
         'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-pro',
-        'gemini-pro'
+        'gemini-2.5-pro',
+        'gemini-2.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-flash-latest',
+        'gemini-pro-latest'
     ];
     const apiKey = process.env.GEMINI_API_KEY;
     
     let success = false;
     let jsonResult = null;
 
+    if (debugInfo) debugInfo.rawText = "--- LOG DE TENTATIVAS DA IA ---\n";
+
     if (apiKey) {
         for (const model of models) {
             try {
                 let requestBody = {
                     contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { temperature: 0.2 }
+                    generationConfig: { 
+                        temperature: 0.1,
+                        responseMimeType: "application/json"
+                    }
                 };
 
                 // Modelos antigos não suportam systemInstruction adequadamente na v1beta
-                if (model.includes('1.5') || model.includes('2.0') || model.includes('2.5')) {
+                if (model.includes('1.5') || model.includes('2.0') || model.includes('2.5') || model.includes('3.1') || model.includes('latest')) {
                     requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
                 } else {
                     requestBody.contents[0].parts[0].text = `Instruções do Sistema: ${systemInstruction}\n\nEntrada do Usuário:\n${promptText}`;
                 }
 
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
+                requestBody.safetySettings = [
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                ];
+
+                const response = await Promise.race([
+                    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de resposta da API')), 20000))
+                ]);
 
                 if (response.ok) {
                     const data = await response.json();
+                    
+                    if (data.usageMetadata) {
+                        console.log(`[IA UPGRADE] Modelo ${model} usou ${data.usageMetadata.totalTokenCount} tokens (Prompt: ${data.usageMetadata.promptTokenCount} | Resposta: ${data.usageMetadata.candidatesTokenCount}).`);
+                    }
+
+                    if (data.promptFeedback && data.promptFeedback.blockReason) {
+                        console.warn(`[IA UPGRADE] Modelo ${model} bloqueou o prompt por segurança: ${data.promptFeedback.blockReason}`);
+                    }
+
                     // Adiciona verificações para evitar crash caso o prompt acione o filtro de segurança (Safety Settings)
                     if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
                         let texto = data.candidates[0].content.parts[0].text;
-                        const matchJson = texto.match(/\{[\s\S]*\}/);
+                        if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA GEMINI ${model}]:\n${texto}`; // Salva o texto cru para debug
+                        let cleanedTexto = texto.replace(/```json/gi, '').replace(/```/g, '').trim();
+                        const matchJson = cleanedTexto.match(/(\{|\[)[\s\S]*(\}|\])/);
                         if (matchJson) {
                             try {
-                                jsonResult = JSON.parse(matchJson[0]);
+                                let parsed = JSON.parse(matchJson[0]);
+                                if (Array.isArray(parsed)) {
+                                    parsed = { upgrades: parsed };
+                                } else if (!parsed.upgrades && (parsed.nome || parsed.tipo)) {
+                                    parsed = { upgrades: [parsed] };
+                                }
+                                if (!parsed.upgrades || !Array.isArray(parsed.upgrades) || parsed.upgrades.length === 0) {
+                                    console.warn(`[IA UPGRADE] Modelo ${model} retornou JSON sem upgrades válidos:`, texto);
+                                    continue; // Rejeita a resposta vazia e tenta o próximo modelo
+                                }
+                                jsonResult = parsed;
                                 success = true;
                                 break;
                             } catch (errParse) {
-                                console.error(`[IA UPGRADE] Erro de parse no modelo ${model}`);
+                                console.error(`[IA UPGRADE] Erro de parse no modelo ${model}: ${texto}`);
+                                if (debugInfo) debugInfo.rawText += `\nErro de parse JSON: ${errParse.message}`;
                             }
+                        } else {
+                            console.error(`[IA UPGRADE] Resposta do modelo ${model} não contém JSON: ${texto.substring(0, 200)}...`);
+                            if (debugInfo) debugInfo.rawText += `\nErro: Não foi possível encontrar chaves de JSON na resposta.`;
                         }
+                    } else if (data.candidates && data.candidates[0].finishReason !== 'STOP') {
+                        console.warn(`[IA UPGRADE] Modelo ${model} parou por motivo: ${data.candidates[0].finishReason}`);
+                        if (debugInfo) debugInfo.rawText += `\nErro: Modelo parou pelo motivo ${data.candidates[0].finishReason}`;
+                    } else if (!data.candidates) {
+                        console.warn(`[IA UPGRADE] Modelo ${model} não retornou candidates (possível bloqueio de segurança). Resposta: ${JSON.stringify(data).substring(0, 200)}`);
+                        if (debugInfo) debugInfo.rawText += `\nErro: Modelo não retornou texto. Possível bloqueio de segurança.`;
                     }
                 } else if (response.status === 429) {
-                    // Apenas silencia os erros 429 para evitar o flood no console
+                    console.warn(`[IA UPGRADE] Modelo ${model} retornou 429 Too Many Requests.`);
+                    if (debugInfo) debugInfo.rawText += `\nErro: 429 Too Many Requests para ${model}.`;
                     continue;
                 } else {
                     const errText = await response.text();
                     console.error(`[IA UPGRADE] Erro na API Gemini (Status: ${response.status}) no modelo ${model}:`, errText);
+                    if (debugInfo) debugInfo.rawText += `\nErro API (${response.status}): ${errText}`;
                     continue;
                 }
             } catch (e) {
@@ -188,24 +238,49 @@ async function chamarIA(systemInstruction, promptText) {
 
     // Fallback 1: Pollinations AI (Baseado em OpenAI / ChatGPT)
     try {
-        const resPol = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: [
-                    { role: 'system', content: systemInstruction },
-                    { role: 'user', content: promptText }
-                ],
-                jsonMode: true,
-                temperature: 0.2
-            })
-        });
+        const resPol = await Promise.race([
+            fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [
+                        { role: 'system', content: systemInstruction },
+                        { role: 'user', content: promptText }
+                    ],
+                    jsonMode: true,
+                    temperature: 0.2
+                })
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout da API')), 20000))
+        ]);
         if (resPol.ok) {
             const texto = await resPol.text();
-            const matchJson = texto.match(/\{[\s\S]*\}/);
+            if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 1]:\n${texto}`;
+            let cleanedTexto = texto.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const matchJson = cleanedTexto.match(/(\{|\[)[\s\S]*(\}|\])/);
             if (matchJson) {
-                 return JSON.parse(matchJson[0]);
+                try {
+                    let parsed = JSON.parse(matchJson[0]);
+                    if (Array.isArray(parsed)) parsed = { upgrades: parsed };
+                    else if (!parsed.upgrades && (parsed.nome || parsed.tipo)) parsed = { upgrades: [parsed] };
+                    
+                    if (!parsed.upgrades || parsed.upgrades.length === 0) {
+                        console.warn(`[IA UPGRADE] Pollinations 1 retornou JSON sem upgrades:`, texto.substring(0, 200));
+                        if (debugInfo) debugInfo.rawText += `\nErro: Array vazio.`;
+                        throw new Error("Pollinations 1 retornou array vazio");
+                    }
+                    return parsed;
+                } catch (e) {
+                    console.error(`[IA UPGRADE] Erro de parse no Pollinations 1:`, e.message);
+                    if (debugInfo) debugInfo.rawText += `\nErro de parse JSON: ${e.message}`;
+                }
+            } else {
+                console.error(`[IA UPGRADE] Pollinations 1 não retornou JSON:`, texto.substring(0, 200));
+                if (debugInfo) debugInfo.rawText += `\nErro: Sem JSON na resposta.`;
             }
+        } else {
+            console.error(`[IA UPGRADE] Pollinations 1 falhou com status: ${resPol.status}`);
+            if (debugInfo) debugInfo.rawText += `\nErro API: ${resPol.status}`;
         }
     } catch (e) {
         console.error(`[IA UPGRADE] Exceção no fallback Pollinations:`, e.message);
@@ -214,26 +289,50 @@ async function chamarIA(systemInstruction, promptText) {
     // Fallback 2: Outra rota da Pollinations em último caso
     try {
         const promptCompleto = `SYSTEM: ${systemInstruction}\nUSER: ${promptText}\nResponda APENAS com o JSON.`;
-        const resPol2 = await fetch('https://text.pollinations.ai/openai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'openai',
-                messages: [
-                    { role: 'user', content: promptCompleto }
-                ],
-                temperature: 0.2
-            })
-        });
+        const resPol2 = await Promise.race([
+            fetch('https://text.pollinations.ai/openai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'openai',
+                    messages: [
+                        { role: 'user', content: promptCompleto }
+                    ],
+                    temperature: 0.2
+                })
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout da API')), 20000))
+        ]);
         if (resPol2.ok) {
             const data = await resPol2.json();
             if (data.choices && data.choices[0].message && data.choices[0].message.content) {
                 const texto2 = data.choices[0].message.content;
-                const matchJson2 = texto2.match(/\{[\s\S]*\}/);
+                if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 2]:\n${texto2}`;
+                let cleanedTexto2 = texto2.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const matchJson2 = cleanedTexto2.match(/(\{|\[)[\s\S]*(\}|\])/);
                 if (matchJson2) {
-                    return JSON.parse(matchJson2[0]);
+                    try {
+                        let parsed = JSON.parse(matchJson2[0]);
+                        if (Array.isArray(parsed)) parsed = { upgrades: parsed };
+                        else if (!parsed.upgrades && (parsed.nome || parsed.tipo)) parsed = { upgrades: [parsed] };
+                        
+                        if (!parsed.upgrades || parsed.upgrades.length === 0) {
+                            console.warn(`[IA UPGRADE] Pollinations 2 retornou JSON sem upgrades:`, texto2.substring(0, 200));
+                            if (debugInfo) debugInfo.rawText += `\nErro: Array vazio.`;
+                            throw new Error("Pollinations 2 retornou array vazio");
+                        }
+                        return parsed;
+                    } catch (e) {
+                        console.error(`[IA UPGRADE] Erro de parse no Pollinations 2:`, e.message);
+                        if (debugInfo) debugInfo.rawText += `\nErro de parse JSON: ${e.message}`;
+                    }
+                } else {
+                    console.error(`[IA UPGRADE] Pollinations 2 não retornou JSON:`, texto2.substring(0, 200));
                 }
             }
+        } else {
+            console.error(`[IA UPGRADE] Pollinations 2 falhou com status: ${resPol2.status}`);
+            if (debugInfo) debugInfo.rawText += `\nErro: Sem JSON na resposta.`;
         }
     } catch (e) {
          console.error(`[IA UPGRADE] Exceção no fallback 2 Pollinations:`, e.message);
@@ -242,7 +341,7 @@ async function chamarIA(systemInstruction, promptText) {
     return null;
 }
 
-async function processarIA_Extrair(upgradeText, loreText, client) {
+async function processarIA_Extrair(upgradeText, loreText, client, debugInfo = null) {
     let exemplosTreino = "";
     if (client) {
         try {
@@ -258,14 +357,24 @@ async function processarIA_Extrair(upgradeText, loreText, client) {
         } catch(e) {}
     }
 
-    const sys = `Você é um assistente de RPG de mesa. O usuário fornecerá dois textos: "UPGRADES" (onde ele lista seus ganhos) e "LORE" (a narrativa do treino).
-Sua função é APENAS estruturar os upgrades solicitados no texto "UPGRADES". Para cada um, preencha as chaves e gere um "resumo" em um parágrafo que justifique a habilidade usando a "LORE". Não invente upgrades que não estejam listados.
-Atenção para a chave "categoria": Se for melhoria de uma habilidade principal, use "Principal"; se for sub-habilidade, use "sub-habilidade"; se for uma técnica, use "técnica". Se a habilidade ou sub-habilidade for nova ou constar como desbloqueio, insira "(NOVA) " antes do nome da categoria (Ex: "(NOVA) Principal").
+    const sys = `Você é uma IA especializada em extração de dados estruturados para um RPG de mesa textual. O usuário enviará os textos "LORE" (a narrativa) e "UPGRADES" (uma lista bruta de atributos, técnicas e melhorias).
+
+Sua ÚNICA função é converter a lista de "UPGRADES" em um JSON válido.
+REGRAS OBRIGATÓRIAS:
+1. NUNCA retorne um array vazio. Encontre e extraia todas as melhorias do texto bruto.
+2. Cada upgrade deve ser um objeto na array "upgrades".
+3. Se a lista contiver vários personagens (Ex: Fulano:, Ciclano:), inclua o nome do personagem no campo "nome" (Ex: "Força (Fulano)").
+4. Leia atentamente toda a lista, ignorando símbolos estranhos como "->", "-&gt;" ou erros de digitação.
+5. "tipo": classifique como "Física", "Mágica", "Passiva" ou "Status".
+6. "categoria": classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for nova, inicie com "(NOVA) ".
+7. "descricao": O ganho exato ou funcionamento (ex: "+10 mil volts", "+75m de alcance", "nova técnica").
+8. "resumo": Gere uma justificativa de até 2 frases baseada na "LORE" para o ganho. Se não achar na LORE, crie um pequeno resumo sobre o próprio poder.
+
 Retorne EXATAMENTE um objeto JSON neste formato:
-{ "upgrades": [ { "tipo": "Física, Mágica ou Passiva", "categoria": "Principal, sub-habilidade, técnica, etc", "nome": "Nome do atributo, poder ou item (Ex: Força)", "descricao": "Melhoria obtida (Ex: +3T)", "resumo": "Justificativa/Feito resumido da lore para este upgrade em específico." } ] }${exemplosTreino}`;
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${upgradeText}`;
-    return await chamarIA(sys, prompt);
+    return await chamarIA(sys, prompt, debugInfo);
 }
 
 async function processarIA_Resumo(upgradesObj, loreText, client) {
@@ -284,9 +393,9 @@ async function processarIA_Resumo(upgradesObj, loreText, client) {
         } catch(e) {}
     }
 
-    const sys = `Você é um assistente de RPG de mesa. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
-Sua função é ler os upgrades e, para aqueles cujo campo "resumo" estiver vazio, gerar um resumo sinérgico (1 parágrafo) que justifique o ganho usando a "LORE".
-Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido e sem blocos markdown):
+    const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
+Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar um resumo sinérgico (1 parágrafo) que justifique o ganho usando a "LORE".
+Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido):
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Novo resumo justificado aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
@@ -354,54 +463,62 @@ async function listenerInteractionUpg(interaction, client) {
             const msgIni = reactionIni.message;
             client.removeListener('messageReactionAdd', lidIniUpg);
 
-            await interaction.editReply({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`Agora reaja com ➖ na **última** mensagem do seu treino.`).setColor([223, 108, 7])] });
+            await safeEditReply(interaction, { content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`Agora reaja com ➖ na **última** mensagem do seu treino.`).setColor([223, 108, 7])] });
 
             let { intervalo: intervaloFim, contador: contadorFim } = await iniciarContador(300, 'marcar a última mensagem com ➖', interaction.channel);
             let timeoutFimReaction;
 
             const lidFimUpg = async (reactionFim, userFim) => {
-                if (!filtroReaction(reactionFim, userFim) || reactionFim.emoji.name !== '➖') return;
-                clearTimeout(timeoutFimReaction);
-                await pararContador(null, intervaloFim, contadorFim);
-                if (contadorFim) await contadorFim.delete().catch(() => null);
-                const msgFim = reactionFim.message;
-                client.removeListener('messageReactionAdd', lidFimUpg);
-
-                if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
-                    await safeEditReply(interaction, { content: '❌ A mensagem inicial deve ser anterior à final. Vamos recomeçar o processo!', embeds: [embedCapturaTreino] });
-                    const novoContadorIni = await iniciarContador(300, 'marcar a primeira mensagem com ➕', interaction.channel);
-                    intervaloIni = novoContadorIni.intervalo;
-                    contadorIni = novoContadorIni.contador;
-                    client.on('messageReactionAdd', lidIniUpg);
-                    timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
-                    return;
-                }
-
-                await safeEditReply(interaction, { content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Coletando mensagens do treino...`, embeds: [] });
-
-                const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
-                if (!listaMsg) return;
-
-                await interaction.deleteReply().catch(() => null);
-
-                let textoCapturado = `**🔗 CLIQUE AQUI PARA IR ATÉ A MENSAGEM ORIGINAL**\n\n`;
-                listaMsg.forEach(m => { if (m.author.id === interaction.user.id && m.content) textoCapturado += `${m.content}\n\n`; });
-
-                cacheUpgradeSystem.set(interaction.user.id, { loreText: textoCapturado, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
-                
-                const embAi = new EmbedBuilder()
-                    .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
-                    .setDescription('Treino (Lore) capturado com sucesso!\n\n**Como você deseja enviar os seus upgrades?**')
-                    .setColor('#2b2d31');
-                const rowAi = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
-                    new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary)
-                );
-                
                 try {
-                    await interaction.followUp({ embeds: [embAi], components: [rowAi], flags: 64 });
-                } catch(e) {
-                    await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] }).then(m => setTimeout(() => m.delete().catch(()=>{}), 60000));
+                    if (!filtroReaction(reactionFim, userFim) || reactionFim.emoji.name !== '➖') return;
+                    clearTimeout(timeoutFimReaction);
+                    await pararContador(null, intervaloFim, contadorFim);
+                    if (contadorFim) await contadorFim.delete().catch(() => null);
+                    const msgFim = reactionFim.message;
+                    client.removeListener('messageReactionAdd', lidFimUpg);
+
+                    if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
+                        await safeEditReply(interaction, { content: '❌ A mensagem inicial deve ser anterior à final. Vamos recomeçar o processo!', embeds: [embedCapturaTreino] });
+                        const novoContadorIni = await iniciarContador(300, 'marcar a primeira mensagem com ➕', interaction.channel);
+                        intervaloIni = novoContadorIni.intervalo;
+                        contadorIni = novoContadorIni.contador;
+                        client.on('messageReactionAdd', lidIniUpg);
+                        timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
+                        return;
+                    }
+
+                    await safeEditReply(interaction, { content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Coletando mensagens do treino...`, embeds: [] });
+
+                    const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
+                    if (!listaMsg) return;
+
+                    try {
+                        const rep = await interaction.fetchReply().catch(()=>null);
+                        if (rep) await rep.delete().catch(()=>null);
+                    } catch(e) {}
+
+                    let textoCapturado = `**🔗 CLIQUE AQUI PARA IR ATÉ A MENSAGEM ORIGINAL**\n\n`;
+                    listaMsg.forEach(m => { if (m.content) textoCapturado += `${m.author.username}: ${m.content}\n\n`; });
+
+                    cacheUpgradeSystem.set(interaction.user.id, { loreText: textoCapturado, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
+                    
+                    const embAi = new EmbedBuilder()
+                        .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
+                        .setDescription('Treino (Lore) capturado com sucesso!\n\n**Como você deseja enviar os seus upgrades?**')
+                        .setColor('#2b2d31');
+                    const rowAi = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary)
+                    );
+                    
+                    try {
+                        await interaction.followUp({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi], flags: 64 });
+                    } catch(e) {
+                        await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] });
+                    }
+                } catch (errFimLore) {
+                    console.error('[IA UPGRADE] Erro em captura de Lore:', errFimLore);
+                    await safeEditReply(interaction, { content: `❌ Ocorreu um erro interno ao processar a captura do seu treino: \`${errFimLore.message}\``, embeds: [] }).catch(() => {});
                 }
             };
             client.on('messageReactionAdd', lidFimUpg);
@@ -422,7 +539,11 @@ async function listenerInteractionUpg(interaction, client) {
         const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
         if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
         
-        await interaction.update({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription('Reaja com ➕ na **primeira** mensagem onde estão listados seus UPGRADES no chat.').setColor([223, 108, 7])], components: [] });
+        try {
+            await interaction.update({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription('Reaja com ➕ na **primeira** mensagem onde estão listados seus UPGRADES no chat.').setColor([223, 108, 7])], components: [] });
+        } catch(e) {
+            await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription('Reaja com ➕ na **primeira** mensagem onde estão listados seus UPGRADES no chat.').setColor([223, 108, 7])] });
+        }
 
         let { intervalo: intervaloIni, contador: contadorIni } = await iniciarContador(300, 'marcar a primeira mensagem de upgrades com ➕', interaction.channel);
         let timeoutIniReact;
@@ -436,44 +557,86 @@ async function listenerInteractionUpg(interaction, client) {
             const msgIni = reactionIni.message;
             client.removeListener('messageReactionAdd', lidIniUpg);
 
-            await interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`Agora reaja com ➖ na **última** mensagem dos seus upgrades.`).setColor([223, 108, 7])] });
+            await safeEditReply(interaction, { content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`Agora reaja com ➖ na **última** mensagem dos seus upgrades.`).setColor([223, 108, 7])] });
 
             let { intervalo: intervaloFim, contador: contadorFim } = await iniciarContador(300, 'marcar a última mensagem de upgrades com ➖', interaction.channel);
             let timeoutFimReaction;
 
             const lidFimUpg = async (reactionFim, userFim) => {
-                if (!filtroReaction(reactionFim, userFim) || reactionFim.emoji.name !== '➖') return;
-                clearTimeout(timeoutFimReaction);
-                await pararContador(null, intervaloFim, contadorFim);
-                if (contadorFim) await contadorFim.delete().catch(() => null);
-                const msgFim = reactionFim.message;
-                client.removeListener('messageReactionAdd', lidFimUpg);
+                try {
+                    if (!filtroReaction(reactionFim, userFim) || reactionFim.emoji.name !== '➖') return;
+                    clearTimeout(timeoutFimReaction);
+                    await pararContador(null, intervaloFim, contadorFim);
+                    if (contadorFim) await contadorFim.delete().catch(() => null);
+                    const msgFim = reactionFim.message;
+                    client.removeListener('messageReactionAdd', lidFimUpg);
 
-                if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
-                    return safeEditReply(interaction, { content: '❌ A mensagem inicial deve ser anterior à final. Você precisará recomeçar o processo de upgrades (use o comando /upgrade novamente).', embeds: [] });
-                }
+                    if (msgIni.createdTimestamp > msgFim.createdTimestamp) {
+                        try {
+                            const rep = await interaction.fetchReply().catch(()=>null);
+                            if(rep) await rep.delete().catch(()=>null);
+                        } catch(e) {}
+                        try {
+                            return await interaction.followUp({ content: '❌ A mensagem inicial deve ser anterior à final. Você precisará recomeçar o processo de upgrades (use o comando /upgrade novamente).', embeds: [], flags: 64 });
+                        } catch(e) {
+                            return await interaction.channel.send({ content: `<@${interaction.user.id}>\n❌ A mensagem inicial deve ser anterior à final. Você precisará recomeçar o processo de upgrades (use o comando /upgrade novamente).` });
+                        }
+                    }
 
-                await safeEditReply(interaction, { content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Lendo upgrades e gerando resumos com a IA... Isso pode levar alguns segundos.`, embeds: [] });
+                    try {
+                        const rep = await interaction.fetchReply().catch(()=>null);
+                        if(rep) await rep.delete().catch(()=>null);
+                    } catch(e) {}
+                    
+                    let msgLoading;
+                    try {
+                        msgLoading = await interaction.followUp({ content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Lendo upgrades e gerando resumos com a IA... Isso pode levar alguns segundos.`, embeds: [], flags: 64 });
+                    } catch(e) {
+                        msgLoading = await interaction.channel.send({ content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Lendo upgrades e gerando resumos com a IA... Isso pode levar alguns segundos.` });
+                    }
 
-                const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
-                if (!listaMsg) return;
+                    const listaMsg = await buscaMsg(interaction.channel, msgIni.id, msgFim.id);
+                    if (!listaMsg) return;
 
-                let upgradeText = ``;
-                listaMsg.forEach(m => { if (m.author.id === interaction.user.id && m.content) upgradeText += `${m.content}\n\n`; });
+                    let upgradeText = ``;
+                    listaMsg.forEach(m => { if (m.content) upgradeText += `${m.author.username}: ${m.content}\n\n`; });
 
-                const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText, client);
-                
-                if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
-                    await safeEditReply(interaction, { content: '❌ Houve um erro ao extrair com a IA. Redirecionando para o modo manual...' });
+                    let debugInfo = {};
+                    const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText, client, debugInfo);
+                    
+                    if (msgLoading && typeof msgLoading.delete === 'function') {
+                        await msgLoading.delete().catch(()=>null);
+                    }
+
+                    if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
+                        const files = [];
+                        if (debugInfo.rawText) {
+                            files.push(new AttachmentBuilder(Buffer.from(debugInfo.rawText, 'utf-8'), { name: 'ia_resposta_bruta.txt' }));
+                        }
+                        try {
+                            await interaction.followUp({ content: '❌ Houve um erro na IA (ela não conseguiu retornar um formato válido). O arquivo anexado contém o que ela tentou responder para fins de análise. Redirecionando para o modo manual...', files: files, flags: 64 });
+                        } catch(e) {
+                            await interaction.channel.send({ content: `<@${interaction.user.id}>\n❌ Houve um erro na IA (ela não conseguiu retornar um formato válido). O arquivo anexado contém o que ela tentou responder para fins de análise. Redirecionando para o modo manual...`, files: files });
+                        }
+                        return QntUpg(interaction, 1, false);
+                    }
+                    
+                    cacheUpgradeSystemAtu.aiMode = true;
+                    cacheUpgradeSystemAtu.upgrades = resultadoIA.upgrades.map(u => ({...u, status: 'pendente'}));
+                    cacheUpgradeSystemAtu.currentStep = 0; 
+                    cacheUpgradeSystemAtu.upgAmount = cacheUpgradeSystemAtu.upgrades.length;
+                    
+                    await mosAiUpg(interaction, cacheUpgradeSystemAtu, false);
+                } catch (errFimUpg) {
+                    if (msgLoading && typeof msgLoading.delete === 'function') await msgLoading.delete().catch(()=>null);
+                    console.error('[IA UPGRADE] Erro fatal em lidFimUpg:', errFimUpg);
+                    try {
+                        await interaction.followUp({ content: `❌ Ocorreu um erro interno durante a extração: \`${errFimUpg.message}\`. Redirecionando para o modo manual...`, embeds: [], flags: 64 });
+                    } catch(e) {
+                        await interaction.channel.send({ content: `<@${interaction.user.id}>\n❌ Ocorreu um erro interno durante a extração: \`${errFimUpg.message}\`. Redirecionando para o modo manual...` });
+                    }
                     return QntUpg(interaction, 1, false);
                 }
-                
-                cacheUpgradeSystemAtu.aiMode = true;
-                cacheUpgradeSystemAtu.upgrades = resultadoIA.upgrades.map(u => ({...u, status: 'pendente'}));
-                cacheUpgradeSystemAtu.currentStep = 0; 
-                cacheUpgradeSystemAtu.upgAmount = cacheUpgradeSystemAtu.upgrades.length;
-                
-                await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
             };
             client.on('messageReactionAdd', lidFimUpg);
             timeoutFimReaction = setTimeout(() => { client.removeListener('messageReactionAdd', lidFimUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o fim.', embeds: [] }); }, 300000);
@@ -819,9 +982,9 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
         .setTitle(`<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES (IA) | <a:rahhh:1502049620640006257>`)
         .setDescription(`**Foram identificados ${cacheData.upgAmount} upgrades!**\nRevise-os abaixo e edite se necessário.`)
         .addFields(
-            { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}`, value: `**Nome:** ${upg.nome}\n**Tipo:** ${upg.tipo}\n**Categoria:** ${upg.categoria}` },
-            { name: 'Descrição / Valor', value: (upg.descricao || 'Sem descrição').substring(0, 1024) },
-            { name: 'Resumo Sinérgico', value: (upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}`, value: `**Nome:** ${String(upg.nome || 'Desconhecido').substring(0, 300)}\n**Tipo:** ${String(upg.tipo || 'Desconhecido').substring(0, 300)}\n**Categoria:** ${String(upg.categoria || 'Desconhecida').substring(0, 300)}` },
+            { name: 'Descrição / Valor', value: String(upg.descricao || 'Sem descrição').substring(0, 1024) },
+            { name: 'Resumo Sinérgico', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setColor('#2b2d31');
 
@@ -841,9 +1004,14 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     const payload = { embeds: [embed], components: [rowNav, rowAcao] };
     try {
         if (isUpdate) { await interaction.editReply(payload); }
-        else { payload.flags = 64; await interaction.followUp(payload); }
+            else { 
+                payload.flags = 64; 
+                payload.content = `<@${interaction.user.id}>`;
+                await interaction.followUp(payload); 
+            }
     } catch (e) {
         delete payload.flags;
+            payload.content = `<@${interaction.user.id}>`;
         await interaction.channel.send(payload);
     }
 }
@@ -858,11 +1026,11 @@ async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
     const embed = new EmbedBuilder()
         .setTitle(`Seu Upgrade: ${upg.nome} (${index + 1}/${upgDoc.upgrades.length})`)
         .setColor(corStatus)
-        .setDescription((upg.descricao || 'Sem descrição').substring(0, 4000))
+        .setDescription(String(upg.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
-            { name: 'Tipo/Categoria', value: `${upg.tipo} | ${upg.categoria}`, inline: true },
+            { name: 'Tipo/Categoria', value: `${String(upg.tipo || 'Desconhecido').substring(0, 100)} | ${String(upg.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status', value: upg.status, inline: true },
-            { name: 'Resumo', value: (upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: 'Resumo', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
         ).setFooter({ text: `Central de Upgrades` });
 
     if (upg.motivo) embed.addFields({ name: isUpgRejected ? 'Motivo da Recusa' : 'Resultado/Feedback', value: upg.motivo });
@@ -895,7 +1063,7 @@ async function mosModUpg(interaction, qntdAtual, qntdTotal, prefill = null) {
         .setPlaceholder('Física, mágica, passiva ou sistemas únicos')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
-    if (prefill) inputTipoHabilidade.setValue(prefill.tipo); else if (isDev) inputTipoHabilidade.setValue("Física");
+    if (prefill) inputTipoHabilidade.setValue(String(prefill.tipo || '').substring(0, 100)); else if (isDev) inputTipoHabilidade.setValue("Física");
 
     const inputCategoriaHabilidade = new TextInputBuilder()
         .setCustomId('upgrade_modal_input_categoria')
@@ -903,16 +1071,16 @@ async function mosModUpg(interaction, qntdAtual, qntdTotal, prefill = null) {
         .setPlaceholder('Principal, sub-habilidade ou técnica')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
-    if (prefill) inputCategoriaHabilidade.setValue(prefill.categoria); else if (isDev) inputCategoriaHabilidade.setValue("Técnica");
+    if (prefill) inputCategoriaHabilidade.setValue(String(prefill.categoria || '').substring(0, 100)); else if (isDev) inputCategoriaHabilidade.setValue("Técnica");
 
     const inputNomeHabilidade = new TextInputBuilder().setCustomId('upgrade_modal_input_nome').setLabel('Nome').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(400).setPlaceholder('Insira o nome da habilidade ou status para upgrade')
-    if (prefill) inputNomeHabilidade.setValue(prefill.nome); else if (isDev) inputNomeHabilidade.setValue("Golpe de Teste");
+    if (prefill) inputNomeHabilidade.setValue(String(prefill.nome || '').substring(0, 400)); else if (isDev) inputNomeHabilidade.setValue("Golpe de Teste");
     
     const inputDescricao = new TextInputBuilder().setCustomId('upgrade_modal_input_descricao').setLabel('Descrição').setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('Descreva o upgrade ou habilidade a ser desbloqueada')
-    if (prefill) inputDescricao.setValue(prefill.descricao); else if (isDev) inputDescricao.setValue(lorem);
+    if (prefill) inputDescricao.setValue(String(prefill.descricao || '').substring(0, 4000)); else if (isDev) inputDescricao.setValue(lorem);
     
     const inputResumo = new TextInputBuilder().setCustomId('upgrade_modal_input_resumo').setLabel('Resumo do Treino').setPlaceholder('Deixe em branco para a IA gerar automaticamente').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000);
-    if (prefill) inputResumo.setValue(prefill.resumo); else if (isDev) inputResumo.setValue(lorem);
+    if (prefill) inputResumo.setValue(String(prefill.resumo || '').substring(0, 1000)); else if (isDev) inputResumo.setValue(lorem);
 
     modalUpgBuilder.addComponents(
         new ActionRowBuilder().addComponents(inputTipoHabilidade),
@@ -994,11 +1162,11 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
     const embedUpgAtual = new EmbedBuilder()
         .setTitle(`Avaliação: ${upgAtual.nome} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})`)
         .setColor(upgAtual.status === 'aprovado' ? 'Green' : 'Blue')
-        .setDescription(upgAtual.descricao.substring(0, 4000))
+        .setDescription(String(upgAtual.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
-            { name: 'Tipo/Categoria', value: `${upgAtual.tipo} | ${upgAtual.categoria}`, inline: true },
+            { name: 'Tipo/Categoria', value: `${String(upgAtual.tipo || 'Desconhecido').substring(0, 100)} | ${String(upgAtual.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status do Upgrade', value: upgAtual.status, inline: true },
-            { name: 'Resumo', value: upgAtual.resumo || 'Sem resumo' }
+            { name: 'Resumo', value: String(upgAtual.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setFooter({ text: `Jogador <@${upgDocDb.userId}>` });
 
