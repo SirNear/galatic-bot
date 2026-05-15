@@ -120,12 +120,12 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
 
 async function chamarIA(systemInstruction, promptText) {
     const models = [
-        'gemini-1.5-flash',
-        'gemini-2.0-flash',
         'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
         'gemini-1.5-pro',
-        'gemini-2.5-pro',
-        'gemini-3.1-pro-preview'
+        'gemini-pro'
     ];
     const apiKey = process.env.GEMINI_API_KEY;
     
@@ -135,18 +135,28 @@ async function chamarIA(systemInstruction, promptText) {
     if (apiKey) {
         for (const model of models) {
             try {
+                let requestBody = {
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { temperature: 0.2 }
+                };
+
+                // Modelos antigos não suportam systemInstruction adequadamente na v1beta
+                if (model.includes('1.5') || model.includes('2.0') || model.includes('2.5')) {
+                    requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+                } else {
+                    requestBody.contents[0].parts[0].text = `Instruções do Sistema: ${systemInstruction}\n\nEntrada do Usuário:\n${promptText}`;
+                }
+
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        systemInstruction: { parts: [{ text: systemInstruction }] },
-                        contents: [{ parts: [{ text: promptText }] }],
-                        generationConfig: { temperature: 0.2 }
-                    })
+                    body: JSON.stringify(requestBody)
                 });
+
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    // Adiciona verificações para evitar crash caso o prompt acione o filtro de segurança (Safety Settings)
+                    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
                         let texto = data.candidates[0].content.parts[0].text;
                         const matchJson = texto.match(/\{[\s\S]*\}/);
                         if (matchJson) {
@@ -154,7 +164,9 @@ async function chamarIA(systemInstruction, promptText) {
                                 jsonResult = JSON.parse(matchJson[0]);
                                 success = true;
                                 break;
-                            } catch (errParse) {}
+                            } catch (errParse) {
+                                console.error(`[IA UPGRADE] Erro de parse no modelo ${model}`);
+                            }
                         }
                     }
                 } else if (response.status === 429) {
@@ -163,36 +175,69 @@ async function chamarIA(systemInstruction, promptText) {
                 } else {
                     const errText = await response.text();
                     console.error(`[IA UPGRADE] Erro na API Gemini (Status: ${response.status}) no modelo ${model}:`, errText);
+                    continue;
                 }
             } catch (e) {
                 console.error(`[IA UPGRADE] Exceção ao se comunicar com o modelo ${model}:`, e.message);
+                continue;
             }
         }
     }
 
     if (success) return jsonResult;
 
-    // Fallback gratuito sem necessidade de chave via Pollinations.ai (Roda ChatGPT ou Llama)
+    // Fallback 1: Pollinations AI (Baseado em OpenAI / ChatGPT)
     try {
-        const resPol = await fetch('https://text.pollinations.ai/openai', {
+        const resPol = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: [
+                    { role: 'system', content: systemInstruction },
+                    { role: 'user', content: promptText }
+                ],
+                jsonMode: true,
+                temperature: 0.2
+            })
+        });
+        if (resPol.ok) {
+            const texto = await resPol.text();
+            const matchJson = texto.match(/\{[\s\S]*\}/);
+            if (matchJson) {
+                 return JSON.parse(matchJson[0]);
+            }
+        }
+    } catch (e) {
+        console.error(`[IA UPGRADE] Exceção no fallback Pollinations:`, e.message);
+    }
+
+    // Fallback 2: Outra rota da Pollinations em último caso
+    try {
+        const promptCompleto = `SYSTEM: ${systemInstruction}\nUSER: ${promptText}\nResponda APENAS com o JSON.`;
+        const resPol2 = await fetch('https://text.pollinations.ai/openai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'openai',
                 messages: [
-                    { role: 'system', content: systemInstruction },
-                    { role: 'user', content: promptText }
+                    { role: 'user', content: promptCompleto }
                 ],
                 temperature: 0.2
             })
         });
-        if (resPol.ok) {
-            const data = await resPol.json();
-            let texto = data.choices[0].message.content;
-            const matchJson = texto.match(/\{[\s\S]*\}/);
-            if (matchJson) return JSON.parse(matchJson[0]);
+        if (resPol2.ok) {
+            const data = await resPol2.json();
+            if (data.choices && data.choices[0].message && data.choices[0].message.content) {
+                const texto2 = data.choices[0].message.content;
+                const matchJson2 = texto2.match(/\{[\s\S]*\}/);
+                if (matchJson2) {
+                    return JSON.parse(matchJson2[0]);
+                }
+            }
         }
-    } catch (e) {}
+    } catch (e) {
+         console.error(`[IA UPGRADE] Exceção no fallback 2 Pollinations:`, e.message);
+    }
 
     return null;
 }
