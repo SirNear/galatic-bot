@@ -367,8 +367,8 @@ REGRAS OBRIGATÓRIAS:
 4. Leia atentamente toda a lista, ignorando símbolos estranhos como "->", "-&gt;" ou erros de digitação.
 5. "tipo": classifique como "Física", "Mágica", "Passiva" ou "Status".
 6. "categoria": classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for nova, inicie com "(NOVA) ".
-7. "descricao": O ganho exato ou funcionamento (ex: "+10 mil volts", "+75m de alcance", "nova técnica").
-8. "resumo": Gere uma justificativa de até 2 frases baseada na "LORE" para o ganho. Se não achar na LORE, crie um pequeno resumo sobre o próprio poder.
+7. "descricao": O ganho exato ou funcionamento. NUNCA INVENTE VALORES que não estejam escritos na lista de "UPGRADES". Caso a lista cite uma melhoria de status/habilidade que normalmente teria valor mas não especifique, SUGIRA um valor razoável baseando-se no esforço demonstrado na "LORE" e DEIXE EXPLICITO que é uma sugestão (ex: "[VALOR SUGERIDO PELA IA BASEADO NO ESFORÇO]: +X").
+8. "resumo": O resumo DEVE justificar o motivo pelo qual o personagem merece esse upgrade, baseando-se EXCLUSIVAMENTE nas ações e eventos narrados na "LORE". Não apenas descreva o poder em si, justifique seu ganho. Caso algum termo ou upgrade não possua qualquer explicação na LORE ou nos UPGRADES, insira um aviso claro informando que a IA não identificou o que é o upgrade ou a sua justificativa (ex: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]").
 
 Retorne EXATAMENTE um objeto JSON neste formato:
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
@@ -394,9 +394,9 @@ async function processarIA_Resumo(upgradesObj, loreText, client) {
     }
 
     const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
-Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar um resumo sinérgico (1 parágrafo) que justifique o ganho usando a "LORE".
+Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar uma justificativa (1 parágrafo) explicando por que o personagem merece o ganho baseando-se EXCLUSIVAMENTE nos eventos da "LORE". Caso algum termo ou upgrade não possua qualquer explicação na LORE, insira um aviso claro informando que a IA não identificou o que é o upgrade ou a sua justificativa (ex: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]").
 Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido):
-{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Novo resumo justificado aqui" } ] }${exemplosTreino}`;
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa baseada na LORE aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
     return await chamarIA(sys, prompt);
@@ -675,8 +675,8 @@ async function listenerInteractionUpg(interaction, client) {
             await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'editsummary') {
             const upgAtual = cacheUpgradeSystemAtu.upgrades[cacheUpgradeSystemAtu.currentStep];
-            const modSumm = new ModalBuilder().setCustomId('upgrade_ai_modal_summary').setTitle('Editar Resumo do Upgrade');
-            modSumm.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resumo_ai_input').setLabel('Resumo Sinérgico').setStyle(TextInputStyle.Paragraph).setValue(upgAtual.resumo || '').setRequired(true)));
+            const modSumm = new ModalBuilder().setCustomId('upgrade_ai_modal_summary').setTitle('Editar Justificativa do Upgrade');
+            modSumm.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resumo_ai_input').setLabel('Justificativa da Lore').setStyle(TextInputStyle.Paragraph).setValue(upgAtual.resumo || '').setRequired(true)));
             await interaction.showModal(modSumm);
         } else if (acao === 'confirm') {
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
@@ -984,7 +984,7 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
         .addFields(
             { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}`, value: `**Nome:** ${String(upg.nome || 'Desconhecido').substring(0, 300)}\n**Tipo:** ${String(upg.tipo || 'Desconhecido').substring(0, 300)}\n**Categoria:** ${String(upg.categoria || 'Desconhecida').substring(0, 300)}` },
             { name: 'Descrição / Valor', value: String(upg.descricao || 'Sem descrição').substring(0, 1024) },
-            { name: 'Resumo Sinérgico', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: 'Justificativa (Lore)', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setColor('#2b2d31');
 
@@ -997,7 +997,7 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     const rowAcao = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('upgrade_ai_nav_add').setLabel('Adicionar').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
         new ButtonBuilder().setCustomId('upgrade_ai_nav_remove').setLabel('Remover').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(cacheData.upgAmount <= 1),
-        new ButtonBuilder().setCustomId('upgrade_ai_nav_editsummary').setLabel('Editar Resumo').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('upgrade_ai_nav_editsummary').setLabel('Editar Justificativa').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('upgrade_ai_nav_confirm').setLabel('Confirmar e Enviar').setStyle(ButtonStyle.Success).setEmoji('✅')
     );
 
@@ -1030,7 +1030,7 @@ async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
         .addFields(
             { name: 'Tipo/Categoria', value: `${String(upg.tipo || 'Desconhecido').substring(0, 100)} | ${String(upg.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status', value: upg.status, inline: true },
-            { name: 'Resumo', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: 'Justificativa', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
         ).setFooter({ text: `Central de Upgrades` });
 
     if (upg.motivo) embed.addFields({ name: isUpgRejected ? 'Motivo da Recusa' : 'Resultado/Feedback', value: upg.motivo });
@@ -1079,7 +1079,7 @@ async function mosModUpg(interaction, qntdAtual, qntdTotal, prefill = null) {
     const inputDescricao = new TextInputBuilder().setCustomId('upgrade_modal_input_descricao').setLabel('Descrição').setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('Descreva o upgrade ou habilidade a ser desbloqueada')
     if (prefill) inputDescricao.setValue(String(prefill.descricao || '').substring(0, 4000)); else if (isDev) inputDescricao.setValue(lorem);
     
-    const inputResumo = new TextInputBuilder().setCustomId('upgrade_modal_input_resumo').setLabel('Resumo do Treino').setPlaceholder('Deixe em branco para a IA gerar automaticamente').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000);
+    const inputResumo = new TextInputBuilder().setCustomId('upgrade_modal_input_resumo').setLabel('Justificativa do Treino').setPlaceholder('Deixe em branco para a IA gerar automaticamente').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000);
     if (prefill) inputResumo.setValue(String(prefill.resumo || '').substring(0, 1000)); else if (isDev) inputResumo.setValue(lorem);
 
     modalUpgBuilder.addComponents(
@@ -1166,7 +1166,7 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
         .addFields(
             { name: 'Tipo/Categoria', value: `${String(upgAtual.tipo || 'Desconhecido').substring(0, 100)} | ${String(upgAtual.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status do Upgrade', value: upgAtual.status, inline: true },
-            { name: 'Resumo', value: String(upgAtual.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: 'Justificativa', value: String(upgAtual.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setFooter({ text: `Jogador <@${upgDocDb.userId}>` });
 
