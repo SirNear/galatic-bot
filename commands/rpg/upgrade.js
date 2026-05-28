@@ -20,7 +20,7 @@ module.exports = class upgrade extends Command {
             .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
             .setAuthor({name: 'Sistema de Treinos', iconURL: this.client.guilds.cache.get(interaction.guildId).iconURL()})
             .setDescription('Você fez um novo treino? Que legal! \n \n Para facilitar a aprovação de seus upgrades, use esse sistema! Certifique-se que seu treino está no **mesmo canal** que está digitando o comando. \n \n Primeiro, vou pedir para você marcar com uma reação a primeira e a última mensagem do seu treino, desconsiderando imagens. \n \n CLIQUE NO BOTÃO PARA CONTINUAR')
-            .addFields({ name: 'Dúvidas?', value: 'Clique no botão "❌" para cancelar o processo e [CLIQUE AQUI PARA VER O TUTORIAL](google.com)'})
+            .addFields({ name: 'Dúvidas?', value: 'Clique no botão "❌" para cancelar o processo e [CLIQUE AQUI PARA VER O TUTORIAL](https://discord.com/channels/731974689798488185/1509570102377451580)'})
             .setColor('#0647c8');
 
         const rowAct = new ActionRowBuilder().addComponents(
