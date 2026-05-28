@@ -367,8 +367,8 @@ REGRAS OBRIGATÓRIAS:
 4. Leia atentamente toda a lista, ignorando símbolos estranhos como "->", "-&gt;" ou erros de digitação.
 5. "tipo": classifique como "Física", "Mágica", "Passiva" ou "Status".
 6. "categoria": classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for nova, inicie com "(NOVA) ".
-7. "descricao": O ganho exato ou funcionamento. NUNCA INVENTE VALORES que não estejam escritos na lista de "UPGRADES". Caso a lista cite uma melhoria de status/habilidade que normalmente teria valor mas não especifique, SUGIRA um valor razoável baseando-se no esforço demonstrado na "LORE" e DEIXE EXPLICITO que é uma sugestão (ex: "[VALOR SUGERIDO PELA IA BASEADO NO ESFORÇO]: +X").
-8. "resumo": O resumo DEVE justificar o motivo pelo qual o personagem merece esse upgrade, baseando-se EXCLUSIVAMENTE nas ações e eventos narrados na "LORE". Não apenas descreva o poder em si, justifique seu ganho. Caso algum termo ou upgrade não possua qualquer explicação na LORE ou nos UPGRADES, insira um aviso claro informando que a IA não identificou o que é o upgrade ou a sua justificativa (ex: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]").
+7. "descricao": MANTENHA A DESCRIÇÃO O MAIS FIEL POSSÍVEL AO ORIGINAL. Não reescreva demais, não resuma excessivamente e NUNCA remova informações vitais como variáveis matemáticas ou valores indefinidos. Remova apenas trechos que sejam pura narrativa e que não descrevam a mecânica do poder em si. NUNCA INVENTE VALORES que não estejam escritos. Caso a lista cite uma melhoria sem valor, SUGIRA baseando-se no esforço e DEIXE EXPLICITO (ex: "[VALOR SUGERIDO PELA IA]: +X").
+8. "resumo": DEVE SER UMA JUSTIFICATIVA NARRATIVA do motivo pelo qual o personagem ganhou o upgrade, baseando-se nos esforços e ações lidos na "LORE". NUNCA apenas explique o que o poder faz ou reescreva a descrição. Mostre QUAIS EVENTOS DA LORE causaram esse ganho. Caso não haja explicação na LORE, insira um aviso claro (ex: "[AVISO DA IA: Não foi possível identificar o contexto na Lore]").
 
 Retorne EXATAMENTE um objeto JSON neste formato:
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
@@ -394,9 +394,13 @@ async function processarIA_Resumo(upgradesObj, loreText, client) {
     }
 
     const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
-Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar uma justificativa (1 parágrafo) explicando por que o personagem merece o ganho baseando-se EXCLUSIVAMENTE nos eventos da "LORE". Caso algum termo ou upgrade não possua qualquer explicação na LORE, insira um aviso claro informando que a IA não identificou o que é o upgrade ou a sua justificativa (ex: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]").
+Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar uma JUSTIFICATIVA NARRATIVA (1 parágrafo) explicando por que o personagem merece o ganho, baseando-se EXCLUSIVAMENTE nos eventos da "LORE".
+REGRAS:
+1. NUNCA reescreva a descrição do poder no resumo. O resumo NÃO É para explicar como a habilidade funciona.
+2. O resumo DEVE explicar QUAIS AÇÕES NA LORE (treinos, combates, descobertas) levaram o personagem a evoluir ou obter esse upgrade.
+3. Caso não haja menção ao upgrade ou treinamento correspondente na LORE, insira o aviso: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]".
 Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido):
-{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa baseada na LORE aqui" } ] }${exemplosTreino}`;
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa NARRATIVA baseada na LORE aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
     return await chamarIA(sys, prompt);
