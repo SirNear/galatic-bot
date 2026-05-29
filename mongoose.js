@@ -82,6 +82,16 @@ const UpgradeSchema = new mongoose.Schema({
 let upgrade = mongoose.model("Upgrade", UpgradeSchema);
 module.exports.UpgradeModel = upgrade;
 
+const upgradeDuvidaSchema = new mongoose.Schema({
+    channelId: String,
+    upgradeId: String,
+    admodId: String,
+    userId: String,
+    expiresAt: Number,
+    nextReminderAt: Number
+});
+module.exports.UpgradeDuvida = mongoose.model("UpgradeDuvida", upgradeDuvidaSchema);
+
 let uD = new mongoose.Schema({
   _id: {type: String, required: true}, 
   uid: {type: String , required: true},
@@ -103,6 +113,7 @@ let uD = new mongoose.Schema({
     default: { 'atrevicoins': 0 }
   },
   tokenAp: {type: Number, default: 0},
+  treinosAvaliados: {type: Number, default: 0}
 })
 
 uD.index({ uid: 1, uServer: 1 });

@@ -47,6 +47,24 @@ const client = new Client({
             const atualizarUpgrades = require("./api/cron/atualizarUpgrades.js");
             atualizarUpgrades(client);
             
+            const lembreteUpgrades = require("./api/cron/lembreteUpgrades.js");
+            lembreteUpgrades(client);
+            
+            const duvidaUpgrades = require("./api/cron/duvidaUpgrades.js");
+            duvidaUpgrades(client);
+            
+            client.on('messageCreate', async (message) => {
+                if (message.author.bot) return;
+                try {
+                    const db = await client.database.UpgradeDuvida.findOne({ channelId: message.channel.id });
+                    if (db) {
+                        db.expiresAt = Date.now() + (12 * 60 * 60 * 1000);
+                        db.nextReminderAt = Date.now() + (2 * 60 * 60 * 1000);
+                        await db.save();
+                    }
+                } catch (e) {}
+            });
+            
             client.emit('clientReady');
         })
 

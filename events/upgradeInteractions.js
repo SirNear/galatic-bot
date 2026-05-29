@@ -804,6 +804,64 @@ async function listenerInteractionUpg(interaction, client) {
             if (acaoNavAdm === 'previousUpgd') { cacheAdmNavigationStateAtu.currentIndex--; }
             if (acaoNavAdm === 'nextUpgd') { cacheAdmNavigationStateAtu.currentIndex++; }
             if (acaoNavAdm === 'lore') return mosLorUpg(interaction, docNavUpg, 0);
+            if (acaoNavAdm === 'duvida') {
+                const dbDuvidaExists = await client.database.UpgradeDuvida.findOne({ upgradeId: docNavUpg._id });
+                if (dbDuvidaExists) {
+                    const chan = await interaction.guild.channels.fetch(dbDuvidaExists.channelId).catch(() => null);
+                    if (chan) {
+                        return interaction.editReply({ content: `❌ Já existe um canal de dúvida para este treino: <#${dbDuvidaExists.channelId}>`, embeds: [], components: [] });
+                    } else {
+                        await client.database.UpgradeDuvida.findByIdAndDelete(dbDuvidaExists._id);
+                    }
+                }
+
+                let categoria = interaction.guild.channels.cache.find(c => c.type === 4 && c.name.toLowerCase() === 'dúvidas de upgrades');
+                if (!categoria) {
+                    categoria = await interaction.guild.channels.create({
+                        name: 'Dúvidas de Upgrades',
+                        type: 4, 
+                        permissionOverwrites: [
+                            { id: interaction.guild.id, deny: ['ViewChannel'] },
+                            { id: client.user.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
+                        ]
+                    });
+                    const canais = await interaction.guild.channels.fetch();
+                    const maxPos = Math.max(...canais.filter(c => c.type === 4).map(c => c.rawPosition));
+                    await categoria.setPosition(maxPos + 1).catch(() => null);
+                }
+
+                const jogador = await client.users.fetch(docNavUpg.userId).catch(() => null);
+                const nomeAjustado = jogador ? jogador.username.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10) : docNavUpg.userId;
+                const nomeCanal = `duvida-${nomeAjustado}`;
+
+                const novoCanal = await interaction.guild.channels.create({
+                    name: nomeCanal,
+                    type: 0, 
+                    parent: categoria.id,
+                    permissionOverwrites: [
+                        { id: interaction.guild.id, deny: ['ViewChannel'] },
+                        { id: interaction.user.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                        { id: docNavUpg.userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+                        { id: client.user.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
+                    ]
+                });
+
+                await client.database.UpgradeDuvida.create({
+                    channelId: novoCanal.id,
+                    upgradeId: docNavUpg._id,
+                    admodId: interaction.user.id,
+                    userId: docNavUpg.userId,
+                    expiresAt: Date.now() + (12 * 60 * 60 * 1000),
+                    nextReminderAt: Date.now() + (2 * 60 * 60 * 1000)
+                });
+
+                await novoCanal.send({
+                    content: `Olá <@${docNavUpg.userId}> e <@${interaction.user.id}>!`,
+                    embeds: [new EmbedBuilder().setTitle('❓ Dúvida sobre o Upgrade').setColor('Orange').setDescription(`Este canal foi criado para que o Admod possa esclarecer dúvidas sobre os upgrades solicitados.\n\n<@${interaction.user.id}>, por favor, diga qual a sua dúvida em relação ao treino para que o jogador possa responder.\n\n*⏳ Este canal expira em 12 horas, mas o tempo é renovado a cada nova mensagem enviada.*`)]
+                });
+
+                return interaction.editReply({ content: `✅ Canal de dúvida criado com sucesso: ${novoCanal.toString()}`, embeds: [], components: [] });
+            }
             if (acaoNavAdm === 'close') {
                 docNavUpg.lockAdmod = null;
                 await docNavUpg.save();
@@ -1143,6 +1201,24 @@ async function envioUpg(interaction, client, listaUpg) {
 
     await upgDoc.save();
     
+    const logChaId = process.env.LOG_CHANNEL_ID;
+    if (logChaId) {
+        const logChannel = await client.channels.fetch(logChaId).catch(() => null);
+        if (logChannel) {
+            const embedLog = new EmbedBuilder()
+                .setTitle('📤 Novo Treino Enviado')
+                .setColor('Blue')
+                .setDescription(`O jogador <@${interaction.user.id}> enviou um novo treino para avaliação.`)
+                .addFields(
+                    { name: 'Quantidade de Upgrades', value: `${listaUpg.upgrades.length}`, inline: true },
+                    { name: 'ID do Treino', value: `${upgDoc._id}`, inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: `ID do Jogador: ${interaction.user.id}`, iconURL: interaction.user.displayAvatarURL() });
+            await logChannel.send({ embeds: [embedLog] }).catch(() => {});
+        }
+    }
+    
     if (listaUpg.aiMode) {
         try {
             const resumosTreino = listaUpg.upgrades.filter(u => u.resumo && u.resumo.length > 20).map(u => ({ nome: u.nome, resumo: u.resumo }));
@@ -1178,6 +1254,7 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_previousUpgd_${upgDocDb._id}`).setEmoji('🔙').setStyle(ButtonStyle.Secondary).setDisabled(AdmAtual.currentIndex === 0),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_nextUpgd_${upgDocDb._id}`).setEmoji('🔜').setStyle(ButtonStyle.Secondary).setDisabled(AdmAtual.currentIndex === upgDocDb.upgrades.length - 1),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_lore_${upgDocDb._id}`).setEmoji('👁‍🗨').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`upgrade_adm_navegar_duvida_${upgDocDb._id}`).setEmoji('❓').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_close_${upgDocDb._id}`).setEmoji('❌').setStyle(ButtonStyle.Primary)
     );
 
@@ -1195,6 +1272,7 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
             `🔙 **Anterior** - Navega para o upgrade anterior.\n` +
             `🔜 **Próximo** - Navega para o próximo upgrade.\n` +
             `👁‍🗨 **Ver Lore** - Abre a narrativa enviada pelo jogador.\n` +
+            `❓ **Tirar Dúvida** - Cria um canal privado com o jogador.\n` +
             `❌ **Fechar Painel** - Sai do modo de avaliação e libera para outro Admod.\n` +
             `☑️ **Aprovar Atual** - Aprova apenas o upgrade selecionado na tela.\n` +
             `✅ **Aprovar Todos** - Aprova toda a solicitação de uma vez.\n` +
@@ -1234,12 +1312,40 @@ async function mosLorUpg(interaction, upgDocDb, pagina = 0) {
 }
 
 async function atualStatusUpg(interaction, client, upgDocDb, result) {
+    try {
+        const admodData = await client.database.userData.findOne({ uid: interaction.user.id, uServer: interaction.guildId });
+        if (admodData) {
+            admodData.treinosAvaliados = (admodData.treinosAvaliados || 0) + 1;
+            await admodData.save();
+        }
+    } catch (e) {
+        console.error('[UPGRADE] Erro ao contabilizar treino avaliado:', e);
+    }
+
     const filaChannel = await client.channels.fetch(FILA_CHANNEL_ID).catch(() => null);
     const pendentUpgChannel = await client.channels.fetch(ADM_CHANNEL_ID).catch(() => null);
 
     const isAllRejected = upgDocDb.upgrades.every(u => u.status === 'recusado');
     const isSomeRejected = upgDocDb.upgrades.some(u => u.status === 'recusado');
     const resultColor = isAllRejected ? 'Red' : (isSomeRejected ? 'Orange' : 'Green');
+
+    const logChaId = process.env.LOG_CHANNEL_ID;
+    if (logChaId) {
+        const logChannel = await client.channels.fetch(logChaId).catch(() => null);
+        if (logChannel) {
+            const embedLog = new EmbedBuilder()
+                .setTitle('✅ Treino Avaliado')
+                .setColor(resultColor)
+                .setDescription(`O admod <@${interaction.user.id}> avaliou o treino do jogador <@${upgDocDb.userId}>.`)
+                .addFields(
+                    { name: 'Resultado', value: result },
+                    { name: 'ID do Treino', value: `${upgDocDb._id}` }
+                )
+                .setTimestamp()
+                .setFooter({ text: `Avaliador: ${interaction.user.id} | Jogador: ${upgDocDb.userId}`, iconURL: interaction.user.displayAvatarURL() });
+            await logChannel.send({ embeds: [embedLog] }).catch(() => {});
+        }
+    }
 
     if (filaChannel && upgDocDb.filaMessageId) {
         const msg = await filaChannel.messages.fetch(upgDocDb.filaMessageId).catch(() => null);
