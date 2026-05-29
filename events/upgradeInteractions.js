@@ -119,7 +119,7 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
     return listaMsg.reverse(); //inverte pra ordenar certo
 }
 
-async function chamarIA(systemInstruction, promptText, debugInfo = null) {
+async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMode = true) {
     const models = [
         'gemini-2.5-flash',
         'gemini-2.0-flash',
@@ -141,9 +141,8 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
             try {
                 let requestBody = {
                     contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { 
-                        temperature: 0.1,
-                        responseMimeType: "application/json"
+                    generationConfig: {
+                        temperature: 0.1
                     }
                 };
 
@@ -152,6 +151,10 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
                     requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
                 } else {
                     requestBody.contents[0].parts[0].text = `Instruções do Sistema: ${systemInstruction}\n\nEntrada do Usuário:\n${promptText}`;
+                }
+
+                if (jsonMode) {
+                    requestBody.generationConfig.responseMimeType = "application/json";
                 }
 
                 requestBody.safetySettings = [
@@ -185,6 +188,13 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
                     if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
                         let texto = data.candidates[0].content.parts[0].text;
                         if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA GEMINI ${model}]:\n${texto}`; // Salva o texto cru para debug
+                        
+                        if (!jsonMode) {
+                            jsonResult = texto;
+                            success = true;
+                            break;
+                        }
+                        
                         let cleanedTexto = texto.replace(/```json/gi, '').replace(/```/g, '').trim();
                         const matchJson = cleanedTexto.match(/(\{|\[)[\s\S]*(\}|\])/);
                         if (matchJson) {
@@ -247,7 +257,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
                         { role: 'system', content: systemInstruction },
                         { role: 'user', content: promptText }
                     ],
-                    jsonMode: true,
+                    jsonMode: jsonMode,
                     temperature: 0.2
                 })
             }),
@@ -256,6 +266,11 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
         if (resPol.ok) {
             const texto = await resPol.text();
             if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 1]:\n${texto}`;
+            
+            if (!jsonMode) {
+                return texto;
+            }
+            
             let cleanedTexto = texto.replace(/```json/gi, '').replace(/```/g, '').trim();
             const matchJson = cleanedTexto.match(/(\{|\[)[\s\S]*(\}|\])/);
             if (matchJson) {
@@ -308,6 +323,11 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null) {
             if (data.choices && data.choices[0].message && data.choices[0].message.content) {
                 const texto2 = data.choices[0].message.content;
                 if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 2]:\n${texto2}`;
+                
+                if (!jsonMode) {
+                    return texto2;
+                }
+                
                 let cleanedTexto2 = texto2.replace(/```json/gi, '').replace(/```/g, '').trim();
                 const matchJson2 = cleanedTexto2.match(/(\{|\[)[\s\S]*(\}|\])/);
                 if (matchJson2) {
@@ -368,7 +388,7 @@ REGRAS OBRIGATÓRIAS:
 5. "tipo": classifique como "Física", "Mágica", "Passiva" ou "Status".
 6. "categoria": classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for nova, inicie com "(NOVA) ".
 7. "descricao": MANTENHA A DESCRIÇÃO O MAIS FIEL POSSÍVEL AO ORIGINAL. Não reescreva demais, não resuma excessivamente e NUNCA remova informações vitais como variáveis matemáticas ou valores indefinidos. Remova apenas trechos que sejam pura narrativa e que não descrevam a mecânica do poder em si. NUNCA INVENTE VALORES que não estejam escritos. Caso a lista cite uma melhoria sem valor, SUGIRA baseando-se no esforço e DEIXE EXPLICITO (ex: "[VALOR SUGERIDO PELA IA]: +X").
-8. "resumo": DEVE SER UMA JUSTIFICATIVA NARRATIVA do motivo pelo qual o personagem ganhou o upgrade, baseando-se nos esforços e ações lidos na "LORE". NUNCA apenas explique o que o poder faz ou reescreva a descrição. Mostre QUAIS EVENTOS DA LORE causaram esse ganho. Caso não haja explicação na LORE, insira um aviso claro (ex: "[AVISO DA IA: Não foi possível identificar o contexto na Lore]").
+8. "resumo": DEVE SER UMA JUSTIFICATIVA NARRATIVA do motivo pelo qual o personagem ganhou o upgrade, baseando-se nos esforços e ações lidos na "LORE". Crie um resumo ÚNICO e ESPECÍFICO para CADA upgrade listado. NUNCA repita o mesmo texto para upgrades diferentes, a menos que sejam literalmente a mesma coisa. Caso não haja explicação na LORE, insira um aviso claro (ex: "[AVISO DA IA: Não foi possível identificar o contexto na Lore]").
 
 Retorne EXATAMENTE um objeto JSON neste formato:
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
@@ -398,7 +418,8 @@ Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiv
 REGRAS:
 1. NUNCA reescreva a descrição do poder no resumo. O resumo NÃO É para explicar como a habilidade funciona.
 2. O resumo DEVE explicar QUAIS AÇÕES NA LORE (treinos, combates, descobertas) levaram o personagem a evoluir ou obter esse upgrade.
-3. Caso não haja menção ao upgrade ou treinamento correspondente na LORE, insira o aviso: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]".
+3. Crie um resumo ÚNICO e ESPECÍFICO para CADA upgrade processado. NUNCA copie e cole ou repita o mesmo resumo para upgrades diferentes.
+4. Caso não haja menção ao upgrade ou treinamento correspondente na LORE, insira o aviso: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]".
 Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido):
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa NARRATIVA baseada na LORE aqui" } ] }${exemplosTreino}`;
     
@@ -804,6 +825,23 @@ async function listenerInteractionUpg(interaction, client) {
             if (acaoNavAdm === 'previousUpgd') { cacheAdmNavigationStateAtu.currentIndex--; }
             if (acaoNavAdm === 'nextUpgd') { cacheAdmNavigationStateAtu.currentIndex++; }
             if (acaoNavAdm === 'lore') return mosLorUpg(interaction, docNavUpg, 0);
+            if (acaoNavAdm === 'context') {
+                const upgAtualParaContexto = docNavUpg.upgrades[cacheAdmNavigationStateAtu.currentIndex];
+                const msgLoading = await interaction.followUp({ content: '⏳ Analisando a Lore e gerando contexto com a IA...', flags: 64, fetchReply: true });
+                
+                const sysCtx = `Você é um assistente de moderação de RPG textual. O Admod pediu mais contexto sobre um upgrade específico baseado na Lore. Analise a LORE e o UPGRADE, e explique detalhadamente de onde esse poder/melhoria surgiu na narrativa, destacando os feitos e treinamentos associados a ele. Seja direto e analítico.`;
+                const promptCtx = `--- LORE ---\n${docNavUpg.loreText.join('\n\n')}\n\n--- UPGRADE ---\nNome: ${upgAtualParaContexto.nome}\nDescrição: ${upgAtualParaContexto.descricao}\nJustificativa Atual: ${upgAtualParaContexto.resumo}`;
+                
+                const ctxResponse = await chamarIA(sysCtx, promptCtx, null, false);
+                
+                const embCtx = new EmbedBuilder()
+                    .setTitle(`Contexto Extra: ${upgAtualParaContexto.nome}`)
+                    .setColor('Purple')
+                    .setDescription(ctxResponse ? ctxResponse.substring(0, 4000) : 'Falha ao gerar contexto adicional.');
+                
+                await interaction.webhook.editMessage(msgLoading.id, { content: null, embeds: [embCtx] }).catch(() => null);
+                return;
+            }
             if (acaoNavAdm === 'duvida') {
                 const dbDuvidaExists = await client.database.UpgradeDuvida.findOne({ upgradeId: docNavUpg._id });
                 if (dbDuvidaExists) {
@@ -1259,6 +1297,7 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
     );
 
     const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`upgrade_adm_navegar_context_${upgDocDb._id}`).setEmoji('❇️').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_accept_currentUpgd_${upgDocDb._id}`).setEmoji('☑️').setStyle(ButtonStyle.Success).setDisabled(upgAtual.status !== 'pendente'),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_accept_allUpgd_${upgDocDb._id}`).setEmoji('✅').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_currentUpgd_${upgDocDb._id}`).setEmoji('🚫').setStyle(ButtonStyle.Danger).setDisabled(upgAtual.status !== 'pendente'),
@@ -1273,6 +1312,7 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
             `🔜 **Próximo** - Navega para o próximo upgrade.\n` +
             `👁‍🗨 **Ver Lore** - Abre a narrativa enviada pelo jogador.\n` +
             `❓ **Tirar Dúvida** - Cria um canal privado com o jogador.\n` +
+            `❇️ **Contexto** - Pede para a IA explicar de onde surgiu o upgrade atual.\n` +
             `❌ **Fechar Painel** - Sai do modo de avaliação e libera para outro Admod.\n` +
             `☑️ **Aprovar Atual** - Aprova apenas o upgrade selecionado na tela.\n` +
             `✅ **Aprovar Todos** - Aprova toda a solicitação de uma vez.\n` +
