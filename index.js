@@ -78,7 +78,7 @@ const client = new Client({
             
             const sendChannelLog = async (embed) => {
                 try {
-                    const logChanId = process.env.LOG_CHANNEL_ID || config.logChannelId;
+                    const logChanId = '1409063037905670154';
                     if (!logChanId) return;
                     const channel = await client.channels.fetch(logChanId).catch(() => null);
                     if (channel && channel.isTextBased()) {
