@@ -298,8 +298,11 @@ module.exports = class GalaticClient extends Client {
 
                 if (duracaoColetor <= 0 || quest.participantes.length >= quest.maxPlayers) {
                     const originalButton = message.components[0].components[0];
-                    const disabledButton = ButtonBuilder.from(originalButton)
-                        .setDisabled(true).setLabel("Inscrições encerradas");
+                    const disabledButton = new ButtonBuilder()
+                        .setCustomId(originalButton.customId)
+                        .setStyle(originalButton.style)
+                        .setDisabled(true)
+                        .setLabel("Inscrições encerradas");
                     const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
                     await message.edit({ components: [disabledRow] });
                     continue;
@@ -356,8 +359,11 @@ module.exports = class GalaticClient extends Client {
 
                 collector.on('end', () => {
                     const originalButton = message.components[0].components[0];
-                    const disabledButton = ButtonBuilder.from(originalButton)
-                        .setDisabled(true).setLabel("Inscrições encerradas");
+                    const disabledButton = new ButtonBuilder()
+                        .setCustomId(originalButton.customId)
+                        .setStyle(originalButton.style)
+                        .setDisabled(true)
+                        .setLabel("Inscrições encerradas");
                     const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
                     message.edit({ components: [disabledRow] }).catch(() => {});
                 });
