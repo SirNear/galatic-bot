@@ -60,7 +60,11 @@ const client = new Client({
                     if (db) {
                         const msgFormated = message.content.toLowerCase().replace(/\s/g, '');
                         if (message.author.id === db.admodId && msgFormated.includes('finalizar')) {
+                            const parent = message.channel.parent;
                             await message.channel.delete().catch(() => {});
+                            if (parent && parent.name.toLowerCase() === 'dúvidas de upgrades' && parent.children.cache.size <= 1) {
+                                await parent.delete().catch(() => null);
+                            }
                             await client.database.UpgradeDuvida.deleteOne({ _id: db._id });
                             return;
                         }
@@ -72,6 +76,102 @@ const client = new Client({
                 } catch (e) {}
             });
             
+            const sendChannelLog = async (embed) => {
+                try {
+                    const logChanId = process.env.LOG_CHANNEL_ID || config.logChannelId;
+                    if (!logChanId) return;
+                    const channel = await client.channels.fetch(logChanId).catch(() => null);
+                    if (channel && channel.isTextBased()) {
+                        await channel.send({ embeds: [embed] });
+                    }
+                } catch (e) {}
+            };
+
+            client.on('channelCreate', async (channel) => {
+                if (!channel.guild) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('🆕 Canal Criado')
+                    .setColor('Green')
+                    .setDescription(`**Nome:** ${channel.name}\n**ID:** ${channel.id}\n**Tipo:** ${channel.type}`)
+                    .setTimestamp();
+                sendChannelLog(emb);
+            });
+
+            client.on('channelDelete', async (channel) => {
+                if (!channel.guild) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('🗑️ Canal Excluído')
+                    .setColor('Red')
+                    .setDescription(`**Nome:** ${channel.name}\n**ID:** ${channel.id}\n**Tipo:** ${channel.type}`)
+                    .setTimestamp();
+                sendChannelLog(emb);
+            });
+
+            client.on('channelUpdate', async (oldChannel, newChannel) => {
+                if (!newChannel.guild) return;
+                if (oldChannel.name === newChannel.name && oldChannel.parentId === newChannel.parentId && oldChannel.type === newChannel.type && oldChannel.topic === newChannel.topic) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('✏️ Canal Modificado')
+                    .setColor('Yellow')
+                    .setDescription(`**Canal:** ${newChannel.name} (${newChannel.id})`)
+                    .setTimestamp();
+                if (oldChannel.name !== newChannel.name) emb.addFields({name: 'Nome', value: `\`${oldChannel.name}\` -> \`${newChannel.name}\``});
+                if (oldChannel.topic !== newChannel.topic) emb.addFields({name: 'Tópico', value: `Alterado`});
+                sendChannelLog(emb);
+            });
+
+            client.on('threadCreate', async (thread) => {
+                if (!thread.guild) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('🆕 Tópico/Post Criado')
+                    .setColor('Green')
+                    .setDescription(`**Nome:** ${thread.name}\n**ID:** ${thread.id}\n**Canal Pai:** <#${thread.parentId}>`)
+                    .setTimestamp();
+                sendChannelLog(emb);
+            });
+
+            client.on('threadDelete', async (thread) => {
+                if (!thread.guild) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('🗑️ Tópico/Post Excluído')
+                    .setColor('Red')
+                    .setDescription(`**Nome:** ${thread.name}\n**ID:** ${thread.id}`)
+                    .setTimestamp();
+                sendChannelLog(emb);
+            });
+
+            client.on('threadUpdate', async (oldThread, newThread) => {
+                if (!newThread.guild) return;
+                if (oldThread.name === newThread.name && oldThread.archived === newThread.archived && oldThread.locked === newThread.locked) return;
+                const emb = new EmbedBuilder()
+                    .setTitle('✏️ Tópico/Post Modificado')
+                    .setColor('Yellow')
+                    .setDescription(`**Tópico:** ${newThread.name} (${newThread.id})`)
+                    .setTimestamp();
+                if (oldThread.name !== newThread.name) emb.addFields({name: 'Nome', value: `\`${oldThread.name}\` -> \`${newThread.name}\``});
+                if (oldThread.archived !== newThread.archived) emb.addFields({name: 'Arquivado', value: `\`${oldThread.archived}\` -> \`${newThread.archived}\``});
+                if (oldThread.locked !== newThread.locked) emb.addFields({name: 'Trancado', value: `\`${oldThread.locked}\` -> \`${newThread.locked}\``});
+                sendChannelLog(emb);
+            });
+
+            client.on('guildScheduledEventCreate', async (event) => {
+                const emb = new EmbedBuilder().setTitle('📅 Evento Criado').setColor('Green').setDescription(`**Nome:** ${event.name}\n**ID:** ${event.id}`).setTimestamp();
+                sendChannelLog(emb);
+            });
+
+            client.on('guildScheduledEventDelete', async (event) => {
+                const emb = new EmbedBuilder().setTitle('🗑️ Evento Excluído').setColor('Red').setDescription(`**Nome:** ${event.name}\n**ID:** ${event.id}`).setTimestamp();
+                sendChannelLog(emb);
+            });
+            
+            client.on('guildScheduledEventUpdate', async (oldEvent, newEvent) => {
+                if (oldEvent.name === newEvent.name && oldEvent.status === newEvent.status) return;
+                const emb = new EmbedBuilder().setTitle('✏️ Evento Modificado').setColor('Yellow').setDescription(`**Evento:** ${newEvent.name} (${newEvent.id})`).setTimestamp();
+                if (oldEvent.name !== newEvent.name) emb.addFields({name: 'Nome', value: `\`${oldEvent.name}\` -> \`${newEvent.name}\``});
+                if (oldEvent.status !== newEvent.status) emb.addFields({name: 'Status', value: `\`${oldEvent.status}\` -> \`${newEvent.status}\``});
+                sendChannelLog(emb);
+            });
+
             client.emit('clientReady');
         })
 

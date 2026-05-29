@@ -1239,7 +1239,7 @@ async function envioUpg(interaction, client, listaUpg) {
 
     await upgDoc.save();
     
-    const logChaId = process.env.LOG_CHANNEL_ID;
+    const logChaId = '1409063037905670154';
     if (logChaId) {
         const logChannel = await client.channels.fetch(logChaId).catch(() => null);
         if (logChannel) {
@@ -1356,7 +1356,13 @@ async function atualStatusUpg(interaction, client, upgDocDb, result) {
         const dbDuvidaExists = await client.database.UpgradeDuvida.findOne({ upgradeId: upgDocDb._id });
         if (dbDuvidaExists) {
             const chan = await interaction.guild.channels.fetch(dbDuvidaExists.channelId).catch(() => null);
-            if (chan) await chan.delete().catch(() => null);
+            if (chan) {
+                const parent = chan.parent;
+                await chan.delete().catch(() => null);
+                if (parent && parent.name.toLowerCase() === 'dúvidas de upgrades' && parent.children.cache.size <= 1) {
+                    await parent.delete().catch(() => null);
+                }
+            }
             await client.database.UpgradeDuvida.deleteOne({ _id: dbDuvidaExists._id });
         }
     } catch (e) {}
@@ -1378,7 +1384,7 @@ async function atualStatusUpg(interaction, client, upgDocDb, result) {
     const isSomeRejected = upgDocDb.upgrades.some(u => u.status === 'recusado');
     const resultColor = isAllRejected ? 'Red' : (isSomeRejected ? 'Orange' : 'Green');
 
-    const logChaId = process.env.LOG_CHANNEL_ID;
+    const logChaId = '1409063037905670154';
     if (logChaId) {
         const logChannel = await client.channels.fetch(logChaId).catch(() => null);
         if (logChannel) {
