@@ -895,7 +895,7 @@ async function listenerInteractionUpg(interaction, client) {
 
                 await novoCanal.send({
                     content: `Olá <@${docNavUpg.userId}> e <@${interaction.user.id}>!`,
-                    embeds: [new EmbedBuilder().setTitle('❓ Dúvida sobre o Upgrade').setColor('Orange').setDescription(`Este canal foi criado para que o Admod possa esclarecer dúvidas sobre os upgrades solicitados.\n\n<@${interaction.user.id}>, por favor, diga qual a sua dúvida em relação ao treino para que o jogador possa responder.\n\n*⏳ Este canal expira em 12 horas, mas o tempo é renovado a cada nova mensagem enviada.*`)]
+                    embeds: [new EmbedBuilder().setTitle('❓ Dúvida sobre o Upgrade').setColor('Orange').setDescription(`Este canal foi criado para que o Admod possa esclarecer dúvidas sobre os upgrades solicitados.\n\n<@${interaction.user.id}>, por favor, diga qual a sua dúvida em relação ao treino para que o jogador possa responder.\n\n*⏳ Este canal expira em 12 horas, mas o tempo é renovado a cada nova mensagem enviada.*\n*O Admod pode enviar a palavra **Finalizar** neste chat para excluí-lo.*`)]
                 });
 
                 return interaction.editReply({ content: `✅ Canal de dúvida criado com sucesso: ${novoCanal.toString()}`, embeds: [], components: [] });
@@ -1352,6 +1352,15 @@ async function mosLorUpg(interaction, upgDocDb, pagina = 0) {
 }
 
 async function atualStatusUpg(interaction, client, upgDocDb, result) {
+    try {
+        const dbDuvidaExists = await client.database.UpgradeDuvida.findOne({ upgradeId: upgDocDb._id });
+        if (dbDuvidaExists) {
+            const chan = await interaction.guild.channels.fetch(dbDuvidaExists.channelId).catch(() => null);
+            if (chan) await chan.delete().catch(() => null);
+            await client.database.UpgradeDuvida.deleteOne({ _id: dbDuvidaExists._id });
+        }
+    } catch (e) {}
+
     try {
         const admodData = await client.database.userData.findOne({ uid: interaction.user.id, uServer: interaction.guildId });
         if (admodData) {

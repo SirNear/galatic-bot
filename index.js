@@ -58,6 +58,13 @@ const client = new Client({
                 try {
                     const db = await client.database.UpgradeDuvida.findOne({ channelId: message.channel.id });
                     if (db) {
+                        const msgFormated = message.content.toLowerCase().replace(/\s/g, '');
+                        if (message.author.id === db.admodId && msgFormated.includes('finalizar')) {
+                            await message.channel.delete().catch(() => {});
+                            await client.database.UpgradeDuvida.deleteOne({ _id: db._id });
+                            return;
+                        }
+                        
                         db.expiresAt = Date.now() + (12 * 60 * 60 * 1000);
                         db.nextReminderAt = Date.now() + (2 * 60 * 60 * 1000);
                         await db.save();
