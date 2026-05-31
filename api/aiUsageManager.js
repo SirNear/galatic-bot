@@ -61,27 +61,43 @@ async function registerUsage(usageMetadata) {
 }
 
 async function ensurePanelExists(client) {
-    const channelId = "1510784621904793740";
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) return;
+    try {
+        console.log("[IA Monitor] Iniciando verificação do painel...");
+        const channelId = "1510784621904793740";
+        const channel = await client.channels.fetch(channelId).catch(err => {
+            console.error("[IA Monitor] Erro ao buscar canal:", err);
+            return null;
+        });
 
-    let usageDoc = await AiUsage.findById("global");
-    if (!usageDoc) usageDoc = new AiUsage({ _id: "global" });
+        if (!channel) {
+            console.log(`[IA Monitor] Canal ${channelId} não encontrado ou bot sem permissão.`);
+            return;
+        }
 
-    let message = null;
-    if (usageDoc.panelMessageId) {
-        message = await channel.messages.fetch(usageDoc.panelMessageId).catch(() => null);
+        let usageDoc = await AiUsage.findById("global");
+        if (!usageDoc) usageDoc = new AiUsage({ _id: "global" });
+
+        let message = null;
+        if (usageDoc.panelMessageId) {
+            message = await channel.messages.fetch(usageDoc.panelMessageId).catch(() => null);
+        }
+
+        if (!message) {
+            console.log("[IA Monitor] Mensagem não encontrada. Criando novo painel...");
+            const embed = new EmbedBuilder().setTitle('⏳ Inicializando Monitor de IA...').setColor('#2b2d31');
+            message = await channel.send({ embeds: [embed] });
+            usageDoc.panelChannelId = channel.id;
+            usageDoc.panelMessageId = message.id;
+            await usageDoc.save();
+            console.log("[IA Monitor] Novo painel criado e salvo no banco de dados.");
+        } else {
+            console.log("[IA Monitor] Painel já existe. Atualizando...");
+        }
+
+        await updatePanel(client);
+    } catch (error) {
+        console.error("[IA Monitor] Erro fatal no ensurePanelExists:", error);
     }
-
-    if (!message) {
-        const embed = new EmbedBuilder().setTitle('⏳ Inicializando Monitor de IA...').setColor('#2b2d31');
-        message = await channel.send({ embeds: [embed] });
-        usageDoc.panelChannelId = channel.id;
-        usageDoc.panelMessageId = message.id;
-        await usageDoc.save();
-    }
-
-    await updatePanel(client);
 }
 
 async function updatePanel(client) {
