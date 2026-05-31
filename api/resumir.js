@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { registerUsage } = require("./aiUsageManager");
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_CREDENTIALS);
 
@@ -20,6 +21,7 @@ async function summarizeText(text) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
+  if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
 
   if (summary.length <= MAX_LENGTH) {
@@ -58,6 +60,7 @@ async function describeImage(imageBuffer, mimeType) {
 
   const result = await model.generateContent([prompt, imagePart]);
   const response = await result.response;
+  if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   return response.text();
 }
 /* #endregion */
@@ -70,6 +73,7 @@ async function resumirRP(text) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
+  if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
 
   if (summary.length <= MAX_LENGTH) {
@@ -100,6 +104,7 @@ async function summarizeSummary(text) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
+  if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
 
   // Retorna como array para manter a consistência, embora seja improvável que passe de 4k caracteres.

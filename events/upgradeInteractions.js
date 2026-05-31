@@ -1,7 +1,7 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder, AttachmentBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
 const fetch = global.fetch || require('node-fetch');
-
+const { registerUsage } = require('../api/aiUsageManager.js');
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
 
@@ -178,6 +178,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                     
                     if (data.usageMetadata) {
                         console.log(`[IA UPGRADE] Modelo ${model} usou ${data.usageMetadata.totalTokenCount} tokens (Prompt: ${data.usageMetadata.promptTokenCount} | Resposta: ${data.usageMetadata.candidatesTokenCount}).`);
+                        registerUsage(data.usageMetadata).catch(console.error);
                     }
 
                     if (data.promptFeedback && data.promptFeedback.blockReason) {

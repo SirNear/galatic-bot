@@ -23,36 +23,36 @@ async function connectToDatabase() {
     }
 }
 
-let Guild = new mongoose.Schema({ 
-	_id: {type: String}, 
-	prefix: {type: String, default: "g!"},
-	cPunicoes: {type: String, default: '#punições'},
-	cargoMute: {type: String, default: '@mutado'},
-	warnTag: {type: String, default: 'Desativado'},
-	warnNumber: {type: String, default: '3'},
-	uGlobal: {type: String, default: 'Desativado'},
-	staffRole: {type: String, default: 'Não definido'},
-	monitorCategory: {type: String, default: 'Não definido'},
-	pokeball: {type: Boolean, default: true},
-	batalha: {type: Boolean, default: true},
-	customPerm: {type: Boolean, default: false},
-	banned: {type: Boolean, default: false},
-	tryAdd: {type: Boolean, default: false},
-	banReason: {type: String }
+let Guild = new mongoose.Schema({
+    _id: { type: String },
+    prefix: { type: String, default: "g!" },
+    cPunicoes: { type: String, default: '#punições' },
+    cargoMute: { type: String, default: '@mutado' },
+    warnTag: { type: String, default: 'Desativado' },
+    warnNumber: { type: String, default: '3' },
+    uGlobal: { type: String, default: 'Desativado' },
+    staffRole: { type: String, default: 'Não definido' },
+    monitorCategory: { type: String, default: 'Não definido' },
+    pokeball: { type: Boolean, default: true },
+    batalha: { type: Boolean, default: true },
+    customPerm: { type: Boolean, default: false },
+    banned: { type: Boolean, default: false },
+    tryAdd: { type: Boolean, default: false },
+    banReason: { type: String }
 })
 
 let Puni = new mongoose.Schema({
-  _id: {type: String},
-  usuario: {type: String},
-  uid: {type: String},
-  id: {type: String},
-  motivo: {type: String, default: 'Sem motivo'},
-  staff: {type: String},
-  staffid: {type: String},
-  servidor: {type: String},
-  punicao: {type: String},
-  warnNumber: {type: String},
-  data: {type: String}
+    _id: { type: String },
+    usuario: { type: String },
+    uid: { type: String },
+    id: { type: String },
+    motivo: { type: String, default: 'Sem motivo' },
+    staff: { type: String },
+    staffid: { type: String },
+    servidor: { type: String },
+    punicao: { type: String },
+    warnNumber: { type: String },
+    data: { type: String }
 
 })
 
@@ -93,27 +93,27 @@ const upgradeDuvidaSchema = new mongoose.Schema({
 module.exports.UpgradeDuvida = mongoose.model("UpgradeDuvida", upgradeDuvidaSchema);
 
 let uD = new mongoose.Schema({
-  _id: {type: String, required: true}, 
-  uid: {type: String , required: true},
-  uName: {type: String},
-  jogador: {type: String , default: 'nrpg'},
-  uServer: {type: String , required: true},
-  monitor: {type: String, default: 'Desativado'},
-  monitorChannelId: {type: String},
-  punishNumber: {type: String},
-  aparencias: [{
-    nome: { type: String },
-    universo: { type: String },
-    imagem: { type: String },
-    personagem: { type: String }
-  }],
-  moeda: {
-    type: Map,
-    of: Number,
-    default: { 'atrevicoins': 0 }
-  },
-  tokenAp: {type: Number, default: 0},
-  treinosAvaliados: {type: Number, default: 0}
+    _id: { type: String, required: true },
+    uid: { type: String, required: true },
+    uName: { type: String },
+    jogador: { type: String, default: 'nrpg' },
+    uServer: { type: String, required: true },
+    monitor: { type: String, default: 'Desativado' },
+    monitorChannelId: { type: String },
+    punishNumber: { type: String },
+    aparencias: [{
+        nome: { type: String },
+        universo: { type: String },
+        imagem: { type: String },
+        personagem: { type: String }
+    }],
+    moeda: {
+        type: Map,
+        of: Number,
+        default: { 'atrevicoins': 0 }
+    },
+    tokenAp: { type: Number, default: 0 },
+    treinosAvaliados: { type: Number, default: 0 }
 })
 
 uD.index({ uid: 1, uServer: 1 });
@@ -127,26 +127,26 @@ const moedaConfigSchema = new mongoose.Schema({
 moedaConfigSchema.index({ guildId: 1, nome: 1 }, { unique: true });
 
 let pokemonFicha = new mongoose.Schema({
-	_id: {type: String},
-	pokeName: {type: String},
-	pokeId: {type: Number},
-	pokeMovesName: {type: Map, of: String}
+    _id: { type: String },
+    pokeName: { type: String },
+    pokeId: { type: Number },
+    pokeMovesName: { type: Map, of: String }
 })
 
 let pokeRegistro = new mongoose.Schema({
-	_id: {type: String},
-	pokeName: {type: String},
-	pokeDesc: {type: String},
-	pokeType: {type: String},
-	pokeTitle: {type: String}
+    _id: { type: String },
+    pokeName: { type: String },
+    pokeDesc: { type: String },
+    pokeType: { type: String },
+    pokeTitle: { type: String }
 })
 
 let fichaCabecalho = new mongoose.Schema({
-	_id: {type: String},
-	nome: {type: String},
-	reino: {type: String},
-	raca: {type: String},
-	aparencia: {type: String}
+    _id: { type: String },
+    nome: { type: String },
+    reino: { type: String },
+    raca: { type: String },
+    aparencia: { type: String }
 })
 
 const habilidadeSchema = new mongoose.Schema({
@@ -185,7 +185,7 @@ const questSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     messageId: { type: String, required: false },
     channelId: { type: String, required: false },
-    forumChannelId: { type: String, required: false }, 
+    forumChannelId: { type: String, required: false },
 });
 
 const pendingQuestSchema = new mongoose.Schema({
@@ -202,7 +202,7 @@ const pendingQuestSchema = new mongoose.Schema({
 });
 
 const lojaSchema = new mongoose.Schema({
-    messageId: { type: String, required: false, unique: true, sparse: true }, 
+    messageId: { type: String, required: false, unique: true, sparse: true },
     nome: { type: String, required: true },
     createdBy: { type: String, required: true },
     canalId: { type: String, required: true },
@@ -352,5 +352,25 @@ const scannedSheetSchema = new mongoose.Schema({
     lastUpdate: { type: Date, default: Date.now }
 });
 module.exports.ScannedSheet = mongoose.model("ScannedSheet", scannedSheetSchema);
+
+const aiUsageSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    totalPromptTokens: { type: Number, default: 0 },
+    totalCompletionTokens: { type: Number, default: 0 },
+    totalTokens: { type: Number, default: 0 },
+    requestsCount: { type: Number, default: 0 },
+    dailyUsage: {
+        type: Map, of: {
+            promptTokens: { type: Number, default: 0 },
+            completionTokens: { type: Number, default: 0 },
+            totalTokens: { type: Number, default: 0 },
+            requests: { type: Number, default: 0 }
+        }, default: {}
+    },
+    panelMessageId: { type: String, default: null },
+    panelChannelId: { type: String, default: null },
+    lastUpdated: { type: Date, default: Date.now }
+});
+module.exports.AiUsage = mongoose.model("AiUsage", aiUsageSchema);
 
 module.exports.connect = connectToDatabase;

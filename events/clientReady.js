@@ -1,4 +1,6 @@
 const lembreteVerso = require("../api/cron/lembreteVerso.js");
+const monitorIA = require("../api/cron/monitorIA.js");
+const { ensurePanelExists } = require("../api/aiUsageManager.js");
 
 module.exports = class ClientReady {
   constructor(client) {
@@ -21,5 +23,9 @@ module.exports = class ClientReady {
     this.client.setupUnarchiveLoop(GUILD_ID);
 
     lembreteVerso(this.client);
+    
+    // Inicia e atualiza o painel da Inteligência Artificial
+    await ensurePanelExists(this.client);
+    monitorIA(this.client);
   }
 };

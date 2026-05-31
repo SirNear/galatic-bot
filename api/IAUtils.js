@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const config = require('../config.json');
+const { registerUsage } = require('./aiUsageManager');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || config.token);
 
@@ -13,6 +14,11 @@ async function gerarRespostaComFallback(prompt, contexto) {
             const model = genAI.getGenerativeModel({ model: nomeModelo });
             const result = await model.generateContent(fullPrompt);
             const response = await result.response;
+            
+            if (response.usageMetadata) {
+                await registerUsage(response.usageMetadata).catch(console.error);
+            }
+            
             return { text: response.text(), model: nomeModelo };
         } catch (error) {
             console.error(`Falha no modelo ${nomeModelo}:`, error.message);
