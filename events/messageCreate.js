@@ -19,14 +19,14 @@ module.exports = class MessageReceive {
 
     const upgradeRegex = /\[\s*(UPGRADES|UPS)\s*\]/i;
     if (upgradeRegex.test(message.content)) {
-        const tutorialChannelId = "1509570102377451580";
-        message.reply({ 
-            content: `⚠️ **Aviso:** Parece que você mencionou **Upgrades**! Lembre-se de utilizar o novo sistema de upgrades para facilitar a correção. Veja o tutorial completo no canal <#${tutorialChannelId}>.`
-        }).then(msg => {
-            setTimeout(() => {
-                msg.delete().catch(() => {});
-            }, 15000); // "efêmera" (apaga após 15s)
-        }).catch(() => {});
+      const tutorialChannelId = "1509570102377451580";
+      message.reply({
+        content: `💡 **DICA:** Parece que você mencionou **Upgrades**! Lembre-se que você pode utilizar o novo sistema de upgrades para facilitar a correção. Veja o tutorial completo no canal <#${tutorialChannelId}>.`
+      }).then(msg => {
+        setTimeout(() => {
+          msg.delete().catch(() => { });
+        }, 15000); // "efêmera" (apaga após 15s)
+      }).catch(() => { });
     }
 
     let server = await this.client.database.Guilds.findById(message.guild.id); //CARREGAMENTO DATABASE
@@ -46,10 +46,10 @@ module.exports = class MessageReceive {
     let prefix = server ? server.prefix : "g!";
 
     if (this.client.maintenance && !this.client.owners.includes(message.author.id)) {
-        if (message.content.startsWith(prefix) || message.content.startsWith("g!")) {
-            return message.reply('🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.');
-        }
-        return;
+      if (message.content.startsWith(prefix) || message.content.startsWith("g!")) {
+        return message.reply('🛠️ O bot está em modo de manutenção/desenvolvimento. Por favor, aguarde.');
+      }
+      return;
     }
 
     if (
@@ -67,172 +67,172 @@ module.exports = class MessageReceive {
 
     /* #region  POKEMONM */
     /*	
-	if(message.author.id == '540725346241216534') {
-			const chance = 0.2
-			const random = Math.random()
-			
-			if(this.client.activeCollector === true) {
-				return
-			} else {
-				if(random < chance) {
+  if(message.author.id == '540725346241216534') {
+      const chance = 0.2
+      const random = Math.random()
+    	
+      if(this.client.activeCollector === true) {
+        return
+      } else {
+        if(random < chance) {
 
-					//identificando as palavras-chave para definir os tipos encontrados
-					const mensagem = message.content.toLowerCase();
-					const tiposEncontrados = [];
-					for (let tipo in tiposPokemon) {
-					if (tiposPokemon[tipo].some(palavraChave => mensagem.includes(palavraChave))) {
-						tiposEncontrados.push(tipo);
-					}
-					}
+          //identificando as palavras-chave para definir os tipos encontrados
+          const mensagem = message.content.toLowerCase();
+          const tiposEncontrados = [];
+          for (let tipo in tiposPokemon) {
+          if (tiposPokemon[tipo].some(palavraChave => mensagem.includes(palavraChave))) {
+            tiposEncontrados.push(tipo);
+          }
+          }
 
-					//aleatorizando o tipo a ser enviado
-					let tipoPokemon;
-					let tipo;
-					if (tiposEncontrados.length > 0) {
-					const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
-					tipoPokemon = tiposEncontrados[randomIndex];	
-					tipo = handleTypeIdentifier(tipoPokemon)
-					} else {
-					tipo = 1
-					}
+          //aleatorizando o tipo a ser enviado
+          let tipoPokemon;
+          let tipo;
+          if (tiposEncontrados.length > 0) {
+          const randomIndex = Math.floor(Math.random() * tiposEncontrados.length);
+          tipoPokemon = tiposEncontrados[randomIndex];	
+          tipo = handleTypeIdentifier(tipoPokemon)
+          } else {
+          tipo = 1
+          }
 
-					const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
-					const data = await response.json();
+          const response = await fetch(`https://pokeapi.co/api/v2/type/${tipo}`);
+          const data = await response.json();
 
-					const pokemonArray = data.pokemon;
-					const randomIndex = Math.floor(Math.random() * pokemonArray.length);
-					const pokemonUrl = pokemonArray[randomIndex].pokemon.url;
+          const pokemonArray = data.pokemon;
+          const randomIndex = Math.floor(Math.random() * pokemonArray.length);
+          const pokemonUrl = pokemonArray[randomIndex].pokemon.url;
 
-					const pokemonResponse = await fetch(pokemonUrl);
-					const pokemonData = await pokemonResponse.json();
-					let pokemonName = pokemonData.name;
-					let pokemonImage = pokemonData.sprites.front_default;
-					let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
+          const pokemonResponse = await fetch(pokemonUrl);
+          const pokemonData = await pokemonResponse.json();
+          let pokemonName = pokemonData.name;
+          let pokemonImage = pokemonData.sprites.front_default;
+          let pokemonType = pokemonData.types.map(type => type.type.name).join(', ');
 
-					const embed = new EmbedBuilder()
-					.setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
-					.setDescription('Digite `g!capturar` para tentar pega-lo!')
-					.setImage(pokemonImage)
-					.setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
+          const embed = new EmbedBuilder()
+          .setTitle(`**Um** ` + pokemonName + ` **selvagem apareceu!**`)
+          .setDescription('Digite `g!capturar` para tentar pega-lo!')
+          .setImage(pokemonImage)
+          .setFooter({ text: `Tipo(s): ${handlePokemonType(pokemonType)}`});
 
-					const pokeMsg = await message.channel.send({ embeds: [embed] })
+          const pokeMsg = await message.channel.send({ embeds: [embed] })
 
-					//registrando pokemon
-					let pokemonReg = await this.client.database.pokeReg.findById(pokemonData.id);
-					if(!pokemonReg) {
-						this.client.database.pokeReg({
-							_id: pokemonData.id,
-							pokeName: pokemonName,
-							pokeType: handlePokemonType(pokemonType),
-							pokeTitle: ''
-						}).save().then(msg => {
-							console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${handlePokemonType(pokemonType)}`)
-						})//then save
-					}//if sem registro
+          //registrando pokemon
+          let pokemonReg = await this.client.database.pokeReg.findById(pokemonData.id);
+          if(!pokemonReg) {
+            this.client.database.pokeReg({
+              _id: pokemonData.id,
+              pokeName: pokemonName,
+              pokeType: handlePokemonType(pokemonType),
+              pokeTitle: ''
+            }).save().then(msg => {
+              console.log('Novo pokémon registrado:' + ` ${pokemonName} / ${handlePokemonType(pokemonType)}`)
+            })//then save
+          }//if sem registro
 
-					// g!capturar codigo
+          // g!capturar codigo
 
-					//const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
-					/*
-					collector.on('collect', (collected) => {
-						if(collected.content === 'g!capturar') {
+          //const collector = await pokeMsg.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id, time: 120000, max: 1})
+          /*
+          collector.on('collect', (collected) => {
+            if(collected.content === 'g!capturar') {
 
-							console.log('deu certo bro')
-							message.reply({content: 'testando'})
+              console.log('deu certo bro')
+              message.reply({content: 'testando'})
 
-						}//if g!capturar
-					})//collector
-					
+            }//if g!capturar
+          })//collector
+        	
 
-				}//if
-			}//else
-		
-	}
-		//*pokemon 
-		*/
+        }//if
+      }//else
+  	
+  }
+    //*pokemon 
+    */
     /* #endregion */
 
     let userDb = await this.client.database.userData.findOne({ uid: message.author.id, uServer: message.guild.id });
 
     if (!userDb) {
-        if (registeringUsers.has(message.author.id)) return;
+      if (registeringUsers.has(message.author.id)) return;
 
-        try {
-            registeringUsers.add(message.author.id);
+      try {
+        registeringUsers.add(message.author.id);
 
-            userDb = await this.client.database.userData.create({
-                _id: `${message.author.id}-${message.guild.id}`,
-                uid: message.author.id,
-                uServer: message.guild.id,
-                uName: message.author.username,
-                monitor: "desativado",
-                jogador: "nrpg" 
-            });
+        userDb = await this.client.database.userData.create({
+          _id: `${message.author.id}-${message.guild.id}`,
+          uid: message.author.id,
+          uServer: message.guild.id,
+          uName: message.author.username,
+          monitor: "desativado",
+          jogador: "nrpg"
+        });
 
-            if (message.guild.id === "731974689798488185") {
-                const embedRegistroPlayer = new EmbedBuilder()
-                    .setColor("#13d510")
-                    .setTitle("<a:pingugun:1408888581929439402> | QUEM É VOCÊ?")
-                    .setDescription(`Olá, ${message.author.username}! Notei que é sua primeira vez por aqui (ou pelo menos para mim). Para que eu possa te ajudar melhor com as funcionalidades de RPG, poderia me dizer qual o seu nome de jogador?`)
-                    .setThumbnail(message.author.avatarURL())
-                    .setFooter({ text: "Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!" })
-                    .setTimestamp();
+        if (message.guild.id === "731974689798488185") {
+          const embedRegistroPlayer = new EmbedBuilder()
+            .setColor("#13d510")
+            .setTitle("<a:pingugun:1408888581929439402> | QUEM É VOCÊ?")
+            .setDescription(`Olá, ${message.author.username}! Notei que é sua primeira vez por aqui (ou pelo menos para mim). Para que eu possa te ajudar melhor com as funcionalidades de RPG, poderia me dizer qual o seu nome de jogador?`)
+            .setThumbnail(message.author.avatarURL())
+            .setFooter({ text: "Envie apenas seu primeiro nome aqui mesmo. Não envie nada além disso!" })
+            .setTimestamp();
 
-                const dmChannel = await message.author.createDM().catch(() => null);
-                if (!dmChannel) return;
+          const dmChannel = await message.author.createDM().catch(() => null);
+          if (!dmChannel) return;
 
-                const msgDm = await dmChannel.send({ embeds: [embedRegistroPlayer] }).catch(() => null);
-                if (!msgDm) return;
+          const msgDm = await dmChannel.send({ embeds: [embedRegistroPlayer] }).catch(() => null);
+          if (!msgDm) return;
 
-                const collector = dmChannel.createMessageCollector({
-                    filter: (m) => m.author.id === message.author.id,
-                    max: 1,
-                    time: 600000, // 10 minutos
-                });
+          const collector = dmChannel.createMessageCollector({
+            filter: (m) => m.author.id === message.author.id,
+            max: 1,
+            time: 600000, // 10 minutos
+          });
 
-                collector.on('collect', async (collectedMessage) => {
-                    const jogador = collectedMessage.content.trim().split(/\s+/)[0];
+          collector.on('collect', async (collectedMessage) => {
+            const jogador = collectedMessage.content.trim().split(/\s+/)[0];
 
-                    await this.client.database.userData.updateOne(
-                        { uid: message.author.id, uServer: message.guild.id },
-                        { $set: { jogador: jogador } }
-                    );
+            await this.client.database.userData.updateOne(
+              { uid: message.author.id, uServer: message.guild.id },
+              { $set: { jogador: jogador } }
+            );
 
-                    console.log(`RPG - SISTEMA DE REGISTRO | usuário ${message.author.username} associado ao jogador ${jogador}`);
-                    await msgDm.reply({ content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador **${jogador}**. Se desejar alterar, use o comando \`/associar\` no servidor.` }).catch(console.error);
-                });
+            console.log(`RPG - SISTEMA DE REGISTRO | usuário ${message.author.username} associado ao jogador ${jogador}`);
+            await msgDm.reply({ content: `<a:Where_Staffs:1408891552738054306> | Prontinho! Você foi associado ao jogador **${jogador}**. Se desejar alterar, use o comando \`/associar\` no servidor.` }).catch(console.error);
+          });
 
-                collector.on('end', (collected, reason) => {
-                    if (reason === 'time') {
-                        dmChannel.send("Tempo esgotado. O registro foi cancelado. Envie uma mensagem no servidor novamente para tentar de novo.").catch(() => {});
-                    }
-                });
+          collector.on('end', (collected, reason) => {
+            if (reason === 'time') {
+              dmChannel.send("Tempo esgotado. O registro foi cancelado. Envie uma mensagem no servidor novamente para tentar de novo.").catch(() => { });
             }
-        } catch (error) {
-            console.error("Erro no processo de registro de novo usuário:", error);
-        } finally {
-            registeringUsers.delete(message.author.id);
+          });
         }
+      } catch (error) {
+        console.error("Erro no processo de registro de novo usuário:", error);
+      } finally {
+        registeringUsers.delete(message.author.id);
+      }
     } else {
-        if (userDb.uName !== message.author.username) {
-            userDb.uName = message.author.username;
-            await userDb.save();
-        }
+      if (userDb.uName !== message.author.username) {
+        userDb.uName = message.author.username;
+        await userDb.save();
+      }
 
-        if (userDb.monitor === "ativado" && userDb.uServer === message.guild.id) {
-            const monitorChannel = message.guild.channels.cache.get(userDb.monitorChannelId);
-            if (monitorChannel) {
-                let embedMonitor = new EmbedBuilder()
-                    .setTitle(`<:nani:572425789178642472> | **Nova mensagem de ${message.author.username}**`)
-                    .setDescription(message.content || "*Mensagem sem texto (possivelmente um anexo)*")
-                    .addFields({ name: `**Canal:**`, value: `${message.channel}` })
-                    .setTimestamp();
-                monitorChannel.send({ embeds: [embedMonitor] });
-            } else {
-                userDb.monitor = "desativado";
-                await userDb.save();
-            }
+      if (userDb.monitor === "ativado" && userDb.uServer === message.guild.id) {
+        const monitorChannel = message.guild.channels.cache.get(userDb.monitorChannelId);
+        if (monitorChannel) {
+          let embedMonitor = new EmbedBuilder()
+            .setTitle(`<:nani:572425789178642472> | **Nova mensagem de ${message.author.username}**`)
+            .setDescription(message.content || "*Mensagem sem texto (possivelmente um anexo)*")
+            .addFields({ name: `**Canal:**`, value: `${message.channel}` })
+            .setTimestamp();
+          monitorChannel.send({ embeds: [embedMonitor] });
+        } else {
+          userDb.monitor = "desativado";
+          await userDb.save();
         }
+      }
     }
 
     if (!message.content.startsWith(prefix || "G!")) return;
@@ -269,9 +269,9 @@ module.exports = class MessageReceive {
         dono.send(embed);
       } //if bt
     } catch (err) {
-        if(!message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator) && message.guild.id === '930871020557062162') return
-        message.channel.send(`**ERRO:**\`${err}\``);
-        console.error(err.stack);
+      if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator) && message.guild.id === '930871020557062162') return
+      message.channel.send(`**ERRO:**\`${err}\``);
+      console.error(err.stack);
     } //error try
   }
 };
