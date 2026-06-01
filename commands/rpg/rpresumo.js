@@ -270,7 +270,7 @@ module.exports = class rpresumo extends Command {
 
         await interaction.editReply({ content: '🤖 Gerando resumo com IA... Isso pode levar alguns segundos.' });
         
-        let summaryPages = await resumirRP(textToSummarize);
+        let summaryPages = await resumirRP(textToSummarize, { client: this.client, userId: interaction.user.id });
         
         let currentPage = 0;
         const generateEmbed = (page) => new EmbedBuilder()
@@ -320,7 +320,7 @@ module.exports = class rpresumo extends Command {
                 await i.update({ content: '🤖 Condensando o resumo...', components: [] });
                 try {
                     const currentSummaryText = summaryPages.join('\n');
-                    const newSummary = await summarizeSummary(currentSummaryText);
+                    const newSummary = await summarizeSummary(currentSummaryText, { client: this.client, userId: interaction.user.id });
                     summaryPages = newSummary; // Atualiza as páginas com o novo resumo
                     currentPage = 0; // Volta para a primeira página
                     

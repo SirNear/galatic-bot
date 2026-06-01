@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { registerUsage } = require("./aiUsageManager");
+const { registerUsage, sendLogIA } = require("./aiUsageManager");
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_CREDENTIALS);
 
@@ -14,7 +14,7 @@ function fileToGenerativePart(buffer, mimeType) {
 }
 
 /* #region  RESUMIR TEXTO */
-async function summarizeText(text) {
+async function summarizeText(text, options = {}) {
   const MAX_LENGTH = 4000;
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   const prompt = `Resuma a seguinte descrição de habilidade para um RPG de mesa. Mantenha os pontos-chave, mecânicas e efeitos importantes. O resumo deve ser formatado para o Discord. Texto original: "${text}"`;
@@ -23,6 +23,16 @@ async function summarizeText(text) {
   const response = await result.response;
   if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
+
+  if (options.client && options.userId) {
+      sendLogIA(options.client, {
+          userId: options.userId,
+          action: "Resumo de Texto",
+          prompt: prompt,
+          response: summary,
+          usage: response.usageMetadata
+      });
+  }
 
   if (summary.length <= MAX_LENGTH) {
     return [summary];
@@ -50,7 +60,7 @@ async function summarizeText(text) {
 /* #endregion */
 
 /* #region  DESCREVER NOME E UNIVERSO DA APARÊNCIA */
-async function describeImage(imageBuffer, mimeType) {
+async function describeImage(imageBuffer, mimeType, options = {}) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
   const prompt =
@@ -61,11 +71,24 @@ async function describeImage(imageBuffer, mimeType) {
   const result = await model.generateContent([prompt, imagePart]);
   const response = await result.response;
   if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
-  return response.text();
+  const summary = response.text();
+
+  if (options.client && options.userId) {
+      sendLogIA(options.client, {
+          userId: options.userId,
+          action: "Descrição de Imagem",
+          prompt: prompt,
+          response: summary,
+          usage: response.usageMetadata,
+          attachments: ["Imagem (Buffer)"]
+      });
+  }
+
+  return summary;
 }
 /* #endregion */
 
-async function resumirRP(text) {
+async function resumirRP(text, options = {}) {
   const MAX_LENGTH = 4000;
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -75,6 +98,16 @@ async function resumirRP(text) {
   const response = await result.response;
   if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
+
+  if (options.client && options.userId) {
+      sendLogIA(options.client, {
+          userId: options.userId,
+          action: "Resumo de RP",
+          prompt: prompt,
+          response: summary,
+          usage: response.usageMetadata
+      });
+  }
 
   if (summary.length <= MAX_LENGTH) {
     return [summary];
@@ -98,7 +131,7 @@ async function resumirRP(text) {
   return pages;
 }
 
-async function summarizeSummary(text) {
+async function summarizeSummary(text, options = {}) {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   const prompt = `Faça um resumo do resumo a seguir, extraindo apenas os pontos mais cruciais e apresentando-os de forma clara e concisa. O objetivo é criar uma versão ainda mais curta e direta do texto. Texto original: "${text}"`;
 
@@ -106,6 +139,16 @@ async function summarizeSummary(text) {
   const response = await result.response;
   if (response.usageMetadata) await registerUsage(response.usageMetadata).catch(console.error);
   const summary = response.text();
+
+  if (options.client && options.userId) {
+      sendLogIA(options.client, {
+          userId: options.userId,
+          action: "Resumo do Resumo",
+          prompt: prompt,
+          response: summary,
+          usage: response.usageMetadata
+      });
+  }
 
   // Retorna como array para manter a consistência, embora seja improvável que passe de 4k caracteres.
   return [summary];

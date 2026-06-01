@@ -1,7 +1,7 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, ComponentType, PermissionsBitField, TextDisplayBuilder, AttachmentBuilder } = require('discord.js');
 const { iniciarContador, pararContador } = require('../api/contador.js');
 const fetch = global.fetch || require('node-fetch');
-const { registerUsage } = require('../api/aiUsageManager.js');
+const { registerUsage, sendLogIA } = require('../api/aiUsageManager.js');
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
 
@@ -119,7 +119,7 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
     return listaMsg.reverse(); //inverte pra ordenar certo
 }
 
-async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMode = true) {
+async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMode = true, options = {}) {
     const models = [
         'gemini-2.5-flash',
         'gemini-2.0-flash',
@@ -133,6 +133,8 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
     
     let success = false;
     let jsonResult = null;
+    let finalUsage = null;
+    let finalResponse = null;
 
     if (debugInfo) debugInfo.rawText = "--- LOG DE TENTATIVAS DA IA ---\n";
 
@@ -179,6 +181,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                     if (data.usageMetadata) {
                         console.log(`[IA UPGRADE] Modelo ${model} usou ${data.usageMetadata.totalTokenCount} tokens (Prompt: ${data.usageMetadata.promptTokenCount} | Resposta: ${data.usageMetadata.candidatesTokenCount}).`);
                         registerUsage(data.usageMetadata).catch(console.error);
+                        finalUsage = data.usageMetadata;
                     }
 
                     if (data.promptFeedback && data.promptFeedback.blockReason) {
@@ -192,6 +195,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                         
                         if (!jsonMode) {
                             jsonResult = texto;
+                            finalResponse = texto;
                             success = true;
                             break;
                         }
@@ -211,6 +215,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                                     continue; // Rejeita a resposta vazia e tenta o próximo modelo
                                 }
                                 jsonResult = parsed;
+                                finalResponse = texto;
                                 success = true;
                                 break;
                             } catch (errParse) {
@@ -245,7 +250,19 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
         }
     }
 
-    if (success) return jsonResult;
+    if (success) {
+        if (options.client && options.userId) {
+            sendLogIA(options.client, {
+                userId: options.userId,
+                action: "Central de Upgrades (Gemini)",
+                prompt: promptText,
+                context: systemInstruction,
+                response: finalResponse,
+                usage: finalUsage
+            });
+        }
+        return jsonResult;
+    }
 
     // Fallback 1: Pollinations AI (Baseado em OpenAI / ChatGPT)
     try {
@@ -269,6 +286,9 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
             if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 1]:\n${texto}`;
             
             if (!jsonMode) {
+                if (options.client && options.userId) {
+                    sendLogIA(options.client, { userId: options.userId, action: "Central de Upgrades (Pollinations 1)", prompt: promptText, context: systemInstruction, response: texto });
+                }
                 return texto;
             }
             
@@ -284,6 +304,9 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                         console.warn(`[IA UPGRADE] Pollinations 1 retornou JSON sem upgrades:`, texto.substring(0, 200));
                         if (debugInfo) debugInfo.rawText += `\nErro: Array vazio.`;
                         throw new Error("Pollinations 1 retornou array vazio");
+                    }
+                    if (options.client && options.userId) {
+                        sendLogIA(options.client, { userId: options.userId, action: "Central de Upgrades (Pollinations 1)", prompt: promptText, context: systemInstruction, response: texto });
                     }
                     return parsed;
                 } catch (e) {
@@ -326,6 +349,9 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                 if (debugInfo) debugInfo.rawText += `\n\n[RESPOSTA POLLINATIONS 2]:\n${texto2}`;
                 
                 if (!jsonMode) {
+                    if (options.client && options.userId) {
+                        sendLogIA(options.client, { userId: options.userId, action: "Central de Upgrades (Pollinations 2)", prompt: promptCompleto, response: texto2 });
+                    }
                     return texto2;
                 }
                 
@@ -341,6 +367,9 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                             console.warn(`[IA UPGRADE] Pollinations 2 retornou JSON sem upgrades:`, texto2.substring(0, 200));
                             if (debugInfo) debugInfo.rawText += `\nErro: Array vazio.`;
                             throw new Error("Pollinations 2 retornou array vazio");
+                        }
+                        if (options.client && options.userId) {
+                            sendLogIA(options.client, { userId: options.userId, action: "Central de Upgrades (Pollinations 2)", prompt: promptCompleto, response: texto2 });
                         }
                         return parsed;
                     } catch (e) {
@@ -395,7 +424,7 @@ Retorne EXATAMENTE um objeto JSON neste formato:
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${upgradeText}`;
-    return await chamarIA(sys, prompt, debugInfo);
+    return await chamarIA(sys, prompt, debugInfo, true, { client: interaction.client, userId: interaction.user.id });
 }
 
 async function processarIA_Resumo(upgradesObj, loreText, client) {
@@ -425,7 +454,7 @@ Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa NARRATIVA baseada na LORE aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
-    return await chamarIA(sys, prompt);
+    return await chamarIA(sys, prompt, null, true, { client: interaction.client, userId: interaction.user.id });
 }
 
 async function listenerInteractionUpg(interaction, client) {
@@ -833,7 +862,7 @@ async function listenerInteractionUpg(interaction, client) {
                 const sysCtx = `Você é um assistente de moderação de RPG textual. O Admod pediu mais contexto sobre um upgrade específico baseado na Lore. Analise a LORE e o UPGRADE, e explique detalhadamente de onde esse poder/melhoria surgiu na narrativa, destacando os feitos e treinamentos associados a ele. Seja direto e analítico.`;
                 const promptCtx = `--- LORE ---\n${docNavUpg.loreText.join('\n\n')}\n\n--- UPGRADE ---\nNome: ${upgAtualParaContexto.nome}\nDescrição: ${upgAtualParaContexto.descricao}\nJustificativa Atual: ${upgAtualParaContexto.resumo}`;
                 
-                const ctxResponse = await chamarIA(sysCtx, promptCtx, null, false);
+                const ctxResponse = await chamarIA(sysCtx, promptCtx, null, false, { client: interaction.client, userId: interaction.user.id });
                 
                 const embCtx = new EmbedBuilder()
                     .setTitle(`Contexto Extra: ${upgAtualParaContexto.nome}`)
