@@ -135,6 +135,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
     let jsonResult = null;
     let finalUsage = null;
     let finalResponse = null;
+    let finalModel = null;
 
     if (debugInfo) debugInfo.rawText = "--- LOG DE TENTATIVAS DA IA ---\n";
 
@@ -180,7 +181,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                     
                     if (data.usageMetadata) {
                         console.log(`[IA UPGRADE] Modelo ${model} usou ${data.usageMetadata.totalTokenCount} tokens (Prompt: ${data.usageMetadata.promptTokenCount} | Resposta: ${data.usageMetadata.candidatesTokenCount}).`);
-                        registerUsage(data.usageMetadata, model).catch(console.error);
+                        registerUsage(data.usageMetadata, model, "Central de Upgrades (Gemini)").catch(console.error);
                         finalUsage = data.usageMetadata;
                     }
 
@@ -196,6 +197,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                         if (!jsonMode) {
                             jsonResult = texto;
                             finalResponse = texto;
+                            finalModel = model;
                             success = true;
                             break;
                         }
@@ -216,6 +218,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                                 }
                                 jsonResult = parsed;
                                 finalResponse = texto;
+                                finalModel = model;
                                 success = true;
                                 break;
                             } catch (errParse) {
@@ -258,7 +261,8 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                 prompt: promptText,
                 context: systemInstruction,
                 response: finalResponse,
-                usage: finalUsage
+                usage: finalUsage,
+                modelName: finalModel
             });
         }
         return jsonResult;

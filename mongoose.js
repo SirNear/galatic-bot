@@ -381,7 +381,18 @@ const aiUsageSchema = new mongoose.Schema({
             }
         }, default: {}
     },
+    actions: {
+        type: Map,
+        of: {
+            promptTokens: { type: Number, default: 0 },
+            completionTokens: { type: Number, default: 0 },
+            totalTokens: { type: Number, default: 0 },
+            requests: { type: Number, default: 0 }
+        },
+        default: {}
+    },
     panelMessageId: { type: String, default: null },
+    actionPanelMessageId: { type: String, default: null },
     panelChannelId: { type: String, default: null },
     lastUpdated: { type: Date, default: Date.now }
 });

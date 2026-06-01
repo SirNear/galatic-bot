@@ -21,7 +21,7 @@ async function summarizeText(text, options = {}) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite").catch(console.error);
+  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite", "Resumo de Texto").catch(console.error);
   const summary = response.text();
 
   if (options.client && options.userId) {
@@ -30,7 +30,8 @@ async function summarizeText(text, options = {}) {
           action: "Resumo de Texto",
           prompt: prompt,
           response: summary,
-          usage: response.usageMetadata
+          usage: response.usageMetadata,
+          modelName: "gemini-3.1-flash-lite"
       });
   }
 
@@ -70,7 +71,7 @@ async function describeImage(imageBuffer, mimeType, options = {}) {
 
   const result = await model.generateContent([prompt, imagePart]);
   const response = await result.response;
-  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite").catch(console.error);
+  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite", "Descrição de Imagem").catch(console.error);
   const summary = response.text();
 
   if (options.client && options.userId) {
@@ -80,7 +81,8 @@ async function describeImage(imageBuffer, mimeType, options = {}) {
           prompt: prompt,
           response: summary,
           usage: response.usageMetadata,
-          attachments: ["Imagem (Buffer)"]
+          attachments: ["Imagem (Buffer)"],
+          modelName: "gemini-3.1-flash-lite"
       });
   }
 
@@ -96,7 +98,7 @@ async function resumirRP(text, options = {}) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite").catch(console.error);
+  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite", "Resumo de RP").catch(console.error);
   const summary = response.text();
 
   if (options.client && options.userId) {
@@ -137,7 +139,7 @@ async function summarizeSummary(text, options = {}) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite").catch(console.error);
+  if (response.usageMetadata) await registerUsage(response.usageMetadata, "gemini-3.1-flash-lite", "Resumo do Resumo").catch(console.error);
   const summary = response.text();
 
   if (options.client && options.userId) {

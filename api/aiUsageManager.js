@@ -19,7 +19,7 @@ function generateProgressBar(current, max, length = 15) {
     };
 }
 
-async function registerUsage(usageMetadata, modelName = "desconhecido") {
+async function registerUsage(usageMetadata, modelName = "desconhecido", actionName = "Desconhecida") {
     if (!usageMetadata) return;
 
     try {
@@ -52,12 +52,24 @@ async function registerUsage(usageMetadata, modelName = "desconhecido") {
 
         if (!daily.models) daily.models = new Map();
         
-        let modelStats = daily.models.get(modelName) || { requests: 0, tokens: 0 };
+        const safeModelName = modelName.replace(/\./g, '_');
+        let modelStats = daily.models.get(safeModelName) || { requests: 0, tokens: 0 };
         modelStats.requests += 1;
         modelStats.tokens += totalTokens;
-        daily.models.set(modelName, modelStats);
+        daily.models.set(safeModelName, modelStats);
 
         usageDoc.dailyUsage.set(todayDate, daily);
+
+        const safeActionName = actionName.replace(/\./g, '_');
+        if (!usageDoc.actions) usageDoc.actions = new Map();
+        let actionStats = usageDoc.actions.get(safeActionName) || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+        
+        actionStats.requests += 1;
+        actionStats.promptTokens += promptTokens;
+        actionStats.completionTokens += completionTokens;
+        actionStats.totalTokens += totalTokens;
+        usageDoc.actions.set(safeActionName, actionStats);
+
         usageDoc.lastUpdated = new Date();
 
         await usageDoc.save();
@@ -89,15 +101,25 @@ async function ensurePanelExists(client) {
         }
 
         if (!message) {
-            console.log("[IA Monitor] Mensagem não encontrada. Criando novo painel...");
-            const embed = new EmbedBuilder().setTitle('⏳ Inicializando Monitor de IA...').setColor('#2b2d31');
+            console.log("[IA Monitor] Mensagem do painel de modelos não encontrada. Criando novo...");
+            const embed = new EmbedBuilder().setTitle('⏳ Inicializando Monitor de IA (Modelos)...').setColor('#2b2d31');
             message = await channel.send({ embeds: [embed] });
             usageDoc.panelChannelId = channel.id;
             usageDoc.panelMessageId = message.id;
             await usageDoc.save();
-            console.log("[IA Monitor] Novo painel criado e salvo no banco de dados.");
-        } else {
-            console.log("[IA Monitor] Painel já existe. Atualizando...");
+        }
+
+        let actionMessage = null;
+        if (usageDoc.actionPanelMessageId) {
+            actionMessage = await channel.messages.fetch(usageDoc.actionPanelMessageId).catch(() => null);
+        }
+
+        if (!actionMessage) {
+            console.log("[IA Monitor] Mensagem do painel de comandos não encontrada. Criando novo...");
+            const embedAction = new EmbedBuilder().setTitle('⏳ Inicializando Monitor de IA (Comandos)...').setColor('#2b2d31');
+            actionMessage = await channel.send({ embeds: [embedAction] });
+            usageDoc.actionPanelMessageId = actionMessage.id;
+            await usageDoc.save();
         }
 
         await updatePanel(client);
@@ -133,11 +155,12 @@ async function updatePanel(client) {
         let highestUsagePercentage = 0;
 
         if (daily.models && daily.models.size > 0) {
-            for (let [model, stats] of daily.models.entries()) {
-                const limit = modelLimits[model] || 20; // Padrão 20 RPD se desconhecido
+            for (let [modelKey, stats] of daily.models.entries()) {
+                const displayModel = modelKey.replace(/_/g, '.');
+                const limit = modelLimits[displayModel] || 20; // Padrão 20 RPD se desconhecido
                 const prog = generateProgressBar(stats.requests, limit, 15);
                 
-                modelsDescription += `**${model.toUpperCase()}**\n\`\`\`${prog.bar} ${stats.requests}/${limit} RPD\`\`\`\n`;
+                modelsDescription += `**${displayModel.toUpperCase()}**\n\`\`\`${prog.bar} ${stats.requests}/${limit} RPD\`\`\`\n`;
                 
                 if (parseFloat(prog.percentage) > highestUsagePercentage) {
                     highestUsagePercentage = parseFloat(prog.percentage);
@@ -168,6 +191,32 @@ async function updatePanel(client) {
             .setTimestamp();
 
         await message.edit({ embeds: [embed] });
+
+        // Update Action Panel
+        if (usageDoc.actionPanelMessageId) {
+            const actionMessage = await channel.messages.fetch(usageDoc.actionPanelMessageId).catch(() => null);
+            if (actionMessage) {
+                let actionsDescription = "";
+                if (usageDoc.actions && usageDoc.actions.size > 0) {
+                    const sortedActions = Array.from(usageDoc.actions.entries()).sort((a, b) => b[1].totalTokens - a[1].totalTokens);
+                    for (let [action, stats] of sortedActions) {
+                        const displayAction = action.replace(/_/g, '.');
+                        actionsDescription += `**${displayAction}**\n\`Requisições:\` ${stats.requests.toLocaleString('pt-BR')} | \`Tokens:\` ${stats.totalTokens.toLocaleString('pt-BR')}\n`;
+                    }
+                } else {
+                    actionsDescription = "*Nenhum comando registrado ainda.*";
+                }
+
+                const actionEmbed = new EmbedBuilder()
+                    .setTitle('🛠️ Monitoramento de IA por Comando')
+                    .setDescription(`Consumo vitalício de Tokens e Requisições separado por Comando/Ação no bot.\n\n${actionsDescription}`)
+                    .setColor('#5865F2')
+                    .setFooter({ text: `Última atualização: ${moment().format('DD/MM/YYYY HH:mm:ss')} (Tempo Real)` })
+                    .setTimestamp();
+                
+                await actionMessage.edit({ embeds: [actionEmbed] });
+            }
+        }
     } catch (err) {
         console.error("Erro ao atualizar o painel de IA:", err);
     }
@@ -180,9 +229,12 @@ async function sendLogIA(client, logData) {
         const channel = await client.channels.fetch(logChannelId).catch(() => null);
         if (!channel) return;
 
-        const { userId, action, prompt, context, response, usage, attachments } = logData;
+        const { userId, action, prompt, context, response, usage, attachments, modelName } = logData;
         
         let promptContent = `**Ação:** ${action}\n**Usuário:** <@${userId}> (${userId})\n`;
+        if (modelName) {
+            promptContent += `**Modelo Utilizado:** \`${modelName}\`\n`;
+        }
         if (usage) {
             promptContent += `**Uso de Tokens:** ${usage.totalTokenCount || usage.totalTokens} (Prompt: ${usage.promptTokenCount || usage.promptTokens} | Resposta: ${usage.candidatesTokenCount || usage.completionTokens})\n`;
         }
@@ -268,6 +320,9 @@ async function sendLogIA(client, logData) {
 
         await sendPaginated(promptContent, `📋 Log de Uso de IA - ${action} (Prompt)`);
         await sendPaginated(responseContent, `📋 Log de Uso de IA - ${action} (Resposta)`);
+
+        // Atualização em tempo real do Painel após registrar logs
+        updatePanel(client).catch(err => console.error("Erro ao atualizar painel via sendLogIA:", err));
     } catch (err) {
         console.error("[IA Log] Erro ao enviar log:", err);
     }
