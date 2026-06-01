@@ -177,7 +177,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   const modalInteraction = await interaction.awaitModalSubmit({ time: 150000, filter: i => i.user.id === interaction.user.id }).catch(() => null);
   if (!modalInteraction) return;
 
-  await modalInteraction.deferUpdate();
+  await modalInteraction.deferUpdate().catch(() => null);
 
   const args = {
     argNome: modalInteraction.fields.getTextInputValue(config.campos[0].id),
@@ -291,7 +291,7 @@ async function handleVersoPostRegister(interaction, args, sheets, client) {
   const submit = await btn.awaitModalSubmit({ time: 300000 }).catch(() => null);
   if (!submit) return;
 
-  await submit.deferUpdate();
+  await submit.deferUpdate().catch(() => null);
   const lines = submit.fields.getTextInputValue("apps_input").split("\n").filter(l => l.trim());
   const rows = lines.map(line => {
     const parts = line.trim().split(/\s+/);

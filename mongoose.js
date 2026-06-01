@@ -370,7 +370,15 @@ const aiUsageSchema = new mongoose.Schema({
             promptTokens: { type: Number, default: 0 },
             completionTokens: { type: Number, default: 0 },
             totalTokens: { type: Number, default: 0 },
-            requests: { type: Number, default: 0 }
+            requests: { type: Number, default: 0 },
+            models: { 
+                type: Map, 
+                of: { 
+                    requests: { type: Number, default: 0 }, 
+                    tokens: { type: Number, default: 0 } 
+                }, 
+                default: {} 
+            }
         }, default: {}
     },
     panelMessageId: { type: String, default: null },

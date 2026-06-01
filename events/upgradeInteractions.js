@@ -121,11 +121,11 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
 
 async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMode = true, options = {}) {
     const models = [
+        'gemini-3.1-flash-lite',
         'gemini-2.5-flash',
         'gemini-2.0-flash',
         'gemini-2.5-pro',
         'gemini-2.5-flash-lite',
-        'gemini-3.1-flash-lite',
         'gemini-flash-latest',
         'gemini-pro-latest'
     ];
@@ -180,7 +180,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                     
                     if (data.usageMetadata) {
                         console.log(`[IA UPGRADE] Modelo ${model} usou ${data.usageMetadata.totalTokenCount} tokens (Prompt: ${data.usageMetadata.promptTokenCount} | Resposta: ${data.usageMetadata.candidatesTokenCount}).`);
-                        registerUsage(data.usageMetadata).catch(console.error);
+                        registerUsage(data.usageMetadata, model).catch(console.error);
                         finalUsage = data.usageMetadata;
                     }
 
@@ -391,7 +391,7 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
     return null;
 }
 
-async function processarIA_Extrair(upgradeText, loreText, client, debugInfo = null) {
+async function processarIA_Extrair(upgradeText, loreText, client, interaction, debugInfo = null) {
     let exemplosTreino = "";
     if (client) {
         try {
@@ -427,7 +427,7 @@ Retorne EXATAMENTE um objeto JSON neste formato:
     return await chamarIA(sys, prompt, debugInfo, true, { client: interaction.client, userId: interaction.user.id });
 }
 
-async function processarIA_Resumo(upgradesObj, loreText, client) {
+async function processarIA_Resumo(upgradesObj, loreText, client, interaction) {
     let exemplosTreino = "";
     if (client) {
         try {
@@ -657,7 +657,7 @@ async function listenerInteractionUpg(interaction, client) {
                     listaMsg.forEach(m => { if (m.content) upgradeText += `${m.author.username}: ${m.content}\n\n`; });
 
                     let debugInfo = {};
-                    const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText, client, debugInfo);
+                    const resultadoIA = await processarIA_Extrair(upgradeText, cacheUpgradeSystemAtu.loreText, client, interaction, debugInfo);
                     
                     if (msgLoading && typeof msgLoading.delete === 'function') {
                         await msgLoading.delete().catch(()=>null);
@@ -803,7 +803,7 @@ async function listenerInteractionUpg(interaction, client) {
                 if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
                 await interaction.editReply({ content: '<a:discordchristmas:1502159689528512612> Gerando resumos automáticos com a IA baseando-se no seu treino...', embeds: [], components: [] });
                 
-                const resultadoIA = await processarIA_Resumo(cacheUpgradeSystemAtual.upgrades, cacheUpgradeSystemAtual.loreText, client);
+                const resultadoIA = await processarIA_Resumo(cacheUpgradeSystemAtual.upgrades, cacheUpgradeSystemAtual.loreText, client, interaction);
                 if (resultadoIA && resultadoIA.upgrades) {
                     cacheUpgradeSystemAtual.upgrades = resultadoIA.upgrades.map(u => ({...u, status: 'pendente'}));
                     cacheUpgradeSystemAtual.aiMode = true; 

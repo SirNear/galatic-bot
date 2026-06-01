@@ -3,8 +3,7 @@ const { AiUsage } = require('../mongoose');
 const moment = require('moment');
 moment.locale('pt-br');
 
-const MAX_MONTHLY_TOKENS = 1000000; // 1 Milhão de tokens como alvo visual
-const MAX_DAILY_REQUESTS = 500; // Ajustado com base no print (ex: Gemini 3.1 Flash Lite)
+
 
 function generateProgressBar(current, max, length = 15) {
     const percentage = Math.min(Math.max((current / max) * 100, 0), 100);
@@ -20,7 +19,7 @@ function generateProgressBar(current, max, length = 15) {
     };
 }
 
-async function registerUsage(usageMetadata) {
+async function registerUsage(usageMetadata, modelName = "desconhecido") {
     if (!usageMetadata) return;
 
     try {
@@ -50,6 +49,13 @@ async function registerUsage(usageMetadata) {
         daily.completionTokens += completionTokens;
         daily.totalTokens += totalTokens;
         daily.requests += 1;
+
+        if (!daily.models) daily.models = new Map();
+        
+        let modelStats = daily.models.get(modelName) || { requests: 0, tokens: 0 };
+        modelStats.requests += 1;
+        modelStats.tokens += totalTokens;
+        daily.models.set(modelName, modelStats);
 
         usageDoc.dailyUsage.set(todayDate, daily);
         usageDoc.lastUpdated = new Date();
@@ -114,17 +120,41 @@ async function updatePanel(client) {
         const todayDate = moment().format('YYYY-MM-DD');
         const daily = usageDoc.dailyUsage.get(todayDate) || { totalTokens: 0, requests: 0, promptTokens: 0, completionTokens: 0 };
 
-        const tokenProgress = generateProgressBar(usageDoc.totalTokens, MAX_MONTHLY_TOKENS, 20);
-        const reqProgress = generateProgressBar(daily.requests, MAX_DAILY_REQUESTS, 20);
+        const modelLimits = {
+            'gemini-3.1-flash-lite': 500,
+            'gemini-2.5-flash': 20,
+            'gemini-3.5-flash': 20,
+            'gemini-flash-latest': 20,
+            'gemini-2.0-flash': 20,
+            'gemini-pro': 20
+        };
+
+        let modelsDescription = "";
+        let highestUsagePercentage = 0;
+
+        if (daily.models && daily.models.size > 0) {
+            for (let [model, stats] of daily.models.entries()) {
+                const limit = modelLimits[model] || 20; // Padrão 20 RPD se desconhecido
+                const prog = generateProgressBar(stats.requests, limit, 15);
+                
+                modelsDescription += `**${model.toUpperCase()}**\n\`\`\`${prog.bar} ${stats.requests}/${limit} RPD\`\`\`\n`;
+                
+                if (parseFloat(prog.percentage) > highestUsagePercentage) {
+                    highestUsagePercentage = parseFloat(prog.percentage);
+                }
+            }
+        } else {
+            modelsDescription = "*Nenhum uso registrado hoje.*";
+        }
 
         let color = '#2b2d31'; // Default dark
-        if (tokenProgress.percentage > 90 || reqProgress.percentage > 90) color = '#ED4245'; // Red
-        else if (tokenProgress.percentage > 70 || reqProgress.percentage > 70) color = '#FEE75C'; // Yellow
+        if (highestUsagePercentage > 90) color = '#ED4245'; // Red
+        else if (highestUsagePercentage > 70) color = '#FEE75C'; // Yellow
         else color = '#57F287'; // Green
 
         const embed = new EmbedBuilder()
             .setTitle('🤖 Monitoramento de Inteligência Artificial')
-            .setDescription(`Painel atualizado de consumo do Gemini (Google Cloud Dev Platform).\n\n**Uso de Tokens (Mensal Base)**\n\`\`\`${tokenProgress.bar} ${tokenProgress.percentage}%\`\`\`\n**Requisições Diárias**\n\`\`\`${reqProgress.bar} ${reqProgress.percentage}%\`\`\``)
+            .setDescription(`Painel atualizado de consumo de cota Diária (RPD) por modelo.\n\n${modelsDescription}`)
             .setColor(color)
             .addFields(
                 { name: '📊 Tokens Totais', value: `\`${usageDoc.totalTokens.toLocaleString('pt-BR')}\``, inline: true },

@@ -9,11 +9,24 @@ module.exports = (client) => {
     console.log("CRON: Iniciando verificação de versos incompletos...");
 
     try {
-      const keyFilPat = path.join(__dirname, "../regal-primacy-233803-4fc7ea1a8a5a.json");
-      const autGoo = new google.auth.GoogleAuth({
-        keyFile: keyFilPat,
-        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-      });
+      let autGoo;
+      if (process.env.GOOGLE_CREDENTIALS) {
+        autGoo = new google.auth.GoogleAuth({
+          credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+          scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
+      } else {
+        const fs = require("fs");
+        const keyFilPat = path.join(__dirname, "../regal-primacy-233803-4fc7ea1a8a5a.json");
+        if (!fs.existsSync(keyFilPat)) {
+          console.warn("CRON: Arquivo regal-primacy-*.json não encontrado. Ignorando verificação semanal.");
+          return;
+        }
+        autGoo = new google.auth.GoogleAuth({
+          keyFile: keyFilPat,
+          scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
+      }
       const sheGoo = google.sheets({ version: "v4", auth: autGoo });
 
       const resShe = await sheGoo.spreadsheets.values.get({
