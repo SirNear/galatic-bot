@@ -53,6 +53,11 @@ const client = new Client({
             const duvidaUpgrades = require("./api/cron/duvidaUpgrades.js");
             duvidaUpgrades(client);
             
+            const monitorIA = require("./api/cron/monitorIA.js");
+            const { ensurePanelExists } = require("./api/aiUsageManager.js");
+            ensurePanelExists(client).catch(console.error);
+            monitorIA(client);
+            
             client.on('messageCreate', async (message) => {
                 if (message.author.bot) return;
                 try {
