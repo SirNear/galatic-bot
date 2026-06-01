@@ -17,6 +17,18 @@ module.exports = class MessageReceive {
     if (message.channel.type === ChannelType.DM) return;
     if (message.author.bot) return; //se for msg de bot
 
+    const upgradeRegex = /\[\s*(UPGRADES|UPS)\s*\]/i;
+    if (upgradeRegex.test(message.content)) {
+        const tutorialChannelId = "1509570102377451580";
+        message.reply({ 
+            content: `⚠️ **Aviso:** Parece que você mencionou **Upgrades**! Lembre-se de utilizar o novo sistema de upgrades para facilitar a correção. Veja o tutorial completo no canal <#${tutorialChannelId}>.`
+        }).then(msg => {
+            setTimeout(() => {
+                msg.delete().catch(() => {});
+            }, 15000); // "efêmera" (apaga após 15s)
+        }).catch(() => {});
+    }
+
     let server = await this.client.database.Guilds.findById(message.guild.id); //CARREGAMENTO DATABASE
 
     if (!server) {
