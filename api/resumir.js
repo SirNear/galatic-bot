@@ -16,7 +16,7 @@ function fileToGenerativePart(buffer, mimeType) {
 /* #region  RESUMIR TEXTO */
 async function summarizeText(text, options = {}) {
   const MAX_LENGTH = 4000;
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const prompt = `Resuma a seguinte descrição de habilidade para um RPG de mesa. Mantenha os pontos-chave, mecânicas e efeitos importantes. O resumo deve ser formatado para o Discord. Texto original: "${text}"`;
 
   const result = await model.generateContent(prompt);
@@ -61,7 +61,7 @@ async function summarizeText(text, options = {}) {
 
 /* #region  DESCREVER NOME E UNIVERSO DA APARÊNCIA */
 async function describeImage(imageBuffer, mimeType, options = {}) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+  const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
   const prompt =
     "Identifique o personagem e o universo de origem desta imagem. Responda apenas no formato 'Nome do Personagem, Universo de Origem'. Por exemplo: 'Goku, Dragon Ball Z'. Se não souber, responda 'Desconhecido'.";
@@ -90,7 +90,7 @@ async function describeImage(imageBuffer, mimeType, options = {}) {
 
 async function resumirRP(text, options = {}) {
   const MAX_LENGTH = 4000;
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `Resuma as seguintes mensagens de um RP para um RPG textual. Mantenha os pontos-chave, mecânicas e efeitos importantes, como também especificando personagens. Não divida em tópicos, faça em texto corrido com ordem cronológica dos fatos. Algumas partes são contra-narrações que podem cancelar fatos, observe bem os fatos e acontecimentos. Ao introduzir alguem, resuma quem é. Ao introduzir um poder, resuma sua funcionalidade e efeito. Tente resumir o máximo possível. Texto original: "${text}"`;
 
@@ -132,7 +132,7 @@ async function resumirRP(text, options = {}) {
 }
 
 async function summarizeSummary(text, options = {}) {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const prompt = `Faça um resumo do resumo a seguir, extraindo apenas os pontos mais cruciais e apresentando-os de forma clara e concisa. O objetivo é criar uma versão ainda mais curta e direta do texto. Texto original: "${text}"`;
 
   const result = await model.generateContent(prompt);

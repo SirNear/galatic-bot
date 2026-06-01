@@ -1,2 +1,5 @@
 node_modules
 .env
+rpg_context
+README.md 
+README_*.md

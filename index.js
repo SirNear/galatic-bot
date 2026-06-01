@@ -176,6 +176,23 @@ const client = new Client({
                 if (oldEvent.status !== newEvent.status) emb.addFields({name: 'Status', value: `\`${oldEvent.status}\` -> \`${newEvent.status}\``});
                 sendChannelLog(emb);
             });
+            // CACHE DE SISTEMAS DO RPG
+            try {
+                console.log('[SISTEMAS] Sincronizando categorias do Discord...');
+                const guild = await client.guilds.fetch("731974689798488185");
+                const channels = await guild.channels.fetch();
+                const systemChannels = channels.filter(c => c && c.parentId === '1142948073434267809');
+                
+                client.rpgSystemsCache = systemChannels.map(c => ({
+                    nome: c.name,
+                    tipo: c.type === 15 ? 'Fórum' : 'Texto',
+                    descricao: c.topic ? c.topic.substring(0, 100) : ''
+                }));
+                console.log(`[SISTEMAS] ✅ Cache atualizado! ${client.rpgSystemsCache.length} sistemas carregados na RAM.`);
+            } catch (e) {
+                console.error('[SISTEMAS] Erro ao tentar cachear sistemas no startup:', e);
+                client.rpgSystemsCache = [];
+            }
 
             client.emit('clientReady');
         })

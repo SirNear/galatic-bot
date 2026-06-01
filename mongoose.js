@@ -162,13 +162,19 @@ const habilidadeSchema = new mongoose.Schema({
 const fichaSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     guildId: { type: String, required: true },
-    nome: { type: String, required: true }, // Remove unique: true
-    reino: { type: String, required: true },
-    raca: { type: String, required: true },
-    aparencia: { type: String, required: true },
+    nome: { type: String, required: true },
     imagemURL: { type: String, required: false },
-    habilidades: [habilidadeSchema],
-    createdAt: { type: Date, default: Date.now } // Adiciona timestamp
+    dados_basicos: { type: Map, of: String, default: {} },
+    status: { type: Map, of: String, default: {} },
+    sistemas: { type: Map, of: String, default: {} },
+    habilidades: [{
+        sistema: String,
+        nome: String,
+        descricao: String,
+        imagemURL: String,
+        tipo: { type: String, default: 'Indefinido' }
+    }],
+    createdAt: { type: Date, default: Date.now }
 });
 
 const questSchema = new mongoose.Schema({
