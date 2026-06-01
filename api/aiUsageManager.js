@@ -152,87 +152,92 @@ async function sendLogIA(client, logData) {
 
         const { userId, action, prompt, context, response, usage, attachments } = logData;
         
-        let fullContent = `**Ação:** ${action}\n**Usuário:** <@${userId}> (${userId})\n`;
+        let promptContent = `**Ação:** ${action}\n**Usuário:** <@${userId}> (${userId})\n`;
         if (usage) {
-            fullContent += `**Uso de Tokens:** ${usage.totalTokenCount || usage.totalTokens} (Prompt: ${usage.promptTokenCount || usage.promptTokens} | Resposta: ${usage.candidatesTokenCount || usage.completionTokens})\n`;
+            promptContent += `**Uso de Tokens:** ${usage.totalTokenCount || usage.totalTokens} (Prompt: ${usage.promptTokenCount || usage.promptTokens} | Resposta: ${usage.candidatesTokenCount || usage.completionTokens})\n`;
         }
-        fullContent += `\n`;
+        promptContent += `\n`;
         if (attachments && attachments.length > 0) {
-            fullContent += `**Anexos:** ${attachments.join(', ')}\n\n`;
+            promptContent += `**Anexos:** ${attachments.join(', ')}\n\n`;
         }
         if (context) {
-            fullContent += `**Contexto / Lore:**\n\`\`\`text\n${context}\n\`\`\`\n`;
+            promptContent += `**Contexto / Lore:**\n\`\`\`text\n${context}\n\`\`\`\n`;
         }
-        fullContent += `**Prompt:**\n\`\`\`text\n${prompt || 'Sem prompt de texto'}\n\`\`\`\n`;
-        fullContent += `**Resposta:**\n\`\`\`text\n${response || 'Sem resposta'}\n\`\`\`\n`;
+        promptContent += `**Prompt:**\n\`\`\`text\n${prompt || 'Sem prompt de texto'}\n\`\`\`\n`;
 
-        // Split text into chunks of max 4000 chars safely
-        const splitText = (text, maxLength = 4000) => {
-            const parts = [];
-            let currentChunk = text;
-            while (currentChunk.length > 0) {
-                if (currentChunk.length <= maxLength) {
-                    parts.push(currentChunk);
-                    break;
+        let responseContent = `**Resposta para:** ${action} - <@${userId}>\n\`\`\`text\n${response || 'Sem resposta'}\n\`\`\`\n`;
+
+        const sendPaginated = async (fullText, title) => {
+            const splitText = (text, maxLength = 4000) => {
+                const parts = [];
+                let currentChunk = text;
+                while (currentChunk.length > 0) {
+                    if (currentChunk.length <= maxLength) {
+                        parts.push(currentChunk);
+                        break;
+                    }
+                    let splitIndex = currentChunk.lastIndexOf('\n\n', maxLength);
+                    if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf('\n', maxLength);
+                    if (splitIndex === -1) splitIndex = maxLength;
+                    parts.push(currentChunk.substring(0, splitIndex));
+                    currentChunk = currentChunk.substring(splitIndex).trim();
                 }
-                let splitIndex = currentChunk.lastIndexOf('\n\n', maxLength);
-                if (splitIndex === -1) splitIndex = currentChunk.lastIndexOf('\n', maxLength);
-                if (splitIndex === -1) splitIndex = maxLength;
-                parts.push(currentChunk.substring(0, splitIndex));
-                currentChunk = currentChunk.substring(splitIndex).trim();
-            }
-            return parts;
-        };
+                return parts;
+            };
 
-        const pages = splitText(fullContent);
-        let currentPage = 0;
+            const pages = splitText(fullText);
+            let currentPage = 0;
+            const uniqueId = Math.random().toString(36).substring(7);
 
-        const generateEmbed = (pageIndex) => {
-            return new EmbedBuilder()
-                .setTitle(`📋 Log de Uso de IA - ${action}`)
-                .setColor('#2b2d31')
-                .setDescription(pages[pageIndex])
-                .setFooter({ text: `Página ${pageIndex + 1} de ${pages.length} | Botões expiram em 24h` })
-                .setTimestamp();
-        };
+            const generateEmbed = (pageIndex) => {
+                return new EmbedBuilder()
+                    .setTitle(title)
+                    .setColor('#2b2d31')
+                    .setDescription(pages[pageIndex])
+                    .setFooter({ text: `Página ${pageIndex + 1} de ${pages.length} | Botões expiram em 24h` })
+                    .setTimestamp();
+            };
 
-        const generateButtons = (pageIndex) => {
-            if (pages.length <= 1) return [];
-            return [new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('log_prev')
-                    .setLabel('◀️ Anterior')
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(pageIndex === 0),
-                new ButtonBuilder()
-                    .setCustomId('log_next')
-                    .setLabel('Próximo ▶️')
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(pageIndex >= pages.length - 1)
-            )];
-        };
+            const generateButtons = (pageIndex) => {
+                if (pages.length <= 1) return [];
+                return [new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`log_prev_${uniqueId}`)
+                        .setLabel('◀️ Anterior')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(pageIndex === 0),
+                    new ButtonBuilder()
+                        .setCustomId(`log_next_${uniqueId}`)
+                        .setLabel('Próximo ▶️')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(pageIndex >= pages.length - 1)
+                )];
+            };
 
-        const msg = await channel.send({
-            embeds: [generateEmbed(0)],
-            components: generateButtons(0)
-        });
+            const msg = await channel.send({
+                embeds: [generateEmbed(0)],
+                components: generateButtons(0)
+            });
 
-        if (pages.length > 1) {
-            // Collector de 24 horas (86400000 ms)
-            const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 86400000 });
-            collector.on('collect', async i => {
-                if (i.customId === 'log_prev' && currentPage > 0) currentPage--;
-                else if (i.customId === 'log_next' && currentPage < pages.length - 1) currentPage++;
-                
-                await i.update({
-                    embeds: [generateEmbed(currentPage)],
-                    components: generateButtons(currentPage)
+            if (pages.length > 1) {
+                const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 86400000 });
+                collector.on('collect', async i => {
+                    if (i.customId.startsWith('log_prev') && currentPage > 0) currentPage--;
+                    else if (i.customId.startsWith('log_next') && currentPage < pages.length - 1) currentPage++;
+                    
+                    await i.update({
+                        embeds: [generateEmbed(currentPage)],
+                        components: generateButtons(currentPage)
+                    });
                 });
-            });
-            collector.on('end', () => {
-                msg.edit({ components: [] }).catch(() => {});
-            });
-        }
+                collector.on('end', () => {
+                    msg.edit({ components: [] }).catch(() => {});
+                });
+            }
+        };
+
+        await sendPaginated(promptContent, `📋 Log de Uso de IA - ${action} (Prompt)`);
+        await sendPaginated(responseContent, `📋 Log de Uso de IA - ${action} (Resposta)`);
     } catch (err) {
         console.error("[IA Log] Erro ao enviar log:", err);
     }
