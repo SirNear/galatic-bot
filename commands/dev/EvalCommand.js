@@ -12,6 +12,7 @@ module.exports = class EvalCommand extends Command {
 			name: "eval",
 			category: "dev",
 			aliases: ["e"],
+			description: "Testa códigos em javascript nativo diretamente pelo bot.",
 			UserPermission: null,
 			clientPermission: null,
 			OnlyDevs: true

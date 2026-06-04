@@ -8,6 +8,7 @@ module.exports = class mute extends Command {
 			name: "mute",
 			category: "moderation",
 			aliases: ['silenciar','m'],
+			description: "Silencia um usuário temporariamente por desrespeito às regras.",
 			UserPermission: ["MANAGE_MESSAGES"],
 			clientPermission: null,
 			OnlyDevs: false

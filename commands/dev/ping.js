@@ -8,6 +8,7 @@ module.exports = class ping extends Command {
 			name: "ping",
 			category: "dev",
 			aliases: [''],
+			description: "Verifica a latência da API do Discord e o tempo de resposta do bot.",
 			UserPermission: null,
 			clientPermission: null,
 			OnlyDevs: false

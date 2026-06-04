@@ -11,6 +11,7 @@ module.exports = class registryChange extends Command {
 			name: "registryChange",
 			category: "pokemon",
 			aliases: ['rc'],
+			description: "Altera ou cadastra os dados de registro de um Pokémon no banco de dados da Pokédex.",
 			UserPermission: ["ADMINISTRATOR"],
 			clientPermission: null,
 			OnlyDevs: false,

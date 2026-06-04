@@ -12,6 +12,7 @@ module.exports = class painel extends Command {
 			name: "painel",
 			category: "config",
 			aliases: [],
+			description: "Abre o painel interativo de configurações gerais do servidor.",
 			UserPermission: ['ADMINISTRATOR'],
 			clientPermission: null,
 			OnlyDevs: false

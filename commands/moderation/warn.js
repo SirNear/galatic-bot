@@ -12,6 +12,7 @@ module.exports = class warn extends Command {
 			name: "warn",
 			category: "moderation",
 			aliases: [''],
+			description: "Aplica um aviso oficial a um membro com notificação via DM.",
 			UserPermission: ["aviso",'avisar','w'],
 			clientPermission: null,
 			OnlyDevs: false

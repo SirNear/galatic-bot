@@ -9,6 +9,7 @@ module.exports = class kick extends Command {
 			name: "kick",
 			category: "moderation",
 			aliases: ['kickar','chutar','k'],
+			description: "Expulsa um usuário do servidor e envia DM com o motivo.",
 			UserPermission: ["KICK_MEMBERS"],
 			clientPermission: null,
 			OnlyDevs: false

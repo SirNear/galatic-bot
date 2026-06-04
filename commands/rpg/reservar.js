@@ -15,11 +15,6 @@ const error = require("../../api/error.js");
 const color = require("../../api/colors.json");
 const { iniciarContador, pararContador } = require("../../api/contador.js");
 const logs = require("../../api/logs.js");
-let tempoRestante;
-let sujeito ;
-let msgAlvo ;
-let intervalo, contador ;
-let deletable ;
 
 module.exports = class reservar extends Command {
   constructor(client) {
@@ -27,6 +22,7 @@ module.exports = class reservar extends Command {
       name: "reservar",
       category: "rpg",
       aliases: ["reservaraparencia", "reserva", 'res'],
+      description: "Inicia o processo de reserva de uma aparência para um jogador.",
       UserPermission: [""],
       clientPermission: null,
       OnlyDevs: false,
@@ -35,10 +31,13 @@ module.exports = class reservar extends Command {
   }
 
   async run({ message, args, client, server }) {
+    let tempoRestante;
+    let sujeito;
+    let msgAlvo;
+    let intervalo, contador;
+    let deletable = [];
 
-    let deletable = []
-
-    deletable.push(message)
+    deletable.push(message);
 
     async function cancelamento(deletable) {
         if (!Array.isArray(deletable)) return; // Garante que é um array
@@ -69,7 +68,11 @@ module.exports = class reservar extends Command {
 
     let choose = args[0];
 
-    const userDb = await this.client.database.userData.findOne({ _id: `${message.author.globalName} ${message.guild.name}` });
+    const userDb = await this.client.database.userData.findOne({ uid: message.author.id, uServer: message.guild.id });
+    
+    if (!userDb) {
+        return message.reply({ content: "Você não possui um registro no banco de dados. Envie alguma mensagem no servidor para ser registrado automaticamente!" });
+    }
 
     let embedRAparencia = new EmbedBuilder()
       .setColor(color.dblue)
@@ -253,7 +256,8 @@ module.exports = class reservar extends Command {
         })
 
         break;
-      case "universo" || "verso":
+      case "universo":
+      case "verso":
         message.reply({content: 'Ainda não implementado! Chega de reservar universo, toma vergonha na cara.'})
         break;
       default:

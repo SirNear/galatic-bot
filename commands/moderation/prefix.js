@@ -8,6 +8,7 @@ module.exports = class prefix extends Command {
 			name: "prefix",
 			category: "moderation",
 			aliases: [''],
+			description: "Altera o prefixo padrão do bot no servidor atual.",
 			UserPermission: ["ADMINISTRATOR"],
 			clientPermission: null,
 			OnlyDevs: false

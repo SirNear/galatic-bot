@@ -10,6 +10,7 @@ module.exports = class associar extends Command {
 			name: "associar",
 			category: "rpg",
 			aliases: ['ass', 'ac'],
+			description: "Associa um membro do servidor a um jogador registrado na database.",
 			UserPermission: [""],
 			clientPermission: null,
 			OnlyDevs: true,

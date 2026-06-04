@@ -12,6 +12,7 @@ module.exports = class emojiinfo extends Command {
 			name: "emojiinfo",
 			category: "util",
 			aliases: ["infoemoji", 'ei'],
+			description: "Exibe informações detalhadas de um emoji (ID, servidor, link e data de criação).",
 			UserPermission: null,
 			clientPermission: null,
 			OnlyDevs: false

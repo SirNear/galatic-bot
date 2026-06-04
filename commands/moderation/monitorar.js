@@ -8,6 +8,7 @@ module.exports = class monitorar extends Command {
 			name: "monitorar",
 			category: "moderation",
 			aliases: ['monitor', 'monitoramento', 'acompanhar', 'mnt'],
+			description: "Espiona as mensagens de um membro suspeito, espelhando-as em um canal secreto.",
 			UserPermission: ["MANAGE_MESSEGES"],
 			clientPermission: null,
 			OnlyDevs: false

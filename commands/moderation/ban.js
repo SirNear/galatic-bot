@@ -10,6 +10,7 @@ module.exports = class ban extends Command {
 			name: "ban",
 			category: "moderation",
 			aliases: ["banir"],
+			description: "Bane permanentemente um usuário do servidor com registro de punição.",
 			UserPermission: ['BAN_MEMBERS'],
 			clientPermission: ["BAN_MEMBERS", "EMBED_LINKS"],
 			OnlyDevs: false

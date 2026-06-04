@@ -10,6 +10,7 @@ module.exports = class clearwarn extends Command {
 			name: "clearwarn",
 			category: "moderation",
 			aliases: ["limparavisos","clearavisos"],
+			description: "Remove todos os avisos (warns) prévios de um usuário.",
 			UserPermission: ['MANAGE_MESSAGES'],
 			clientPermission: null,
 			OnlyDevs: false
