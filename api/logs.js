@@ -13,3 +13,15 @@ module.exports.AparenciaRegistrada = (message, userDb, pName, pUniverso, apImg, 
     sChannel.send({embeds: [embed] })
 
 }
+
+module.exports.VersoRegistrado = (message, userDb, vName, vEscopo, sChannel) => {
+
+    let embed = new Discord.EmbedBuilder()
+        .setColor(color.moderation)
+        .setTitle(`<:lolipolice:1406837917527183493> | SISTEMA DE MODERAÇÃO`)
+        .setDescription(`O jogador ${userDb.jogador}(${message.author.username} | ${message.author.id}) registrou o verso de ${vName} com escopo: **${vEscopo}**.`)
+        .setTimestamp()
+
+    sChannel.send({embeds: [embed] })
+
+}

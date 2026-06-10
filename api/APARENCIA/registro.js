@@ -31,7 +31,7 @@ const REGISTRY_CONFIG = {
     artigo: "o",
     campos: [
       { id: 'argNome', label: 'Nome do Verso', style: TextInputStyle.Short, required: true },
-      { id: 'argUso', label: '% de uso atual', style: TextInputStyle.Short, required: true }
+      { id: 'argUso', label: 'O que você utiliza desse Universo?', style: TextInputStyle.Paragraph, placeholder: "Ex: Total / Completo\nEx: Sistema de Poder\nEx: Lore e Facções", required: true }
     ],
     range: "UNIVERSO!A:C",
     mapearLinha: (dados) => [dados.argNome, dados.argUso, dados.jogador],
@@ -100,7 +100,7 @@ async function handleSimilarResults(tipo, target, msgNavegacao, interaction, sCh
     .setDescription(`A aparência **${target}** está disponível.\n\nEncontramos também resultados similares. Selecione "SIM" para registrar **${target}**, ou navegue para ver os outros resultados.`)
     .setColor("#00ff00");
 
-  await msgNavegacao.edit({ embeds: [embedRegistro], components: [generateButtons(0)], fetchReply: false }).catch(() => {});
+  await msgNavegacao.edit({ embeds: [embedRegistro], components: [generateButtons(0)], fetchReply: false }).catch(() => { });
 
   const collector = msgNavegacao.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 60000 });
 
@@ -125,8 +125,8 @@ async function handleSimilarResults(tipo, target, msgNavegacao, interaction, sCh
   });
 
   collector.on("end", (c, r) => {
-    if (r === "closed") msgNavegacao.delete().catch(() => {});
-    else msgNavegacao.edit({ components: [] }).catch(() => {});
+    if (r === "closed") msgNavegacao.delete().catch(() => { });
+    else msgNavegacao.edit({ components: [] }).catch(() => { });
   });
 }
 
@@ -142,7 +142,7 @@ async function showAvailabilityPrompt(msgNavegacao, interaction, config, target,
     new ButtonBuilder().setCustomId("nao_registro").setLabel("NÃO").setStyle(ButtonStyle.Danger)
   );
 
-  await msgNavegacao.edit({ embeds: [embed], components: [buttons], fetchReply: false }).catch(() => {});
+  await msgNavegacao.edit({ embeds: [embed], components: [buttons], fetchReply: false }).catch(() => { });
 
   const collector = msgNavegacao.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 15000 });
 
@@ -152,23 +152,24 @@ async function showAvailabilityPrompt(msgNavegacao, interaction, config, target,
       await showRegistrationModal(i, config, target, userDb, sheets, client);
     } else {
       collector.stop();
-      msgNavegacao.delete().catch(() => {});
-      interaction.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **REGISTRO CANCELADO!**" }).catch(() => {});
+      msgNavegacao.delete().catch(() => { });
+      interaction.channel.send({ content: "<a:cdfpatpat:1407135944456536186> | **REGISTRO CANCELADO!**" }).catch(() => { });
     }
   });
 }
 
 async function showRegistrationModal(interaction, config, target, userDb, sheets, client) {
   const modal = new ModalBuilder().setCustomId("modal_registro_generico").setTitle(`Registro de ${config.nomeItem}`);
-  
+
   config.campos.forEach(campo => {
     const input = new TextInputBuilder()
       .setCustomId(campo.id)
       .setLabel(campo.label)
       .setStyle(campo.style)
       .setRequired(campo.required);
-    
+
     if (campo.id === 'argNome' || campo.id === 'argVerso') input.setValue(target);
+    if (campo.placeholder) input.setPlaceholder(campo.placeholder);
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   });
 
@@ -199,37 +200,23 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
       range: "UNIVERSO!A:C"
     });
     const rowsUni = resUni.data.values || [];
-    
+
     const userVersos = rowsUni.filter(r => normalize(r[2]) === normalize(args.jogador));
-    
-    const incompleteVersos = userVersos.filter(r => {
-      const usoStr = String(r[1] || "0").replace('%', '').replace(',', '.');
-      const uso = parseFloat(usoStr);
-      return uso < 100;
-    });
 
-    if (incompleteVersos.length > 0) {
-      const targetVerso = normalize(args.argUniverso);
-      const ownsTarget = userVersos.some(r => normalize(r[0]) === targetVerso);
+    const targetVerso = normalize(args.argUniverso);
+    const ownsTarget = userVersos.some(r => normalize(r[0]) === targetVerso);
 
-      if (!ownsTarget && userDb.tokenAp <= 0) {
-        const listaPendencias = incompleteVersos.map(r => `• **${r[0]}** (${r[1]})`).join('\n');
-        return modalInteraction.followUp({
-          content: `<:berror:1406837900556898304> | **Registro Bloqueado!**\n\nVocê possui universos com uso incompleto. Para registrar uma nova aparência, você deve completar seus universos atuais ou registrar a aparência em um universo que você já possui.\n\n**Suas Pendências:**\n${listaPendencias}\n\n**Universo tentado:** ${args.argUniverso}`,
-          flags: 64
-        });
-      }else if(userDb.tokenAp > 0 && !ownsTarget) {
-        userDb.tokenAp -= 1;
-        await userDb.save();
-        await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
-     }
+    if (userDb.tokenAp > 0 && !ownsTarget) {
+      userDb.tokenAp -= 1;
+      await userDb.save();
+      await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
     }
   }
 
   // Salvar na planilha
   const res = await sheetsUp.spreadsheets.values.get({ spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo", range: config.range });
   const rows = res.data.values || [];
-  
+
   let nextRow = rows.length + 1;
   for (let i = 0; i < rows.length; i++) {
     if (!rows[i] || rows[i].length === 0 || !rows[i][0]) {
@@ -240,7 +227,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
 
   const values = config.mapearLinha(args);
   const [sheetName] = config.range.split("!");
-  
+
   await sheetsUp.spreadsheets.values.update({
     spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
     range: `${sheetName}!A${nextRow}`,
@@ -260,21 +247,17 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   } else {
     await modalInteraction.followUp({ content: `<a:cat_dance:1409062402288521266> | ${config.nomeItem} "${args.argNome}" foi registrad${config.artigo} com sucesso!`, flags: 64 });
   }
-  
+
   console.log(`SISTEMA DE REGISTRO | ${args.jogador} registrou ${config.nomeItem} ${args.argNome}`);
 }
 
 async function handleVersoPostRegister(interaction, args, sheets, client) {
-  if (!args.argUso || parseFloat(args.argUso) <= 0) {
-    return interaction.followUp({ content: `<a:cat_dance:1409062402288521266> | Verso "${args.argNome}" registrado com sucesso!`, flags: 64 });
-  }
-
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("add_apps_verso").setLabel("Adicionar Aparências Utilizadas").setStyle(ButtonStyle.Primary)
   );
 
   const msg = await interaction.followUp({
-    content: `<:cpnews:1411060646019338406> | Verso registrado! Como o uso é ${args.argUso}, adicione as aparências já utilizadas.`,
+    content: `<:cpnews:1411060646019338406> | Verso registrado! Adicione as aparências que utilizará, caso aplicável.`,
     components: [row],
     flags: 64,
     fetchReply: true

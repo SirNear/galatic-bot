@@ -26,7 +26,7 @@ module.exports = class reservar extends Command {
       UserPermission: [""],
       clientPermission: null,
       OnlyDevs: false,
-      structure: "aparecia/universo",
+      structure: "aparencia | verso",
     });
   }
 
@@ -66,7 +66,7 @@ module.exports = class reservar extends Command {
         return message.reply({ content: "Erro: O canal de reservas não foi encontrado ou não tenho permissão para vê-lo." });
     }
 
-    let choose = args[0];
+    let choose = args[0] ? args[0].toLowerCase() : null;
 
     const userDb = await this.client.database.userData.findOne({ uid: message.author.id, uServer: message.guild.id });
     
@@ -74,15 +74,15 @@ module.exports = class reservar extends Command {
         return message.reply({ content: "Você não possui um registro no banco de dados. Envie alguma mensagem no servidor para ser registrado automaticamente!" });
     }
 
-    let embedRAparencia = new EmbedBuilder()
-      .setColor(color.dblue)
-      .setTitle(
-        '<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>'
-      )
-      .setFooter({ text: "Reserva de Aparência" });
+    const executarReserva = async (tipo) => {
+        let embedRAparencia = new EmbedBuilder()
+          .setColor(color.dblue)
+          .setTitle(
+            '<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>'
+          )
+          .setFooter({ text: "Reserva de Aparência" });
 
-
-    switch (choose) {
+        switch (tipo) {
       case "aparencia":
         embedRAparencia.setDescription(
           `Envie o **nome da aparência** que deseja reservar`
@@ -258,10 +258,160 @@ module.exports = class reservar extends Command {
         break;
       case "universo":
       case "verso":
-        message.reply({content: 'Ainda não implementado! Chega de reservar universo, toma vergonha na cara.'})
+        let embedRVerso = new EmbedBuilder()
+          .setColor(color.purple)
+          .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE VERSOS ** | <:DNAstrand:1406986203278082109>')
+          .setDescription(`Envie o **nome do verso** que deseja reservar`)
+          .setFooter({ text: "Reserva de Verso" });
+
+        let msgVerso = await message.reply({ embeds: [embedRVerso] });
+        deletable.push(msgVerso);
+
+        sujeito = "enviar o nome do verso";
+        msgAlvo = msgVerso;
+        tempoRestante = 60;
+
+        ({intervalo, contador} = await iniciarContador(tempoRestante, sujeito, msgAlvo, message));
+        deletable.push(contador);
+
+        let coletorRVersoNome = await msgVerso.channel.createMessageCollector({
+            filter: (m) => m.author.id === message.author.id,
+            time: 120000,
+            max: 1,
+        });
+
+        coletorRVersoNome.on("collect", async (m) => {
+            deletable.push(m);
+            let versoNome = await pararContador(m.content, intervalo, contador);
+
+            embedRVerso.addFields({
+                name: "**NOME DO VERSO**",
+                value: versoNome,
+                inline: false,
+            });
+            embedRVerso.setDescription("Selecione abaixo o **Escopo de Integração** para este verso:");
+
+            const botoesEscopo = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId("escopo_total").setLabel("Total / Completo").setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId("escopo_poder").setLabel("Sistema de Poder").setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId("escopo_lore").setLabel("Lore / Facções").setStyle(ButtonStyle.Primary)
+            );
+
+            await msgVerso.edit({ embeds: [embedRVerso], components: [botoesEscopo] });
+
+            sujeito = "selecionar o escopo";
+            tempoRestante = 60;
+            ({intervalo, contador} = await iniciarContador(tempoRestante, sujeito, msgAlvo, message));
+            deletable.push(contador);
+
+            let coletorEscopo = msgVerso.createMessageComponentCollector({
+                filter: (i) => i.user.id === message.author.id,
+                time: 120000,
+                max: 1
+            });
+
+            coletorEscopo.on("collect", async (iEscopo) => {
+                await iEscopo.deferUpdate().catch(()=>{});
+                let escopoSelecionado = "";
+                switch(iEscopo.customId) {
+                    case "escopo_total": escopoSelecionado = "Total / Completo"; break;
+                    case "escopo_poder": escopoSelecionado = "Sistema de Poder"; break;
+                    case "escopo_lore": escopoSelecionado = "Lore / Facções"; break;
+                }
+                
+                await pararContador("Escopo selecionado", intervalo, contador);
+
+                embedRVerso.addFields({
+                    name: "**ESCOPO**",
+                    value: escopoSelecionado,
+                    inline: false,
+                });
+                embedRVerso.setDescription("Confira os dados abaixo:");
+                embedRVerso.setTimestamp();
+
+                const confirmacaoBotaoVerso = new ActionRowBuilder().addComponents(
+                  new ButtonBuilder().setCustomId("confirma_verso").setLabel("CONFIRMAR").setStyle(ButtonStyle.Success),
+                  new ButtonBuilder().setCustomId("cancela_verso").setLabel("CANCELAR").setStyle(ButtonStyle.Danger)
+                );
+
+                let mensagemConfirmacaoVerso = await message.reply({
+                    embeds: [embedRVerso],
+                    components: [confirmacaoBotaoVerso],
+                });
+                deletable.push(mensagemConfirmacaoVerso);
+
+                const coletorConfirmacaoVerso = mensagemConfirmacaoVerso.createMessageComponentCollector({
+                    filter: (i) => i.user.id === message.author.id,
+                    time: 60000,
+                    max: 1
+                });
+
+                coletorConfirmacaoVerso.on("collect", async (iConf) => {
+                    switch (iConf.customId) {
+                        case "confirma_verso":
+                            logs.VersoRegistrado(message, userDb, versoNome, escopoSelecionado, canalReserva);
+                            message.channel.bulkDelete(deletable).catch(() => {});
+                            message.reply({
+                                content: `<:YaroCheck:1408857786221330443> | Verso ${versoNome} reservado! Verifique no canal <#${canalReserva.id}> !`,
+                            });
+                        break;
+                        case "cancela_verso":
+                            message.channel.bulkDelete(deletable).catch(() => {});
+                            message.reply({
+                                content: "<a:cdfpatpat:1407135944456536186> | **RESERVA CANCELADA!** Tudo bem, você pode reservar depois, se estiver disponível",
+                            });
+                        break;
+                    }
+                });
+
+                coletorConfirmacaoVerso.on("end", async (collected, reason) => {
+                    if (reason === "time" && collected.size === 0) return cancelamento(deletable);
+                });
+            });
+
+            coletorEscopo.on("end", async (collected, reason) => {
+                if (reason === "time" && collected.size === 0) return cancelamento(deletable);
+            });
+        });
+
+        coletorRVersoNome.on('end', async (collected, reason) => {
+            if (reason === "time" && collected.size === 0) return cancelamento(deletable);
+        });
+
         break;
-      default:
-        error.helpCmd(server, this.config, message);
+          default:
+            error.helpCmd(server, this.config, message);
+            break;
+        }
+    };
+
+    if (!choose) {
+        const embedNav = new EmbedBuilder()
+          .setColor(color.purple)
+          .setTitle('<:DNAstrand:1406986203278082109> | ** SISTEMA DE RESERVAS ** | <:DNAstrand:1406986203278082109>')
+          .setDescription("O que você deseja reservar?")
+          .setFooter({ text: "Escolha uma das opções abaixo." });
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("res_ap").setLabel("APARÊNCIA").setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("res_ve").setLabel("VERSO").setStyle(ButtonStyle.Success)
+        );
+
+        let msgEscolha = await message.reply({ embeds: [embedNav], components: [row] });
+        deletable.push(msgEscolha);
+
+        const col = msgEscolha.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 60000, max: 1 });
+        
+        col.on('collect', async i => {
+            await i.deferUpdate().catch(()=>{});
+            await executarReserva(i.customId === "res_ap" ? "aparencia" : "verso");
+        });
+        
+        col.on('end', (c, r) => {
+            if(r === 'time' && c.size === 0) cancelamento(deletable);
+        });
+    } else {
+        await executarReserva(choose);
     }
   }
 };
