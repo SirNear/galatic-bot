@@ -1151,7 +1151,24 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
 }
 
 async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
+    if (!upgDoc || !upgDoc.upgrades || upgDoc.upgrades.length === 0) {
+        const payload = { content: '❌ Este documento não possui upgrades válidos.', embeds: [], components: [], flags: 64 };
+        if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
+        if (isUpdate) return interaction.update(payload);
+        return interaction.reply(payload);
+    }
+    
+    if (index >= upgDoc.upgrades.length) index = upgDoc.upgrades.length - 1;
+    if (index < 0) index = 0;
+
     const upg = upgDoc.upgrades[index];
+    if (!upg) {
+        const payload = { content: '❌ Upgrade não encontrado no índice especificado.', embeds: [], components: [], flags: 64 };
+        if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
+        if (isUpdate) return interaction.update(payload);
+        return interaction.reply(payload);
+    }
+
     const isUpgRejected = upg.status === 'recusado';
     let corStatus = 'Blue';
     if (upg.status === 'aprovado') corStatus = 'Green';
@@ -1308,11 +1325,29 @@ async function envioUpg(interaction, client, listaUpg) {
 }
 
 async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
+    if (!upgDocDb || !upgDocDb.upgrades || upgDocDb.upgrades.length === 0) {
+        const payload = { content: '❌ Este documento não possui upgrades válidos para avaliar.', embeds: [], components: [] };
+        if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
+        if (updated) return interaction.update(payload);
+        return interaction.reply(payload);
+    }
+
     const AdmAtual = cacheAdmNavigationState.get(interaction.user.id);
+    if (!AdmAtual) return interaction.reply({ content: '❌ Sua sessão expirou.', flags: 64 });
+    
+    if (AdmAtual.currentIndex >= upgDocDb.upgrades.length) AdmAtual.currentIndex = upgDocDb.upgrades.length - 1;
+    if (AdmAtual.currentIndex < 0) AdmAtual.currentIndex = 0;
+
     const upgAtual = upgDocDb.upgrades[AdmAtual.currentIndex];
+    if (!upgAtual) {
+        const payload = { content: '❌ Ocorreu um erro ao carregar o upgrade.', embeds: [], components: [] };
+        if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
+        if (updated) return interaction.update(payload);
+        return interaction.reply(payload);
+    }
     
     const embedUpgAtual = new EmbedBuilder()
-        .setTitle(`Avaliação: ${upgAtual.nome} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})`)
+        .setTitle(`Avaliação: ${upgAtual.nome || 'Desconhecido'} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})`)
         .setColor(upgAtual.status === 'aprovado' ? 'Green' : 'Blue')
         .setDescription(String(upgAtual.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
