@@ -226,7 +226,9 @@ module.exports = class aparencia extends Command {
               new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
             );
           }
-        } else if (!isOwner && currentResult.tipo === 'aparencia') {
+        } 
+        
+        if (!isOwner && currentResult.tipo === 'aparencia') {
           const rowIndex = currentResult.rowIndex;
           components.push(
             new ButtonBuilder().setCustomId(`propor_troca_${rowIndex}`).setEmoji('🔃').setLabel('Propor Troca').setStyle(ButtonStyle.Primary)
