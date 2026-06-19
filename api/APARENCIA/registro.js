@@ -31,10 +31,20 @@ const REGISTRY_CONFIG = {
     artigo: "o",
     campos: [
       { id: 'argNome', label: 'Nome do Verso', style: TextInputStyle.Short, required: true },
-      { id: 'argUso', label: 'O que você utiliza desse Universo?', style: TextInputStyle.Paragraph, placeholder: "Ex: Total / Completo\nEx: Sistema de Poder\nEx: Lore e Facções", required: true }
+      {
+        id: 'argUso', type: 'select', label: 'Categoria de Registro', required: true, placeholder: 'Selecione a categoria de retenção', options: [
+          { label: 'Poder', description: 'Para quem quer extrair a mecânica mágica/física.', value: 'Poder' },
+          { label: 'Lore', description: 'Mitologia, deuses, geopolítica.', value: 'Lore' },
+          { label: 'Biologia', description: 'Bestiário, ecossistemas, raças.', value: 'Biologia' },
+          { label: 'Itens', description: 'Armas, tecnologia, mechas.', value: 'Itens' },
+          { label: 'Aparências', description: 'Somente aparências do verso', value: 'Aparências' },
+          { label: 'Domínio Total', description: 'Registro completo de todo o Universo.', value: 'Verso todo' }
+        ]
+      },
+      { id: 'argEspecificacao', label: 'Especificação do Uso', style: TextInputStyle.Paragraph, required: true, placeholder: 'Descreva exatamente o que vai reter (Ex: Dobra de Fogo)' }
     ],
     range: "UNIVERSO!A:C",
-    mapearLinha: (dados) => [dados.argNome, dados.argUso, dados.jogador],
+    mapearLinha: (dados) => [dados.argNome, `${dados.argUso} - ${dados.argEspecificacao}`, dados.jogador],
     posRegistro: handleVersoPostRegister // Função específica para pós-registro de verso
   }
 };
@@ -54,6 +64,11 @@ async function handleRegistro(tipo, target, msgNavegacao, interaction, sChannel,
   const user = interaction.user || interaction.author;
   const guild = interaction.guild;
   const userDb = await client.database.userData.findOne({ uid: user.id, uServer: guild.id });
+  const isDev = client.owners && client.owners.includes(user.id);
+
+  if (tipo === 'verso' && !isDev && (!userDb || userDb.tokenVerso <= 0)) {
+    return interaction.reply({ content: "❌ Você não possui **Tokens de Verso** suficientes para realizar um novo registro. Cada registro de verso custa 1 Token de Verso.", ephemeral: true });
+  }
 
   // 1. Fluxo de Resultados Similares (Navegação)
   if (!skipConfirmation && exactMatch === false && resultados.length > 0) {
@@ -158,20 +173,59 @@ async function showAvailabilityPrompt(msgNavegacao, interaction, config, target,
   });
 }
 
+const { StringSelectMenuBuilder } = require('discord.js');
+
 async function showRegistrationModal(interaction, config, target, userDb, sheets, client) {
+  const { LabelBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
   const modal = new ModalBuilder().setCustomId("modal_registro_generico").setTitle(`Registro de ${config.nomeItem}`);
 
-  config.campos.forEach(campo => {
-    const input = new TextInputBuilder()
-      .setCustomId(campo.id)
-      .setLabel(campo.label)
-      .setStyle(campo.style)
-      .setRequired(campo.required);
+  const labelComponents = config.campos.map(campo => {
+    const labelBuilder = new LabelBuilder().setLabel(campo.label);
 
-    if (campo.id === 'argNome' || campo.id === 'argVerso') input.setValue(target);
-    if (campo.placeholder) input.setPlaceholder(campo.placeholder);
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    if (campo.type === 'select') {
+      const options = campo.options.map(opt => new StringSelectMenuOptionBuilder()
+        .setLabel(opt.label)
+        .setDescription(opt.description || '')
+        .setValue(opt.value)
+      );
+      const select = new StringSelectMenuBuilder()
+        .setCustomId(campo.id)
+        .setPlaceholder(campo.placeholder || 'Selecione uma opção')
+        .addOptions(options);
+      labelBuilder.setStringSelectMenuComponent(select);
+    } else {
+      const input = new TextInputBuilder()
+        .setCustomId(campo.id)
+        .setStyle(campo.style)
+        .setRequired(campo.required);
+
+      if (campo.id === 'argNome' || campo.id === 'argVerso') input.setValue(target);
+      if (campo.placeholder) input.setPlaceholder(campo.placeholder);
+      labelBuilder.setTextInputComponent(input);
+    }
+    return labelBuilder;
   });
+
+  modal.addLabelComponents(...labelComponents);
+
+  if (config.nomeItem === 'Verso') {
+    const avisoMsg = await interaction.reply({
+      content: "⚠️ **ATUALIZAÇÃO NO SISTEMA DE VERSOS**\n\nAgora os registros de verso **não utilizam mais porcentagem**. Você deve escolher uma **Categoria de Registro** (ex: Poder, Lore, Biologia) e especificar exatamente a restrição (ex: 'Dobra de Fogo'). Cada novo registro vale 1 token.\n\nClique no botão abaixo para prosseguir com o registro.",
+      ephemeral: true,
+      components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('confirmar_aviso_verso').setLabel('Entendi').setStyle(ButtonStyle.Success))],
+      fetchReply: true
+    }).catch(() => null);
+
+    if (!avisoMsg) return;
+
+    const btnInteraction = await avisoMsg.awaitMessageComponent({
+      filter: i => i.customId === 'confirmar_aviso_verso' && i.user.id === interaction.user.id,
+      time: 120000
+    }).catch(() => null);
+
+    if (!btnInteraction) return;
+    interaction = btnInteraction;
+  }
 
   await interaction.showModal(modal);
 
@@ -180,11 +234,19 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
 
   await modalInteraction.deferUpdate().catch(() => null);
 
+  const getFieldValue = (id) => {
+    const field = modalInteraction.fields.fields.get(id);
+    if (!field) return null;
+    if (field.value) return field.value;
+    if (field.values && field.values.length > 0) return field.values[0];
+    return null;
+  };
+
   const args = {
-    argNome: modalInteraction.fields.getTextInputValue(config.campos[0].id),
-    argUniverso: config.campos[1].id === 'argUniverso' ? modalInteraction.fields.getTextInputValue('argUniverso') : null,
-    argPersonagem: config.campos[2]?.id === 'argPersonagem' ? modalInteraction.fields.getTextInputValue('argPersonagem') : null,
-    argUso: config.campos[1].id === 'argUso' ? modalInteraction.fields.getTextInputValue('argUso') : null,
+    argNome: getFieldValue(config.campos[0].id),
+    argUniverso: config.campos[1].id === 'argUniverso' ? getFieldValue('argUniverso') : null,
+    argPersonagem: config.campos[2]?.id === 'argPersonagem' ? getFieldValue('argPersonagem') : null,
+    argUso: config.campos[1].id === 'argUso' ? getFieldValue('argUso') : null,
     jogador: userDb?.jogador || interaction.user.username
   };
 
@@ -206,10 +268,20 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
     const targetVerso = normalize(args.argUniverso);
     const ownsTarget = userVersos.some(r => normalize(r[0]) === targetVerso);
 
-    if (userDb.tokenAp > 0 && !ownsTarget) {
+    const isDev = client.owners && client.owners.includes(interaction.user.id);
+    if (!isDev && userDb.tokenAp > 0 && !ownsTarget) {
       userDb.tokenAp -= 1;
       await userDb.save();
       await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
+    }
+  } else if (config.nomeItem === 'Verso') {
+    const isDev = client.owners && client.owners.includes(interaction.user.id);
+    if (isDev) {
+      await modalInteraction.followUp({ content: `🛠️ [DEV MODE] Nenhum Token de Verso foi consumido.`, flags: 64 });
+    } else if (userDb.tokenVerso > 0) {
+      userDb.tokenVerso -= 1;
+      await userDb.save();
+      await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou 1 Token de Verso para registrar este verso. (Restantes: ${userDb.tokenVerso})`, flags: 64 });
     }
   }
 
@@ -264,7 +336,7 @@ async function handleVersoPostRegister(interaction, args, sheets, client) {
   });
 
   const btn = await msg.awaitMessageComponent({ time: 60000 }).catch(() => null);
-  if (!btn) return msg.edit({ components: [] });
+  if (!btn) return interaction.editReply({ components: [] }).catch(() => null);
 
   const modal = new ModalBuilder().setCustomId("modal_apps_verso").setTitle("Aparências Usadas");
   const input = new TextInputBuilder().setCustomId("apps_input").setLabel("Lista (Nome Universo Personagem)").setStyle(TextInputStyle.Paragraph).setRequired(true);

@@ -113,6 +113,7 @@ let uD = new mongoose.Schema({
         default: { 'atrevicoins': 0 }
     },
     tokenAp: { type: Number, default: 0 },
+    tokenVerso: { type: Number, default: 0 },
     treinosAvaliados: { type: Number, default: 0 }
 })
 

@@ -6,7 +6,7 @@ module.exports = class AddToken extends Command {
     constructor(client) {
         super(client, {
             name: "addtoken",
-            description: "Adiciona tokens de aparência a um jogador.",
+            description: "Adiciona tokens (Aparência ou Verso) a um jogador.",
             category: "rpg",
             aliases: ["givetoken", "at"],
             UserPermission: [],
@@ -21,7 +21,16 @@ module.exports = class AddToken extends Command {
                 .setDescription(this.config.description)
                 .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
                 .addUserOption(opt => opt.setName('jogador').setDescription('O jogador que receberá os tokens.').setRequired(true))
-                .addIntegerOption(opt => opt.setName('quantidade').setDescription('A quantidade a ser adicionada.').setRequired(true));
+                .addIntegerOption(opt => opt.setName('quantidade').setDescription('A quantidade a ser adicionada.').setRequired(true))
+                .addStringOption(opt => 
+                    opt.setName('tipo')
+                    .setDescription('Tipo de token')
+                    .setRequired(true)
+                    .addChoices(
+                        { name: 'Aparência', value: 'aparencia' },
+                        { name: 'Verso', value: 'verso' }
+                    )
+                );
         }
     }
 
@@ -32,18 +41,23 @@ module.exports = class AddToken extends Command {
 
         const memMen = message.mentions.users.first();
         const quaTok = parseInt(args[1]);
+        const tipo = args[2]?.toLowerCase();
 
-        if (!memMen || isNaN(quaTok)) {
-            return message.reply('Uso correto: `!addtoken @usuario quantidade`');
+        if (!memMen || isNaN(quaTok) || !['aparencia', 'verso'].includes(tipo)) {
+            return message.reply('Uso correto: `!addtoken @usuario quantidade <aparencia|verso>`');
         }
 
         const useDat = await client.database.userData.findOne({ uid: memMen.id, uServer: message.guild.id });
         if (!useDat) return message.reply('Usuário não registrado.');
 
-        useDat.tokenAp += quaTok;
+        if (tipo === 'aparencia') {
+            useDat.tokenAp += quaTok;
+        } else {
+            useDat.tokenVerso += quaTok;
+        }
         await useDat.save();
 
-        message.reply(`✅ Adicionado ${quaTok} tokens para ${memMen.tag}. Total: ${useDat.tokenAp}`);
+        message.reply(`✅ Adicionado ${quaTok} tokens de ${tipo} para ${memMen.tag}. Saldo: Aparência (${useDat.tokenAp}) | Verso (${useDat.tokenVerso})`);
     }
 
     async execute(interaction) {
@@ -56,6 +70,7 @@ module.exports = class AddToken extends Command {
 
         const tarUse = interaction.options.getUser('jogador');
         const quaTok = interaction.options.getInteger('quantidade');
+        const tipo = interaction.options.getString('tipo');
 
         const useDat = await this.client.database.userData.findOne({ uid: tarUse.id, uServer: interaction.guild.id });
 
@@ -63,14 +78,22 @@ module.exports = class AddToken extends Command {
             return interaction.reply({ content: `❌ O usuário ${tarUse} não possui registro no sistema.`, ephemeral: true });
         }
 
-        useDat.tokenAp += quaTok;
+        if (tipo === 'aparencia') {
+            useDat.tokenAp += quaTok;
+        } else {
+            useDat.tokenVerso += quaTok;
+        }
+        
         await useDat.save();
+
+        const tipoNome = tipo === 'aparencia' ? 'Aparência' : 'Verso';
+        const novoSaldo = tipo === 'aparencia' ? useDat.tokenAp : useDat.tokenVerso;
 
         const embRes = new EmbedBuilder()
             .setColor(colJson.green)
             .setTitle('✅ Tokens Adicionados')
-            .setDescription(`Foram adicionados **${quaTok}** tokens de aparência para ${tarUse}.`)
-            .addFields({ name: 'Novo Saldo', value: `${useDat.tokenAp}` })
+            .setDescription(`Foram adicionados **${quaTok}** tokens de ${tipoNome} para ${tarUse}.`)
+            .addFields({ name: 'Novo Saldo', value: `${novoSaldo}` })
             .setFooter({ text: `Adicionado por ${interaction.user.tag}` })
             .setTimestamp();
 
