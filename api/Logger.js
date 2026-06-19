@@ -73,7 +73,7 @@ class Logger {
                 embeds: [embLog],
             });
         } catch (erro) {
-            console.error('Falha ao enviar log para o Discord:', erro);
+            process.stderr.write(`Falha ao enviar log para o Discord (Logger): ${erro.message}\n`);
             this.filLog.unshift(...logParEnv);
         } finally {
             this.emExe = false;

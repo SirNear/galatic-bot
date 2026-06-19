@@ -41,8 +41,8 @@ const client = new Client({
             await client.loadQuestCollectors();
 
             // Carregar cron jobs e emitir evento clientReady (migrado de events/clientReady.js)
-            const lembreteVerso = require("./api/cron/lembreteVerso.js");
-            lembreteVerso(client);
+            // const lembreteVerso = require("./api/cron/lembreteVerso.js");
+            // lembreteVerso(client);
             
             const atualizarUpgrades = require("./api/cron/atualizarUpgrades.js");
             atualizarUpgrades(client);
