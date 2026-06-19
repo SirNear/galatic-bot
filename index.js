@@ -5,7 +5,8 @@ const config = require('./config')
 const { connect, BotConfig } = require('./mongoose');
 const Logger = require('./api/Logger');
 
-const logger = new Logger(config.webhookURL);
+const loggerUrl = process.env.WEBHOOK_URL || config.webhookURL;
+const logger = new Logger(loggerUrl);
 
 const client = new Client({
     intents: [

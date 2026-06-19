@@ -1,7 +1,10 @@
 {
     "prefix": "n!",
-    "owners": ["540725346241216534"],
-    "block": [""],
-    "logChannelId": "1423848686391394454",
-    "webhookURL": "https://discord.com/api/webhooks/1439644988651606206/sZ-vYnx75ZjiplshhWYJxMrf_FBJSsXEmm41MzkRVToc-eBZUfrZfu7GDcu2huBkr53C"
+    "owners": [
+        "540725346241216534"
+    ],
+    "block": [
+        ""
+    ],
+    "logChannelId": "1423848686391394454"
 }
