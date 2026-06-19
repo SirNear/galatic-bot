@@ -46,10 +46,16 @@ module.exports = class {
             if (!member) return;
 
             await member.roles.remove(role);
-            console.log(`🔄 Cargo ${role.name} removido de ${user.tag}`);
+            console.log(`❌ Cargo ${role.name} removido de ${user.tag}`);
 
         } catch (err) {
             console.error('Erro ao processar remoção de reação:', err);
         }
+        
+        // Registrar log de reação
+        try {
+            const { logReactionEvent } = require('../api/discordLogger');
+            await logReactionEvent(this.client, reaction, user, false);
+        } catch (e) {}
     }
 };

@@ -225,8 +225,12 @@ module.exports = class aparencia extends Command {
               new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
               new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
             );
-          } else {
           }
+        } else if (!isOwner && currentResult.tipo === 'aparencia') {
+          const rowIndex = currentResult.rowIndex;
+          components.push(
+            new ButtonBuilder().setCustomId(`propor_troca_${rowIndex}`).setEmoji('🔃').setLabel('Propor Troca').setStyle(ButtonStyle.Primary)
+          );
         }
       }
 
@@ -268,6 +272,11 @@ module.exports = class aparencia extends Command {
           await handleRegistro('verso', termo, msgNavegacao, ii, botLogChannel, this.client, sheets, false, resultados.filter(r => r.tipo === 'verso'), true);
           return;
         default:
+          if (ii.customId.startsWith('propor_troca_')) {
+            const rowIndex = ii.customId.replace('propor_troca_', '');
+            await require('../../api/APARENCIA/troca.js').handleProporTroca(ii, rowIndex, resultados.find(r => r.rowIndex == rowIndex), sheets, this.client);
+            return;
+          }
           if (ii.customId.startsWith('edit_appearance_') || ii.customId.startsWith('delete_appearance_')) {
             return;
           }

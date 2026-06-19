@@ -4,8 +4,11 @@ module.exports = class MessageUpdate {
 		this.client = client
 	}
 
-	run(oldMessage, newMessage) {
+	async run(oldMessage, newMessage) {
 		if (oldMessage.content === newMessage.content) return
 		this.client.emit("message", newMessage)
+        
+        const { logMessageEdit } = require('../api/discordLogger');
+        await logMessageEdit(this.client, oldMessage, newMessage);
 	}
 }

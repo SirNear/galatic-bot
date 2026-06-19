@@ -114,7 +114,9 @@ let uD = new mongoose.Schema({
     },
     tokenAp: { type: Number, default: 0 },
     tokenVerso: { type: Number, default: 0 },
-    treinosAvaliados: { type: Number, default: 0 }
+    treinosAvaliados: { type: Number, default: 0 },
+    tradedItems: { type: [String], default: [] },
+    commandStats: { type: Map, of: Number, default: {} }
 })
 
 uD.index({ uid: 1, uServer: 1 });

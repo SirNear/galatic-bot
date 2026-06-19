@@ -208,6 +208,19 @@ module.exports = class perfil extends Command {
                         { name: 'Tokens de Aparência', value: `${jogadorDb.tokenAp || 0}`, inline: true }
                     )
                     .setTimestamp();
+                    
+                if (this.client.owners && this.client.owners.includes(interaction.user.id)) {
+                    let cmdStatsStr = "Nenhum comando registrado.";
+                    if (jogadorDb.commandStats && jogadorDb.commandStats.size > 0) {
+                        const stats = [];
+                        for (const [cmd, count] of jogadorDb.commandStats.entries()) {
+                            stats.push(`\`${cmd}\`: **${count}**`);
+                        }
+                        cmdStatsStr = stats.join(' | ');
+                        if (cmdStatsStr.length > 1024) cmdStatsStr = cmdStatsStr.substring(0, 1021) + "...";
+                    }
+                    embed.addFields({ name: '📊 Histórico de Comandos (Dev)', value: cmdStatsStr });
+                }
                 if (aparenciasSalvas.length > 0 && aparenciasSalvas[0].imagem) {
                     embed.setThumbnail(aparenciasSalvas[0].imagem);
                 }

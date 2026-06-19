@@ -69,8 +69,21 @@ module.exports = class {
                     await listenerInteractionUpg(interaction, this.client);
                 }else if(customId === 'btn_edit') {
                     await handleEmbedEditInteraction(interaction, this.client);
+                } else if (customId.startsWith('aceitar_troca_') || customId.startsWith('recusar_troca_')) {
+                    const { handleTradeResponse } = require('../api/APARENCIA/troca.js');
+                    const isAccept = customId.startsWith('aceitar_troca_');
+                    await handleTradeResponse(interaction, this.client, isAccept);
+                } else if (customId.startsWith('cron_')) {
+                    const cronManager = require('../api/cron/cronManager.js');
+                    await cronManager.handleCronInteraction(interaction);
                 }
             }
+            
+            // Dispara o logger em background
+            if (!interaction.isAutocomplete()) {
+                require('../api/commandLogger.js').logInteraction(interaction, this.client).catch(()=>{});
+            }
+            
         } catch (err) {
             if (err.code === 10062 || err.code === 40060) {
                 console.warn(`[INTERACTION] Erro ${err.code} ao processar interação (ignorado): ${err.message}`);

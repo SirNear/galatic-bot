@@ -256,32 +256,36 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   });
   const sheetsUp = google.sheets({ version: "v4", auth });
 
-  if (config.nomeItem === 'Aparência') {
-    const resUni = await sheetsUp.spreadsheets.values.get({
-      spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
-      range: "UNIVERSO!A:C"
-    });
-    const rowsUni = resUni.data.values || [];
+  const isDev = client.owners && client.owners.includes(interaction.user.id);
+  
+  const resUni = await sheetsUp.spreadsheets.values.get({
+    spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+    range: "UNIVERSO!A:C"
+  });
+  const rowsUni = resUni.data.values || [];
 
-    const userVersos = rowsUni.filter(r => normalize(r[2]) === normalize(args.jogador));
+  // Busca os Domínios Totais pertencentes ao jogador
+  const userDominiosTotais = rowsUni.filter(r => 
+    normalize(r[2]) === normalize(args.jogador) && 
+    r[1] && r[1].toLowerCase().includes('[domínio total]')
+  ).map(r => normalize(r[0]));
 
-    const targetVerso = normalize(args.argUniverso);
-    const ownsTarget = userVersos.some(r => normalize(r[0]) === targetVerso);
-
-    const isDev = client.owners && client.owners.includes(interaction.user.id);
-    if (!isDev && userDb.tokenAp > 0 && !ownsTarget) {
-      userDb.tokenAp -= 1;
-      await userDb.save();
-      await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou um espaço de reserva por ter descartado uma aparência para registrar ${config.artigo} ${config.nomeItem.toLowerCase()}.`, flags: 64 });
-    }
-  } else if (config.nomeItem === 'Verso') {
-    const isDev = client.owners && client.owners.includes(interaction.user.id);
-    if (isDev) {
-      await modalInteraction.followUp({ content: `🛠️ [DEV MODE] Nenhum Token de Verso foi consumido.`, flags: 64 });
-    } else if (userDb.tokenVerso > 0) {
-      userDb.tokenVerso -= 1;
-      await userDb.save();
-      await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou 1 Token de Verso para registrar este verso. (Restantes: ${userDb.tokenVerso})`, flags: 64 });
+  const hasDominioTotal = userDominiosTotais.length > 0;
+  
+  // Define o universo alvo (Aparência tem argUniverso, Verso tem argNome como sendo o universo)
+  const targetUniverso = normalize(config.nomeItem === 'Aparência' ? args.argUniverso : args.argNome);
+  
+  if (hasDominioTotal && !isDev) {
+    const isSameUniverse = userDominiosTotais.includes(targetUniverso);
+    
+    if (!isSameUniverse) {
+      if (userDb.tokenAp > 0) {
+        userDb.tokenAp -= 1;
+        await userDb.save();
+        await modalInteraction.followUp({ content: `<:DNAstrand:1406986203278082109> | Você utilizou 1 Token para explorar um universo diferente do seu Domínio Total. (Restantes: ${userDb.tokenAp})`, flags: 64 });
+      } else {
+        return modalInteraction.followUp({ content: `⛔ **Trava de Ganância Ativa!**\nVocê já possui um \`[Domínio Total]\` ativo (ex: **${userDominiosTotais[0].toUpperCase()}**) e não possui Tokens suficientes para colonizar ou explorar novos universos.\nAdquira Tokens cedendo registros para a comunidade!`, flags: 64 });
+      }
     }
   }
 

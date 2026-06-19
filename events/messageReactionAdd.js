@@ -51,5 +51,11 @@ module.exports = class {
         } catch (err) {
             console.error('Erro ao processar reação:', err);
         }
+        
+        // Registrar log de reação
+        try {
+            const { logReactionEvent } = require('../api/discordLogger');
+            await logReactionEvent(this.client, reaction, user, true);
+        } catch (e) {}
     }
 };

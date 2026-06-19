@@ -1,4 +1,5 @@
 const lembreteVerso = require("../api/cron/lembreteVerso.js");
+const lembreteMigracao = require("../api/cron/lembreteMigracao.js");
 const monitorIA = require("../api/cron/monitorIA.js");
 const { ensurePanelExists } = require("../api/aiUsageManager.js");
 
@@ -41,7 +42,11 @@ module.exports = class ClientReady {
         this.client.rpgSystemsCache = [];
     }
 
+    const cronManager = require("../api/cron/cronManager.js");
+    cronManager.setClient(this.client);
+
     lembreteVerso(this.client);
+    lembreteMigracao(this.client);
     
     // Inicia e atualiza o painel da Inteligência Artificial
     await ensurePanelExists(this.client);

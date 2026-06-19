@@ -1,9 +1,8 @@
-const cron = require('node-cron');
+const cronManager = require('./cronManager.js');
 const { updatePanel } = require('../aiUsageManager');
 
 module.exports = (client) => {
-    // Atualiza o painel a cada 5 minutos
-    cron.schedule('*/5 * * * *', async () => {
+    cronManager.registerJob('monitor_ia', 'Monitor do Painel IA', '*/5 * * * *', async () => {
         try {
             await updatePanel(client);
         } catch (error) {
