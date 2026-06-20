@@ -113,8 +113,19 @@ module.exports = class aparencia extends Command {
   }
 
 
-  async run({ message, args, client, server, interaction }) {
-    const botLogChannel = message.guild.channels.cache.find((i) => i.id === "1409063037905670154");
+  async run(context) {
+    let message, args, server, interaction;
+    if (context.isCommand && context.isCommand()) {
+      interaction = context;
+      args = [];
+    } else {
+      message = context.message;
+      args = context.args || [];
+      server = context.server;
+      interaction = context.interaction;
+    }
+    const guild = message ? message.guild : interaction.guild;
+    const botLogChannel = guild.channels.cache.find((i) => i.id === "1409063037905670154");
 
     let termo = args.join(' ').trim();
 
