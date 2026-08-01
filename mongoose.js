@@ -58,6 +58,7 @@ let Puni = new mongoose.Schema({
 
 const UpgradeSchema = new mongoose.Schema({
     userId: { type: String, required: true },
+    personagem: { type: String, default: 'Não informado' },
     status: { type: String, default: 'pendente' },
     loreText: { type: [String], default: [] },
     upgrades: [{

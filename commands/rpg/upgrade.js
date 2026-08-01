@@ -12,7 +12,12 @@ module.exports = class upgrade extends Command {
 
         this.data = new SlashCommandBuilder()
             .setName(this.config.name)
-            .setDescription(this.config.description);
+            .setDescription(this.config.description)
+            .addStringOption(option => 
+                option.setName('personagem')
+                    .setDescription('Nome do personagem que receberá os upgrades.')
+                    .setRequired(false)
+            );
     }
 
     async execute(interaction) {
@@ -23,9 +28,12 @@ module.exports = class upgrade extends Command {
             .addFields({ name: 'Dúvidas?', value: 'Clique no botão "❌" para cancelar o processo e [CLIQUE AQUI PARA VER O TUTORIAL](https://discord.com/channels/731974689798488185/1509570102377451580)'})
             .setColor('#0647c8');
 
+        const personagemInput = interaction.options.getString('personagem');
+        const customIdStart = personagemInput ? `upgrade_start|${personagemInput.substring(0, 50)}` : 'upgrade_start';
+
         const rowAct = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('upgrade_start')
+                .setCustomId(customIdStart)
                 .setLabel('CONTINUAR')
                 .setEmoji('✅')
                 .setStyle(ButtonStyle.Primary),

@@ -18,7 +18,7 @@ module.exports = (client) => {
                     .setColor('Orange')
                     .setTimestamp();
 
-                await channel.send({ content: '<@&731974690125643869> <@&1438672389918556310> <@&1409771551099715645>', embeds: [embed] }).catch(() => {});
+                await channel.send({ content: '<@&731974690125643869>', embeds: [embed] }).catch(() => {});
             }
         } catch (error) {
             console.error('[CRON] Erro ao verificar upgrades pendentes:', error);

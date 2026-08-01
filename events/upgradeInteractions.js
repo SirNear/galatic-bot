@@ -490,13 +490,15 @@ async function listenerInteractionUpg(interaction, client) {
         return mosFilaUpg(interaction, upgDoc, index, true);
     }
 
-    if (interaction.isButton() && interaction.customId === 'upgrade_start') {
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_start')) {
+        const personagem = interaction.customId.includes('|') ? interaction.customId.split('|')[1] : 'Não informado';
+
         if (client.maintenance && client.owners.includes(interaction.user.id)) {
             const textoLorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n".repeat(15);
             
             await interaction.update({ content: '🛠️ Modo desenvolvedor ativo: Auto-preenchendo treino com Lorem Ipsum...', embeds: [], components: [] });
             
-            cacheUpgradeSystem.set(interaction.user.id, { loreText: textoLorem, upgAmount: 1, currentStep: 1, upgrades: [] });
+            cacheUpgradeSystem.set(interaction.user.id, { personagem, loreText: textoLorem, upgAmount: 1, currentStep: 1, upgrades: [] });
             await QntUpg(interaction, 1);
             return;
         }
@@ -559,7 +561,7 @@ async function listenerInteractionUpg(interaction, client) {
                     let textoCapturado = `**🔗 CLIQUE AQUI PARA IR ATÉ A MENSAGEM ORIGINAL**\n\n`;
                     listaMsg.forEach(m => { if (m.content) textoCapturado += `${m.author.username}: ${m.content}\n\n`; });
 
-                    cacheUpgradeSystem.set(interaction.user.id, { loreText: textoCapturado, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
+                    cacheUpgradeSystem.set(interaction.user.id, { personagem, loreText: textoCapturado, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
                     
                     const embAi = new EmbedBuilder()
                         .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
@@ -1250,6 +1252,7 @@ async function envioUpg(interaction, client, listaUpg) {
     const loreChu = divText(listaUpg.loreText);
     const upgDoc = await client.database.UpgradeModel.create({
         userId: interaction.user.id,
+        personagem: listaUpg.personagem || 'Não informado',
         loreText: loreChu,
         upgrades: listaUpg.upgrades
     });
@@ -1269,7 +1272,7 @@ async function envioUpg(interaction, client, listaUpg) {
         const msgFil = await filaChannel.send({ embeds: [new EmbedBuilder()
             .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
             .setAuthor({name: 'Sistema de Treinos', iconURL: interaction.guild.iconURL()})
-            .setDescription(`Jogador: <@${interaction.user.id}>\n\n STATUS: #pendente \n TEMPO DE PENDÊNCIA: ${tempoPendencia} \n \n Posição na Fila: ${posicaoFila}\n\n*Última atualização: <t:${timestampAtu}:f>*`)
+            .setDescription(`Jogador: <@${interaction.user.id}>\nPersonagem: **${listaUpg.personagem || 'Não informado'}**\n\n STATUS: #pendente \n TEMPO DE PENDÊNCIA: <t:${timestampAtu}:R> \n \n Posição na Fila: ${posicaoFila}\n\n*Última atualização: <t:${timestampAtu}:f>*`)
             .setColor('Yellow')
             .setFooter({text: `Fila de Notas`})], components: [rowFila]
         });
@@ -1278,10 +1281,10 @@ async function envioUpg(interaction, client, listaUpg) {
 
     if (pendentAdmChannel) {
         const msgPendente = await pendentAdmChannel.send({
-            content: '🔔 **Novo Upgrade Pendente!**',
+            content: '🔔 **Novo Upgrade Pendente!** <@&731974690125643869>',
             embeds: [new EmbedBuilder()
                 .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
-                .setDescription(`Autor: <@${interaction.user.id}>\nUpgrades: ${listaUpg.upgAmount}\n TEMPO DE PENDÊNCIA: ${tempoPendencia} \n \n CLIQUE NO BOTÃO PARA AVALIAR!\n\n*Última atualização: <t:${timestampAtu}:f>*`).setFooter({text: `Fila de Avaliação`})
+                .setDescription(`Autor: <@${interaction.user.id}>\nPersonagem: **${listaUpg.personagem || 'Não informado'}**\nUpgrades: ${listaUpg.upgAmount}\n TEMPO DE PENDÊNCIA: <t:${timestampAtu}:R> \n \n CLIQUE NO BOTÃO PARA AVALIAR!\n\n*Última atualização: <t:${timestampAtu}:f>*`).setFooter({text: `Fila de Avaliação`})
                 .setColor('Orange')],
             components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`upgrade_adm_avaliar_${upgDoc._id}`).setEmoji('👁️').setStyle(ButtonStyle.Secondary))]
         });
