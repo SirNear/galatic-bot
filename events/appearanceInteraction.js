@@ -51,6 +51,68 @@ async function handleAppearanceInteraction(interaction, client) {
             }
         }
 
+        if (interaction.customId.startsWith('delete_verso_')) {
+            const rowIndex = parseInt(interaction.customId.split('_')[2], 10);
+            if (isNaN(rowIndex)) {
+                return interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação (ID de linha inválido).', ephemeral: true });
+            }
+
+            const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `UNIVERSO!A${rowIndex}:C${rowIndex}` });
+            const rowData = res.data.values?.[0];
+            if (!rowData) return interaction.reply({ content: '❌ Não foi possível encontrar os dados deste verso. Pode ter sido movido ou excluído.', ephemeral: true });
+
+            const [universo, uso] = rowData;
+            const confirmRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`confirm_delete_verso_${rowIndex}`).setLabel('Sim, liberar verso').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('cancel_delete_verso').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
+            );
+            await interaction.reply({ content: `Tem certeza que deseja liberar o verso **${universo}** (${uso || 'Geral'})? Esta ação não pode ser desfeita e concederá 1 Token de Aparência, além de desvincular o domínio do verso. Suas aparências registradas individualmente continuarão salvas.`, components: [confirmRow] });
+        }
+
+        if (interaction.customId.startsWith('confirm_delete_verso_') || interaction.customId === 'cancel_delete_verso') {
+            if (interaction.customId === 'cancel_delete_verso') {
+                return interaction.update({ content: 'Operação cancelada.', components: [] });
+            }
+
+            await interaction.deferUpdate();
+            const rowIndex = parseInt(interaction.customId.split('_')[3], 10);
+
+            const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `UNIVERSO!A${rowIndex}:C${rowIndex}` });
+            const rowData = res.data.values?.[0];
+
+            await sheets.spreadsheets.values.clear({ spreadsheetId, range: `UNIVERSO!A${rowIndex}:C${rowIndex}` });
+            const userDb = await client.database.userData.findOne({ uid: interaction.user.id, uServer: interaction.guild.id });
+
+            if (userDb) {
+                userDb.tokenAp = (userDb.tokenAp || 0) + 1;
+                await userDb.save();
+            }
+            
+            const saldoAtual = userDb ? userDb.tokenAp : '—';
+            await interaction.editReply({ content: `✅ Verso liberado com sucesso! Você recebeu 1 Token de Aparência (Saldo: ${saldoAtual}). O domínio do verso foi retirado e suas aparências individuais permanecem protegidas.`, components: [] });
+
+            // Log de Deleção de Verso
+            if (rowData) {
+                const [universo, uso] = rowData;
+
+                const channelDescarte = await client.channels.fetch('1435999188230996091').catch(() => null);
+                if (channelDescarte) {
+                    const embedDescarte = new EmbedBuilder()
+                        .setTitle(`🗑️ VERSO DESCARTADO`)
+                        .setDescription(`O verso **${universo}** (${uso || 'Uso não especificado'}) foi descartado e está livre para uso!`)
+                        .setColor("#ff0000")
+                        .setFooter({ text: `Descartado por: ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+                        .setTimestamp();
+                    await channelDescarte.send({ embeds: [embedDescarte] });
+                }
+
+                await logOperacao(client, interaction.user, 'Liberar', 'Verso', {
+                    nome: universo,
+                    uso: uso
+                });
+            }
+        }
+
         if (interaction.customId.startsWith('confirm_delete_ap_') || interaction.customId === 'cancel_delete_ap') {
             if (interaction.customId === 'cancel_delete_ap') {
                 return interaction.update({ content: 'Operação cancelada.', components: [] });

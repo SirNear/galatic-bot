@@ -50,7 +50,9 @@ module.exports = class {
                     customId.startsWith('edit_appearance_') || 
                     customId.startsWith('delete_appearance_') || 
                     customId.startsWith('confirm_delete_ap_') || 
-                    customId.startsWith('modal_edit_appearance_')
+                    customId.startsWith('modal_edit_appearance_') ||
+                    customId.startsWith('delete_verso_') ||
+                    customId.startsWith('confirm_delete_verso_')
                 ) {
                     await handleAppearanceInteraction(interaction, this.client);
                 } else if (

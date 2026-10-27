@@ -66,10 +66,6 @@ async function handleRegistro(tipo, target, msgNavegacao, interaction, sChannel,
   const userDb = await client.database.userData.findOne({ uid: user.id, uServer: guild.id });
   const isDev = client.owners && client.owners.includes(user.id);
 
-  if (tipo === 'verso' && !isDev && (!userDb || userDb.tokenVerso <= 0)) {
-    return interaction.reply({ content: "❌ Você não possui **Tokens de Verso** suficientes para realizar um novo registro. Cada registro de verso custa 1 Token de Verso.", ephemeral: true });
-  }
-
   // 1. Fluxo de Resultados Similares (Navegação)
   if (!skipConfirmation && exactMatch === false && resultados.length > 0) {
     return handleSimilarResults(tipo, target, msgNavegacao, interaction, sChannel, client, sheets, resultados, config);
@@ -210,7 +206,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
 
   if (config.nomeItem === 'Verso') {
     const avisoMsg = await interaction.reply({
-      content: "⚠️ **ATUALIZAÇÃO NO SISTEMA DE VERSOS**\n\nAgora os registros de verso **não utilizam mais porcentagem**. Você deve escolher uma **Categoria de Registro** (ex: Poder, Lore, Biologia) e especificar exatamente a restrição (ex: 'Dobra de Fogo'). Cada novo registro vale 1 token.\n\nClique no botão abaixo para prosseguir com o registro.",
+      content: "⚠️ **INFORMAÇÕES SOBRE REGISTRO DE VERSOS**\n\nAgora você deve escolher uma **Categoria de Registro** (ex: Poder, Lore, Biologia, Itens, Aparências ou Domínio Total) e especificar a restrição do que está reservando.\n\n💡 *Lembre-se: Somente a categoria **Domínio Total** ativa a exigência de tokens para registrar coisas fora do seu universo. As outras categorias não gastam tokens.*\n\nClique no botão abaixo para preencher o formulário.",
       ephemeral: true,
       components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('confirmar_aviso_verso').setLabel('Entendi').setStyle(ButtonStyle.Success))],
       fetchReply: true

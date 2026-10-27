@@ -236,6 +236,10 @@ module.exports = class aparencia extends Command {
               new ButtonBuilder().setCustomId(`edit_appearance_${rowIndex}`).setEmoji('✏️').setStyle(ButtonStyle.Secondary),
               new ButtonBuilder().setCustomId(`delete_appearance_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
             );
+          } else if (currentResult.tipo === 'verso') {
+            components.push(
+              new ButtonBuilder().setCustomId(`delete_verso_${rowIndex}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
+            );
           }
         } 
         
@@ -290,7 +294,12 @@ module.exports = class aparencia extends Command {
             await require('../../api/APARENCIA/troca.js').handleProporTroca(ii, rowIndex, resultados.find(r => r.rowIndex == rowIndex), sheets, this.client);
             return;
           }
-          if (ii.customId.startsWith('edit_appearance_') || ii.customId.startsWith('delete_appearance_')) {
+          if (
+            ii.customId.startsWith('edit_appearance_') || 
+            ii.customId.startsWith('delete_appearance_') ||
+            ii.customId.startsWith('delete_verso_') ||
+            ii.customId.startsWith('confirm_delete_verso_')
+          ) {
             return;
           }
           return;
