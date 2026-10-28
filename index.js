@@ -63,6 +63,9 @@ const client = new Client({
             cronManager.setClient(client);
             cronManager.updateDashboard();
             
+            const resumoSemanal = require("./api/cron/resumoSemanal.js");
+            resumoSemanal(client);
+            
             client.on('messageCreate', async (message) => {
                 if (message.author.bot) return;
                 try {
