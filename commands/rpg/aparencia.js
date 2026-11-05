@@ -226,7 +226,15 @@ module.exports = class aparencia extends Command {
 
       const currentResult = resultados[idx];
       if (currentResult && userDb && member) {
-        const isOwner = await normalizeText(currentResult.jogador) === await normalizeText(userDb.jogador);
+        const jogadorPlanilha = normalizeText(currentResult.jogador);
+        // Compara com múltiplos identificadores do usuário para cobrir registros antigos
+        // onde o nome pode ter sido diferente (apelido, nick no servidor, username, etc.)
+        const isOwner = (
+          jogadorPlanilha === normalizeText(userDb.jogador) ||
+          jogadorPlanilha === normalizeText(author.username) ||
+          jogadorPlanilha === normalizeText(member.nickname || '') ||
+          jogadorPlanilha === normalizeText(member.displayName || '')
+        );
         const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (isOwner || isAdmin) {

@@ -55,11 +55,21 @@ async function logInteraction(interaction, client) {
             embed.setDescription(`**CustomID:** \`${interaction.customId}\``);
             
             let fieldsStr = [];
-            interaction.components.forEach(row => {
-                row.components.forEach(comp => {
-                    fieldsStr.push(`**${comp.customId}**: ${comp.value}`);
+            if (interaction.fields?.fields) {
+                interaction.fields.fields.forEach(field => {
+                    fieldsStr.push(`**${field.customId}**: ${field.value ?? ''}`);
                 });
-            });
+            } else if (Array.isArray(interaction.components)) {
+                interaction.components.forEach(row => {
+                    if (row && Array.isArray(row.components)) {
+                        row.components.forEach(comp => {
+                            if (comp?.customId) {
+                                fieldsStr.push(`**${comp.customId}**: ${comp.value ?? ''}`);
+                            }
+                        });
+                    }
+                });
+            }
             if (fieldsStr.length > 0) {
                 embed.addFields({ name: "Campos Preenchidos", value: fieldsStr.join('\n').substring(0, 1024) });
             }

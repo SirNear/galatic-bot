@@ -178,34 +178,49 @@ async function executarResumoSemanal(client) {
             const nomCat = categoria.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_');
             const pdfFileName = `RP-${nomCat}-${datStr}.pdf`;
 
-            // Gera o PDF (sem resumo de IA — apenas coleta de conteúdo)
-            const pdfBuffer = await generatePdf({
-                titulo: `RP — ${categoria.name}`,
-                categoria: categoria.name,
-                canal: 'Categoria Inteira',
-                postTitle: 'Vários Tópicos',
-                mensagensRange: 'Início a Fim',
-                modo: 'Coleta Automática Semanal (Sem IA)',
-                fileTextLines: allFileLines,
-                resumo: null, // Nunca gera resumo de IA automaticamente para economizar tokens
-            });
+            let uploadResult;
+            let finalFileName = pdfFileName;
 
-            // Faz upload para o Drive (skipIfExists evita duplicatas)
-            const uploadResult = await uploadToDrive({
-                buffer: pdfBuffer,
-                fileName: pdfFileName,
-                mimeType: 'application/pdf',
-                skipIfExists: true,
-            });
+            try {
+                // Gera o PDF (sem resumo de IA — apenas coleta de conteúdo)
+                const pdfBuffer = await generatePdf({
+                    titulo: `RP — ${categoria.name}`,
+                    categoria: categoria.name,
+                    canal: 'Categoria Inteira',
+                    postTitle: 'Vários Tópicos',
+                    mensagensRange: 'Início a Fim',
+                    modo: 'Coleta Automática Semanal (Sem IA)',
+                    fileTextLines: allFileLines,
+                    resumo: null, // Nunca gera resumo de IA automaticamente para economizar tokens
+                });
+
+                // Faz upload para o Drive (skipIfExists evita duplicatas)
+                uploadResult = await uploadToDrive({
+                    buffer: pdfBuffer,
+                    fileName: pdfFileName,
+                    mimeType: 'application/pdf',
+                    skipIfExists: true,
+                });
+            } catch (pdfErr) {
+                console.warn(`[CRON-RESUMO] Falha ao gerar PDF para ${categoria.name}. Usando fallback em TXT:`, pdfErr.message);
+                finalFileName = `RP-${nomCat}-${datStr}.txt`;
+                const txtBuffer = Buffer.from(allFileLines.join('\n'), 'utf-8');
+                uploadResult = await uploadToDrive({
+                    buffer: txtBuffer,
+                    fileName: finalFileName,
+                    mimeType: 'text/plain',
+                    skipIfExists: true,
+                });
+            }
 
             resultados.push({
                 categoria: categoria.name,
-                arquivo: pdfFileName,
+                arquivo: finalFileName,
                 link: uploadResult.webViewLink,
                 jaExistia: uploadResult.alreadyExisted,
             });
 
-            console.log(`[CRON-RESUMO] ✅ ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${pdfFileName}`);
+            console.log(`[CRON-RESUMO] ✅ ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${finalFileName}`);
 
         } catch (e) {
             console.error(`[CRON-RESUMO] ❌ Erro na categoria ${categoria.name}:`, e);
