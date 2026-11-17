@@ -70,7 +70,13 @@ module.exports = class aparencia extends Command {
         .addStringOption(option =>
           option
             .setName('termo')
-            .setDescription('Termo de busca (ex: nome do personagem ou verso)')
+            .setDescription('Termo de busca (personagem, verso, @usuário, ID ou "histórico")')
+            .setRequired(false)
+        )
+        .addUserOption(option =>
+          option
+            .setName('usuario')
+            .setDescription('Buscar todas as aparências/versos de um usuário específico')
             .setRequired(false)
         );
     }
@@ -128,10 +134,28 @@ module.exports = class aparencia extends Command {
     const botLogChannel = guild.channels.cache.find((i) => i.id === "1409063037905670154");
 
     let termo = args.join(' ').trim();
+    let targetUser = null;
 
     if (interaction && interaction.options) {
       const optionTermo = interaction.options.getString('termo');
       if (optionTermo) termo = optionTermo;
+      const optionUsuario = interaction.options.getUser('usuario');
+      if (optionUsuario) targetUser = optionUsuario;
+    }
+
+    // Se nenhum usuário foi passado pela opção 'usuario', verifica se o termo contém menção ou ID
+    if (!targetUser && termo) {
+      const mentionMatch = termo.match(/<@!?(\d{17,20})>/);
+      if (mentionMatch) {
+        targetUser = await this.client.users.fetch(mentionMatch[1]).catch(() => null);
+        termo = termo.replace(mentionMatch[0], '').trim();
+      } else if (/^\d{17,20}$/.test(termo.trim())) {
+        const potentialUser = await this.client.users.fetch(termo.trim()).catch(() => null);
+        if (potentialUser) {
+          targetUser = potentialUser;
+          termo = '';
+        }
+      }
     }
 
     let msgNavegacao;
@@ -143,11 +167,24 @@ module.exports = class aparencia extends Command {
       msgNavegacao = await message.reply({ content: '⏳ Preparando busca...' });
     }
 
+    // Função oculta de Histórico Simplificado
+    const termoNorm = normalizeText(termo);
+    const triggersHistorico = ['historico', 'h', 'hist'];
+    if (triggersHistorico.includes(termoNorm)) {
+      const userAlvo = targetUser || (interaction ? interaction.user : message.author);
+      return this.processarHistoricoUsuario(userAlvo, message || interaction, msgNavegacao, botLogChannel);
+    }
+
+    // Se um usuário foi especificado, busca todas as aparências/versos dele em ordem alfabética
+    if (targetUser) {
+      return this.processarBuscaUsuario(targetUser, message || interaction, msgNavegacao, botLogChannel, termo);
+    }
+
     if (!termo) {
       const embedNavegacao = new EmbedBuilder()
         .setColor("#02607a")
         .setTitle("<:DNAstrand:1406986203278082109> | ** SISTEMA DE APARÊNCIAS ** | <:DNAstrand:1406986203278082109>")
-        .setDescription("Envie no chat o termo que deseja pesquisar (ex: personagem, sistema de poder, mitologia, verso, etc.).");
+        .setDescription("Envie no chat o termo que deseja pesquisar (ex: personagem, verso, @usuário, ID ou 'histórico').");
 
       await msgNavegacao.edit({ embeds: [embedNavegacao], content: null }).catch(() => { });
 
@@ -157,13 +194,543 @@ module.exports = class aparencia extends Command {
       if (!collected) {
         return msgNavegacao.edit({ embeds: [], content: "Tempo esgotado." }).catch(() => { });
       }
-      termo = collected.first().content;
+      termo = collected.first().content.trim();
       await collected.first().delete().catch(() => { });
+
+      // Re-verifica se o termo digitado foi menção ou ID
+      const secondMention = termo.match(/<@!?(\d{17,20})>/);
+      if (secondMention) {
+        targetUser = await this.client.users.fetch(secondMention[1]).catch(() => null);
+        termo = termo.replace(secondMention[0], '').trim();
+      } else if (/^\d{17,20}$/.test(termo.trim())) {
+        const potentialUser = await this.client.users.fetch(termo.trim()).catch(() => null);
+        if (potentialUser) {
+          targetUser = potentialUser;
+          termo = '';
+        }
+      }
+
+      const secondTermoNorm = normalizeText(termo);
+      if (triggersHistorico.includes(secondTermoNorm)) {
+        const userAlvo = targetUser || (interaction ? interaction.user : message.author);
+        return this.processarHistoricoUsuario(userAlvo, message || interaction, msgNavegacao, botLogChannel);
+      }
+
+      if (targetUser) {
+        return this.processarBuscaUsuario(targetUser, message || interaction, msgNavegacao, botLogChannel, termo);
+      }
     }
 
     await msgNavegacao.edit({ embeds: [], content: '⏳ Buscando nas planilhas de Aparência e Universo...' }).catch(() => { });
 
     await this.processarBusca(termo, message || interaction, msgNavegacao, botLogChannel);
+  }
+
+  async processarBuscaUsuario(targetUser, contextMsgOrInt, msgNavegacao, botLogChannel, filtroInicial = '') {
+    const author = contextMsgOrInt.author || contextMsgOrInt.user;
+    const member = contextMsgOrInt.member;
+    const guild = contextMsgOrInt.guild;
+    const guildId = guild.id;
+
+    await msgNavegacao.edit({ embeds: [], content: `⏳ Carregando registros de **${targetUser.username}**...` }).catch(() => { });
+
+    let targetMember = null;
+    try {
+      targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+    } catch (_) {}
+
+    const targetUserDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: guildId }).catch(() => null);
+
+    const identifiers = new Set([
+      normalizeText(targetUserDb?.jogador),
+      normalizeText(targetUser.username),
+      normalizeText(targetMember?.nickname),
+      normalizeText(targetMember?.displayName),
+      normalizeText(targetUser.id)
+    ].filter(Boolean));
+
+    let resAparencias, resVersos;
+    try {
+      [resAparencias, resVersos] = await Promise.all([
+        sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+          range: "INDIVIDUAIS!A:D",
+        }),
+        sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+          range: "UNIVERSO!A:C",
+        })
+      ]);
+    } catch (err) {
+      console.error(err);
+      return msgNavegacao.edit({ content: "Erro ao acessar as planilhas do Google.", embeds: [] }).catch(() => { });
+    }
+
+    const rowsAp = resAparencias.data.values || [];
+    const rowsVer = resVersos.data.values || [];
+
+    const allUserAps = [];
+    for (let rowIndex = 1; rowIndex < rowsAp.length; rowIndex++) {
+      const row = rowsAp[rowIndex];
+      if (!row) continue;
+      const [aparencia, universo, personagem, jogador] = row;
+      if (!aparencia) continue;
+      const jogNorm = normalizeText(jogador);
+      if (identifiers.has(jogNorm)) {
+        allUserAps.push({
+          tipo: 'aparencia',
+          aparencia,
+          universo,
+          personagem: personagem || '—',
+          jogador: jogador || '—',
+          rowIndex: rowIndex + 1
+        });
+      }
+    }
+    // Ordem alfabética
+    allUserAps.sort((a, b) => (a.aparencia || '').localeCompare(b.aparencia || '', 'pt-BR', { sensitivity: 'base' }));
+
+    const allUserVersos = [];
+    for (let rowIndex = 1; rowIndex < rowsVer.length; rowIndex++) {
+      const row = rowsVer[rowIndex];
+      if (!row) continue;
+      const [universo, uso, jogador] = row;
+      if (!universo) continue;
+      const jogNorm = normalizeText(jogador);
+      if (identifiers.has(jogNorm)) {
+        allUserVersos.push({
+          tipo: 'verso',
+          universo,
+          uso: uso || '—',
+          jogador: jogador || '—',
+          rowIndex: rowIndex + 1
+        });
+      }
+    }
+    // Ordem alfabética
+    allUserVersos.sort((a, b) => (a.universo || '').localeCompare(b.universo || '', 'pt-BR', { sensitivity: 'base' }));
+
+    let currentMode = 'aparencia'; // 'aparencia' | 'verso'
+    let filtro = filtroInicial ? filtroInicial.trim() : '';
+    let pag = 0;
+
+    const getActiveList = () => {
+      const base = currentMode === 'aparencia' ? allUserAps : allUserVersos;
+      if (!filtro) return base;
+      const fNorm = normalizeText(filtro);
+      return base.filter(item => {
+        if (item.tipo === 'aparencia') {
+          return normalizeText(item.aparencia).includes(fNorm) ||
+                 normalizeText(item.universo).includes(fNorm) ||
+                 normalizeText(item.personagem).includes(fNorm);
+        } else {
+          return normalizeText(item.universo).includes(fNorm) ||
+                 normalizeText(item.uso).includes(fNorm);
+        }
+      });
+    };
+
+    const targetDisplayName = targetMember?.displayName || targetUser.username;
+
+    const buildEmbed = (list, index) => {
+      const embed = new EmbedBuilder()
+        .setTitle(`<:DNAstrand:1406986203278082109> | ** REGISTROS DE ${targetDisplayName.toUpperCase()} **`)
+        .setColor(currentMode === 'aparencia' ? "#212416" : "#4b0082");
+
+      if (list.length === 0) {
+        const modeLabel = currentMode === 'aparencia' ? 'aparência' : 'verso';
+        embed.setDescription(`<:berror:1406837900556898304> | Nenhuma ${modeLabel} encontrada para **${targetDisplayName}**${filtro ? ` com o filtro **"${filtro}"**` : ''}.\n\nClique no botão da lupa 🔍 para buscar ou alterne a visualização.`);
+        return embed;
+      }
+
+      const r = list[index];
+      embed.setDescription(`<:patrickconcern:1407564230256758855> | ${currentMode === 'aparencia' ? 'Aparência' : 'Verso'} ${index + 1} de ${list.length}${filtro ? ` • 🔍 Filtro: \`${filtro}\`` : ''}`);
+
+      if (r.tipo === 'aparencia') {
+        embed.addFields(
+          { name: "**TIPO**", value: "👤 Aparência" },
+          { name: "**APARÊNCIA**", value: r.aparencia ?? "—" },
+          { name: "**UNIVERSO**", value: r.universo ?? "—" },
+          { name: "**PERSONAGEM**", value: r.personagem ?? "—" },
+          { name: "**JOGADOR**", value: r.jogador ?? "—" }
+        );
+      } else {
+        embed.addFields(
+          { name: "**TIPO**", value: "🌌 Verso" },
+          { name: "**UNIVERSO**", value: r.universo ?? "—" },
+          { name: "**ESCOPO/USO**", value: r.uso ?? "—" },
+          { name: "**JOGADOR**", value: r.jogador ?? "—" }
+        );
+      }
+
+      embed.setFooter({ text: `Página ${index + 1}/${list.length} • Ordem Alfabética` });
+      return embed;
+    };
+
+    const buildComponents = async (list, index) => {
+      const components = [];
+
+      // Navegação básica (se houver itens)
+      components.push(
+        new ButtonBuilder().setCustomId("user_prev_page").setLabel("⏪").setStyle(ButtonStyle.Primary).setDisabled(index === 0 || list.length === 0),
+        new ButtonBuilder().setCustomId("user_next_page").setLabel("⏩").setStyle(ButtonStyle.Primary).setDisabled(index >= list.length - 1 || list.length === 0)
+      );
+
+      // Alternância entre Aparências e Versos (NUNCA os dois juntos!)
+      if (currentMode === 'aparencia') {
+        components.push(
+          new ButtonBuilder()
+            .setCustomId("user_view_versos")
+            .setEmoji("🌌")
+            .setLabel(`Ver Versos (${allUserVersos.length})`)
+            .setStyle(ButtonStyle.Secondary)
+        );
+      } else {
+        components.push(
+          new ButtonBuilder()
+            .setCustomId("user_view_aparencias")
+            .setEmoji("👤")
+            .setLabel(`Ver Aparências (${allUserAps.length})`)
+            .setStyle(ButtonStyle.Secondary)
+        );
+      }
+
+      // Botão de Lupa (Buscar na lista do usuário)
+      components.push(
+        new ButtonBuilder()
+          .setCustomId("user_lupa_search")
+          .setEmoji("🔍")
+          .setLabel("Buscar")
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      // Propor Troca (se estiver vendo aparências e for de outro jogador)
+      const currentResult = list[index];
+      if (currentResult && currentMode === 'aparencia' && targetUser.id !== author.id) {
+        components.push(
+          new ButtonBuilder()
+            .setCustomId(`propor_troca_${currentResult.rowIndex}`)
+            .setEmoji('🔃')
+            .setLabel('Propor Troca')
+            .setStyle(ButtonStyle.Primary)
+        );
+      }
+
+      // Botão para limpar filtro se houver um ativo
+      if (filtro) {
+        components.push(
+          new ButtonBuilder()
+            .setCustomId("user_clear_filter")
+            .setEmoji("🔄")
+            .setLabel("Limpar Filtro")
+            .setStyle(ButtonStyle.Secondary)
+        );
+      }
+
+      // Cancelar / Fechar
+      components.push(
+        new ButtonBuilder()
+          .setCustomId("close_page")
+          .setLabel("❌")
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      const rows = [];
+      for (let i = 0; i < components.length; i += 5) {
+        rows.push(new ActionRowBuilder().addComponents(components.slice(i, i + 5)));
+      }
+      return rows;
+    };
+
+    let activeList = getActiveList();
+
+    await msgNavegacao.edit({
+      content: null,
+      embeds: [buildEmbed(activeList, pag)],
+      components: await buildComponents(activeList, pag),
+    }).catch(() => { });
+
+    const navCollector = msgNavegacao.createMessageComponentCollector({
+      filter: (ii) => ii.user.id === author.id,
+      time: 120000,
+      idle: 60000
+    });
+
+    navCollector.on("collect", async (ii) => {
+      activeList = getActiveList();
+
+      switch (ii.customId) {
+        case 'user_prev_page':
+          pag = Math.max(0, pag - 1);
+          await ii.update({
+            embeds: [buildEmbed(activeList, pag)],
+            components: await buildComponents(activeList, pag)
+          }).catch(() => {});
+          break;
+
+        case 'user_next_page':
+          pag = Math.min(activeList.length - 1, pag + 1);
+          await ii.update({
+            embeds: [buildEmbed(activeList, pag)],
+            components: await buildComponents(activeList, pag)
+          }).catch(() => {});
+          break;
+
+        case 'user_view_versos':
+          currentMode = 'verso';
+          filtro = '';
+          pag = 0;
+          activeList = getActiveList();
+          await ii.update({
+            embeds: [buildEmbed(activeList, pag)],
+            components: await buildComponents(activeList, pag)
+          }).catch(() => {});
+          break;
+
+        case 'user_view_aparencias':
+          currentMode = 'aparencia';
+          filtro = '';
+          pag = 0;
+          activeList = getActiveList();
+          await ii.update({
+            embeds: [buildEmbed(activeList, pag)],
+            components: await buildComponents(activeList, pag)
+          }).catch(() => {});
+          break;
+
+        case 'user_clear_filter':
+          filtro = '';
+          pag = 0;
+          activeList = getActiveList();
+          await ii.update({
+            embeds: [buildEmbed(activeList, pag)],
+            components: await buildComponents(activeList, pag)
+          }).catch(() => {});
+          break;
+
+        case 'close_page':
+          navCollector.stop("closed");
+          return;
+
+        case 'user_lupa_search': {
+          const modalId = `user_search_modal_${Date.now()}`;
+          const modal = new ModalBuilder()
+            .setCustomId(modalId)
+            .setTitle(`Buscar em ${targetDisplayName.substring(0, 30)}`);
+
+          const input = new TextInputBuilder()
+            .setCustomId('user_search_query')
+            .setLabel(`Qual ${currentMode === 'aparencia' ? 'aparência' : 'verso'} deseja buscar?`)
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Digite o nome da aparência ou verso...')
+            .setValue(filtro || '')
+            .setRequired(false);
+
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          await ii.showModal(modal);
+
+          const submitted = await ii.awaitModalSubmit({
+            filter: m => m.customId === modalId && m.user.id === author.id,
+            time: 60000
+          }).catch(() => null);
+
+          if (submitted) {
+            filtro = submitted.fields.getTextInputValue('user_search_query').trim();
+            pag = 0;
+            activeList = getActiveList();
+            await submitted.update({
+              embeds: [buildEmbed(activeList, pag)],
+              components: await buildComponents(activeList, pag)
+            }).catch(() => {});
+          }
+          break;
+        }
+
+        default:
+          if (ii.customId.startsWith('propor_troca_')) {
+            const rowIndex = ii.customId.replace('propor_troca_', '');
+            await require('../../api/APARENCIA/troca.js').handleProporTroca(
+              ii,
+              rowIndex,
+              activeList.find(r => r.rowIndex == rowIndex) || allUserAps.find(r => r.rowIndex == rowIndex),
+              sheets,
+              this.client
+            );
+            return;
+          }
+          break;
+      }
+    });
+
+    navCollector.on("end", async (collected, reason) => {
+      if (reason === "time" || reason === "closed" || reason === "idle") {
+        msgNavegacao.edit({ components: [] }).catch(() => { });
+      }
+    });
+  }
+
+  async processarHistoricoUsuario(targetUser, contextMsgOrInt, msgNavegacao, botLogChannel) {
+    const author = contextMsgOrInt.author || contextMsgOrInt.user;
+    const guild = contextMsgOrInt.guild;
+    const guildId = guild.id;
+
+    await msgNavegacao.edit({ embeds: [], content: `⏳ Carregando histórico de registros de **${targetUser.username}**...` }).catch(() => { });
+
+    let targetMember = null;
+    try {
+      targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+    } catch (_) {}
+
+    const targetUserDb = await this.client.database.userData.findOne({ uid: targetUser.id, uServer: guildId }).catch(() => null);
+
+    const identifiers = new Set([
+      normalizeText(targetUserDb?.jogador),
+      normalizeText(targetUser.username),
+      normalizeText(targetMember?.nickname),
+      normalizeText(targetMember?.displayName),
+      normalizeText(targetUser.id)
+    ].filter(Boolean));
+
+    let resAparencias, resVersos;
+    try {
+      [resAparencias, resVersos] = await Promise.all([
+        sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+          range: "INDIVIDUAIS!A:D",
+        }),
+        sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SPREADSHEET_ID || "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
+          range: "UNIVERSO!A:C",
+        })
+      ]);
+    } catch (err) {
+      console.error(err);
+      return msgNavegacao.edit({ content: "Erro ao acessar as planilhas do Google.", embeds: [] }).catch(() => { });
+    }
+
+    const rowsAp = resAparencias.data.values || [];
+    const rowsVer = resVersos.data.values || [];
+
+    const historicoItens = [];
+
+    // Linhas em INDIVIDUAIS (mais ao final da planilha = registros mais recentes)
+    for (let rowIndex = 1; rowIndex < rowsAp.length; rowIndex++) {
+      const row = rowsAp[rowIndex];
+      if (!row) continue;
+      const [aparencia, universo, personagem, jogador] = row;
+      if (!aparencia) continue;
+      const jogNorm = normalizeText(jogador);
+      if (identifiers.has(jogNorm)) {
+        historicoItens.push({
+          tipo: 'aparencia',
+          aparencia,
+          universo,
+          personagem: personagem || 'Sem personagem',
+          jogador,
+          rowIndex: rowIndex + 1
+        });
+      }
+    }
+
+    // Linhas em UNIVERSO
+    for (let rowIndex = 1; rowIndex < rowsVer.length; rowIndex++) {
+      const row = rowsVer[rowIndex];
+      if (!row) continue;
+      const [universo, uso, jogador] = row;
+      if (!universo) continue;
+      const jogNorm = normalizeText(jogador);
+      if (identifiers.has(jogNorm)) {
+        historicoItens.push({
+          tipo: 'verso',
+          universo,
+          uso: uso || 'Domínio Total',
+          jogador,
+          rowIndex: rowIndex + 1
+        });
+      }
+    }
+
+    // Ordena do mais recente para o mais antigo (rowIndex decrescente)
+    historicoItens.sort((a, b) => b.rowIndex - a.rowIndex);
+
+    const targetDisplayName = targetMember?.displayName || targetUser.username;
+
+    if (historicoItens.length === 0) {
+      const emptyEmbed = new EmbedBuilder()
+        .setTitle(`📜 Histórico de Registros • ${targetDisplayName}`)
+        .setColor('#02607a')
+        .setDescription(`Nenhum registro de aparência ou verso encontrado no histórico de **${targetDisplayName}**.`);
+      return msgNavegacao.edit({ content: null, embeds: [emptyEmbed], components: [] }).catch(() => {});
+    }
+
+    // Formatação exata solicitada: NOME DA APARENCIA - UNIVERSO (Personagem)
+    const formattedLines = historicoItens.map(item => {
+      if (item.tipo === 'aparencia') {
+        return `• **${item.aparencia}** - ${item.universo} (${item.personagem})`;
+      } else {
+        return `• 🌌 **${item.universo}** - ${item.uso} (Verso)`;
+      }
+    });
+
+    const pageSize = 15;
+    const totalPages = Math.ceil(formattedLines.length / pageSize);
+    let currentPage = 0;
+
+    const buildHistoryEmbed = (page) => {
+      const start = page * pageSize;
+      const chunk = formattedLines.slice(start, start + pageSize);
+      return new EmbedBuilder()
+        .setTitle(`📜 Histórico Simplificado de Registros • ${targetDisplayName}`)
+        .setColor('#02607a')
+        .setDescription(
+          `Histórico dos registros mais recentes de aparências e versos de **${targetDisplayName}**:\n\n` +
+          chunk.join('\n')
+        )
+        .setFooter({ text: `Página ${page + 1}/${totalPages} • Total: ${formattedLines.length} registros (Mais recentes primeiro)` })
+        .setTimestamp();
+    };
+
+    const buildHistoryComponents = (page) => {
+      if (totalPages <= 1) return [];
+      return [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('hist_prev').setLabel('◀️ Anterior').setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId('hist_next').setLabel('Próximo ▶️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
+        new ButtonBuilder().setCustomId('close_page').setLabel('❌').setStyle(ButtonStyle.Secondary)
+      )];
+    };
+
+    await msgNavegacao.edit({
+      content: null,
+      embeds: [buildHistoryEmbed(0)],
+      components: buildHistoryComponents(0)
+    }).catch(() => {});
+
+    if (totalPages > 1) {
+      const collector = msgNavegacao.createMessageComponentCollector({
+        filter: i => i.user.id === author.id,
+        time: 120000
+      });
+
+      collector.on('collect', async i => {
+        if (i.customId === 'hist_prev') {
+          currentPage = Math.max(0, currentPage - 1);
+        } else if (i.customId === 'hist_next') {
+          currentPage = Math.min(totalPages - 1, currentPage + 1);
+        } else if (i.customId === 'close_page') {
+          collector.stop('closed');
+          return;
+        }
+
+        await i.update({
+          embeds: [buildHistoryEmbed(currentPage)],
+          components: buildHistoryComponents(currentPage)
+        }).catch(() => {});
+      });
+
+      collector.on('end', () => {
+        msgNavegacao.edit({ components: [] }).catch(() => {});
+      });
+    }
   }
 
   async processarBusca(termo, contextMsgOrInt, msgNavegacao, botLogChannel) {

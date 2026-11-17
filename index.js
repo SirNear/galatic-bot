@@ -61,8 +61,9 @@ const client = new Client({
             duvidaUpgrades(client);
             
             const monitorIA = require("./api/cron/monitorIA.js");
-            const { ensurePanelExists } = require("./api/aiUsageManager.js");
+            const { ensurePanelExists, migrarLogsAntigosNoChat } = require("./api/aiUsageManager.js");
             ensurePanelExists(client).catch(console.error);
+            migrarLogsAntigosNoChat(client).catch(console.error);
             monitorIA(client);
 
             const resumoSemanal = require("./api/cron/resumoSemanal.js");
@@ -70,6 +71,10 @@ const client = new Client({
 
             const lembreteMigracao = require("./api/cron/lembreteMigracao.js");
             lembreteMigracao(client);
+
+            // Sincroniza imediatamente o tempo de pendência e fila de upgrades
+            const { executarAtualizacaoUpgrades } = require("./api/cron/atualizarUpgrades.js");
+            executarAtualizacaoUpgrades(client).catch(console.error);
 
             // Atualiza o painel do Cron UMA vez após todos os jobs terem sido registrados
             cronManager.updateDashboard();

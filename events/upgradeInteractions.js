@@ -1511,18 +1511,15 @@ async function atualStatusUpg(interaction, client, upgDocDb, result) {
             if (upg.filaMessageId) {
                 const msgFila = await filaChannel.messages.fetch(upg.filaMessageId).catch(() => null);
                 if (msgFila && msgFila.embeds.length > 0) {
-                    const olderUpgrades = await client.database.UpgradeModel.countDocuments({ status: 'pendente', createdAt: { $lte: upg.createdAt } });
-                    
-                    let tempoPendencia = 'Menos de 1m';
-                    const ms = Date.now() - new Date(upg.createdAt).getTime();
-                    if (ms > 0) {
-                        const horas = Math.floor(ms / 3600000);
-                        const minutos = Math.floor((ms % 3600000) / 60000);
-                        tempoPendencia = horas > 0 ? `${horas}h` : `${minutos > 0 ? minutos : 1}m`;
-                    }
+                    const createdAtDate = upg.createdAt ? new Date(upg.createdAt) : (upg._id?.getTimestamp ? upg._id.getTimestamp() : new Date());
+                    const tempoPendenciaTimestamp = Math.floor(createdAtDate.getTime() / 1000);
+                    const olderUpgrades = await client.database.UpgradeModel.countDocuments({
+                        status: 'pendente',
+                        createdAt: { $lte: upg.createdAt || createdAtDate }
+                    });
 
                     const newEmbedFila = EmbedBuilder.from(msgFila.embeds[0])
-                        .setDescription(`Jogador: <@${upg.userId}>\n\n STATUS: #pendente \n TEMPO DE PENDÊNCIA: ${tempoPendencia} \n \n Posição na Fila: ${olderUpgrades}\n\n*Última atualização: <t:${timestampAtu}:f>*`);
+                        .setDescription(`Jogador: <@${upg.userId}>\nPersonagem: **${upg.personagem || 'Não informado'}**\n\n STATUS: #pendente \n TEMPO DE PENDÊNCIA: <t:${tempoPendenciaTimestamp}:R> \n \n Posição na Fila: ${olderUpgrades}\n\n*Última atualização: <t:${timestampAtu}:f>*`);
                     await msgFila.edit({ embeds: [newEmbedFila], components: msgFila.components }).catch(() => null);
                 }
             }

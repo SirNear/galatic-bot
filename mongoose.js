@@ -83,6 +83,21 @@ const UpgradeSchema = new mongoose.Schema({
 let upgrade = mongoose.model("Upgrade", UpgradeSchema);
 module.exports.UpgradeModel = upgrade;
 
+const aiLogSchema = new mongoose.Schema({
+    userId: { type: String, required: true },
+    action: { type: String, default: "Central de Upgrades" },
+    modelName: { type: String, default: "gemini" },
+    prompt: { type: String, default: "" },
+    context: { type: String, default: "" },
+    response: { type: String, default: "" },
+    usage: { type: Object, default: {} },
+    attachments: { type: [String], default: [] },
+    channelId: { type: String },
+    messageId: { type: String },
+    createdAt: { type: Date, default: Date.now }
+});
+module.exports.AiLog = mongoose.model("AiLog", aiLogSchema);
+
 const upgradeDuvidaSchema = new mongoose.Schema({
     channelId: String,
     upgradeId: String,

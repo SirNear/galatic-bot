@@ -81,6 +81,9 @@ module.exports = class {
                 } else if (customId.startsWith('db_')) {
                     const dbMonitor = require('../api/dbMonitor.js');
                     await dbMonitor.handleDbInteraction(interaction);
+                } else if (customId.startsWith('ai_log_')) {
+                    const { handleAiLogInteraction } = require('../api/aiUsageManager.js');
+                    await handleAiLogInteraction(interaction);
                 }
             }
             
