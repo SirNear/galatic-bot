@@ -17,10 +17,26 @@ module.exports = class upgrade extends Command {
                 option.setName('personagem')
                     .setDescription('Nome do personagem que receberá os upgrades.')
                     .setRequired(false)
+            )
+            .addStringOption(option =>
+                option.setName('historico')
+                    .setDescription('Visualizar seu histórico de upgrades pendentes e avaliados.')
+                    .setRequired(false)
+                    .addChoices(
+                        { name: '📋 Todos os treinos', value: 'all' },
+                        { name: '⏳ Apenas treinos pendentes', value: 'pendente' },
+                        { name: '✅ Apenas treinos pontuados/avaliados', value: 'pontuado' }
+                    )
             );
     }
 
     async execute(interaction) {
+        const historicoOpt = interaction.options.getString('historico');
+        if (historicoOpt) {
+            const { renderUpgradeHistory } = require('../../api/upgradeHistory.js');
+            return renderUpgradeHistory(interaction, this.client, { filter: historicoOpt, isUpdate: false });
+        }
+
         const embedUpg = new EmbedBuilder()
             .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
             .setAuthor({name: 'Sistema de Treinos', iconURL: this.client.guilds.cache.get(interaction.guildId).iconURL()})
@@ -38,9 +54,14 @@ module.exports = class upgrade extends Command {
                 .setEmoji('✅')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
+                .setCustomId('upgrade_hist_open_all')
+                .setLabel('MEU HISTÓRICO')
+                .setEmoji('📜')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId('upgrade_cancel')
                 .setLabel('CANCELAR')
-                .setStyle(ButtonStyle.Secondary)
+                .setStyle(ButtonStyle.Danger)
                 .setEmoji('❌')
         );
 

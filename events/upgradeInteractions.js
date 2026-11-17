@@ -469,6 +469,11 @@ async function listenerInteractionUpg(interaction, client) {
         return interaction.update({ content: '❌ Operação cancelada.', embeds: [], components: [] });
     }
 
+    if (interaction.customId.startsWith('upgrade_hist_')) {
+        const { handleUpgradeHistoryInteraction } = require('../api/upgradeHistory.js');
+        return handleUpgradeHistoryInteraction(interaction, client);
+    }
+
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_queue_open_')) {
         await interaction.deferReply({ flags: 64 });
         const upgId = interaction.customId.split('_')[3];
