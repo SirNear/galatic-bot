@@ -17,6 +17,7 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.11.0",
     "better-sqlite3": "^12.2.0",
+    "cron-parser": "^5.10.6",
     "discord.js": "^14.26.4",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

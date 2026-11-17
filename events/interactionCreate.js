@@ -78,6 +78,9 @@ module.exports = class {
                 } else if (customId.startsWith('cron_')) {
                     const cronManager = require('../api/cron/cronManager.js');
                     await cronManager.handleCronInteraction(interaction);
+                } else if (customId.startsWith('db_')) {
+                    const dbMonitor = require('../api/dbMonitor.js');
+                    await dbMonitor.handleDbInteraction(interaction);
                 }
             }
             

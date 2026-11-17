@@ -402,4 +402,24 @@ const aiUsageSchema = new mongoose.Schema({
 });
 module.exports.AiUsage = mongoose.model("AiUsage", aiUsageSchema);
 
+const cronLogSchema = new mongoose.Schema({
+    jobId: { type: String, required: true, index: true },
+    jobName: { type: String, required: true },
+    executedAt: { type: Date, default: Date.now, index: true },
+    success: { type: Boolean, default: true },
+    durationMs: { type: Number, default: 0 },
+    log: { type: String, default: "Executado com sucesso" },
+    error: { type: String, default: null },
+    triggeredBy: { type: String, default: "agendado" }
+});
+module.exports.CronLog = mongoose.model("CronLog", cronLogSchema);
+
+const panelConfigSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    channelId: { type: String, required: true },
+    messageId: { type: String, required: true },
+    updatedAt: { type: Date, default: Date.now }
+});
+module.exports.PanelConfig = mongoose.model("PanelConfig", panelConfigSchema);
+
 module.exports.connect = connectToDatabase;

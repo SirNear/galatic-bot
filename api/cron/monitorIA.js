@@ -2,11 +2,14 @@ const cronManager = require('./cronManager.js');
 const { updatePanel } = require('../aiUsageManager');
 
 module.exports = (client) => {
-    cronManager.registerJob('monitor_ia', 'Monitor do Painel IA', '*/5 * * * *', async () => {
-        try {
+    cronManager.registerJob({
+        id: 'monitor_ia',
+        name: '🤖 Monitor do Painel IA',
+        schedule: '*/5 * * * *',
+        description: 'Atualiza o painel de consumo, tokens e modelos ativos da API Gemini a cada 5 minutos.',
+        taskFn: async () => {
             await updatePanel(client);
-        } catch (error) {
-            console.error("Erro na rotina de atualização do Painel de IA:", error);
+            return 'Painel de IA sincronizado com sucesso.';
         }
     });
 };

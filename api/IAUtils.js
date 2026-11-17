@@ -5,8 +5,17 @@ const { registerUsage, sendLogIA } = require('./aiUsageManager');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || config.token);
 
 async function gerarRespostaComFallback(prompt, contexto, options = {}) {
-    // Priorizando modelos Flash para evitar 429 Limit: 0 na Free Tier
-    const modelos = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+    // Modelos modernos e rápidos para máxima disponibilidade e baixo consumo de cota
+    const modelos = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.8-flash",
+        "gemini-flash-latest"
+    ];
     const fullPrompt = `Contexto do RPG:\n${contexto}\n\nPergunta do Usuário: ${prompt}`;
 
     for (const nomeModelo of modelos) {
@@ -16,7 +25,7 @@ async function gerarRespostaComFallback(prompt, contexto, options = {}) {
             const response = await result.response;
             
             if (response.usageMetadata) {
-                await registerUsage(response.usageMetadata).catch(console.error);
+                await registerUsage(response.usageMetadata, nomeModelo, "Extração e Categorização de Ficha").catch(console.error);
                 
                 if (options.client && options.userId) {
                     sendLogIA(options.client, {

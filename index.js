@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const Client = require('./GalaticClient')
 const { GatewayIntentBits, WebhookClient, EmbedBuilder } = require('discord.js');
 const config = require('./config')
@@ -68,8 +68,15 @@ const client = new Client({
             const resumoSemanal = require("./api/cron/resumoSemanal.js");
             resumoSemanal(client);
 
-            // Atualiza o painel UMA vez após todos os jobs terem sido registrados
+            const lembreteMigracao = require("./api/cron/lembreteMigracao.js");
+            lembreteMigracao(client);
+
+            // Atualiza o painel do Cron UMA vez após todos os jobs terem sido registrados
             cronManager.updateDashboard();
+
+            // Inicializa o Painel do Banco de Dados (MongoDB) no mesmo canal
+            const dbMonitor = require("./api/dbMonitor.js");
+            dbMonitor.ensureDbPanelExists(client).catch(console.error);
             
             client.on('messageCreate', async (message) => {
                 if (message.author.bot) return;

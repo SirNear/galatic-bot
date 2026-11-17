@@ -262,13 +262,17 @@ async function executarResumoSemanal(client) {
 // ─── Registro no CronManager ──────────────────────────────────────────────────
 
 module.exports = (client) => {
-    cronManager.registerJob(
-        'resumo-semanal-rp',
-        '📄 Resumo Semanal de RP',
-        '0 3 * * 0', // Toda domingo às 03:00
-        () => executarResumoSemanal(client)
-    );
-    console.log('[CRON-RESUMO] Job semanal registrado (toda domingo às 03:00).');
+    cronManager.registerJob({
+        id: 'resumo-semanal-rp',
+        name: '📜 Resumo Semanal de RP',
+        schedule: '0 3 * * 0',
+        description: 'Coleta o roleplay de todas as categorias do servidor, gera PDFs pesquisáveis e faz upload automático no Google Drive.',
+        taskFn: async () => {
+            await executarResumoSemanal(client);
+            return 'Categorias processadas e sincronizadas com o Drive.';
+        }
+    });
+    console.log('[CRON-RESUMO] Job semanal registrado (todo domingo às 03:00).');
 };
 
 module.exports.executarResumoSemanal = executarResumoSemanal;

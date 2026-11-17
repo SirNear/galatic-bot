@@ -143,10 +143,16 @@ async function updatePanel(client) {
         const daily = usageDoc.dailyUsage.get(todayDate) || { totalTokens: 0, requests: 0, promptTokens: 0, completionTokens: 0 };
 
         const modelLimits = {
+            'gemini-3.5-flash-lite': 500,
             'gemini-3.1-flash-lite': 500,
-            'gemini-2.5-flash': 20,
-            'gemini-3.5-flash': 20,
-            'gemini-flash-latest': 20,
+            'gemini-flash-lite-latest': 500,
+            'gemini-2.5-flash-lite': 500,
+            'gemini-2.5-flash': 50,
+            'gemini-3.5-flash': 50,
+            'gemini-3.8-flash': 50,
+            'gemini-flash-latest': 50,
+            'gemini-2.5-pro': 20,
+            'gemini-pro-latest': 20,
             'gemini-2.0-flash': 20,
             'gemini-pro': 20
         };

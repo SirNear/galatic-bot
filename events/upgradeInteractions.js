@@ -121,12 +121,15 @@ async function buscaMsg(canal, msgIniId, msgFimId) {
 
 async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMode = true, options = {}) {
     const models = [
+        'gemini-3.5-flash-lite',
         'gemini-3.1-flash-lite',
+        'gemini-flash-lite-latest',
         'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-2.5-pro',
         'gemini-2.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-3.8-flash',
         'gemini-flash-latest',
+        'gemini-2.5-pro',
         'gemini-pro-latest'
     ];
     const apiKey = process.env.GEMINI_API_KEY;
@@ -149,8 +152,8 @@ async function chamarIA(systemInstruction, promptText, debugInfo = null, jsonMod
                     }
                 };
 
-                // Modelos antigos não suportam systemInstruction adequadamente na v1beta
-                if (model.includes('1.5') || model.includes('2.0') || model.includes('2.5') || model.includes('3.1') || model.includes('latest')) {
+                // Modelos modernos suportam systemInstruction adequadamente na v1beta
+                if (model.includes('1.5') || model.includes('2.') || model.includes('3.') || model.includes('latest')) {
                     requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
                 } else {
                     requestBody.contents[0].parts[0].text = `Instruções do Sistema: ${systemInstruction}\n\nEntrada do Usuário:\n${promptText}`;
