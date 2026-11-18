@@ -370,22 +370,44 @@ async function handleLoreInteraction(interaction, client) {
                     if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para usar isso.', flags: 64 });
                     
                     // Upgrade abrange o capítulo inteiro (contexto geral)
-                    const loreText = lore.chapters[chapterIndex].pages.map(p => p.content).join('\n\n');
+                    const chapterObj = lore.chapters[chapterIndex];
+                    const loreText = chapterObj.pages.map(p => p.content).join('\n\n');
+
+                    let personagem = 'Não informado';
+                    try {
+                        const ficha = await client.database.Ficha.findOne({ userId: interaction.user.id, guildId: interaction.guildId }).sort({ updatedAt: -1 });
+                        if (ficha && ficha.nome) personagem = ficha.nome;
+                    } catch (_) {}
 
                     const { cacheUpgradeSystem } = require('./upgradeInteractions.js');
-                    cacheUpgradeSystem.set(interaction.user.id, { loreText: loreText, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
+                    cacheUpgradeSystem.set(interaction.user.id, {
+                        personagem: personagem,
+                        loreText: loreText,
+                        upgAmount: 1,
+                        currentStep: 1,
+                        upgrades: [],
+                        aiMode: false,
+                        fromLore: true,
+                        loreTitle: lore.title,
+                        chapterName: chapterObj.name
+                    });
                     
                     const embAi = new EmbedBuilder()
                         .setTitle('<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | <a:MEE6_LEVLEUP:1503159176690405426>')
-                        .setDescription('Lore capturada com sucesso!\n\n**Como você deseja enviar os seus upgrades?**')
+                        .setDescription(`🏆 **Central de Upgrades da Lore**\n**Lore:** ${lore.title}\n**Capítulo:** ${chapterObj.name}${personagem !== 'Não informado' ? `\n**Personagem:** ${personagem}` : ''}\n\nO texto deste capítulo foi capturado como base do seu treino!\n**Como você deseja definir os seus upgrades?**`)
                         .setColor('#2b2d31');
                     const rowAi = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_lore_ai').setLabel('Extrair da Lore (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
                         new ButtonBuilder().setCustomId('upgrade_mode_hybrid').setLabel('Modo Híbrido (IA)').setStyle(ButtonStyle.Primary).setEmoji('⚡'),
-                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary).setEmoji('✍️')
+                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary).setEmoji('✍️'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_partes').setLabel('Fazer em Partes (10m)').setStyle(ButtonStyle.Success).setEmoji('⏱️'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Secondary).setEmoji('💬')
                     );
                     
-                    return interaction.update({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi], files: [] });
+                    // Pré-envia no chat (canal público) para que toda a navegação e confirmação ocorram no chat, como no comando
+                    await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] });
+
+                    return interaction.reply({ content: `✅ Central de upgrades enviada no chat para o capítulo **${chapterObj.name}**! Veja a mensagem enviada no canal.`, flags: 64 });
                 }
                 case 'chapters-list': {
                     const isCreator = interaction.user.id === lore.createdBy;
@@ -541,8 +563,7 @@ async function handleLoreInteraction(interaction, client) {
                 
                 if (interaction.user.id === loreDoc.createdBy) {
                     row2.addComponents(
-                        new ButtonBuilder().setCustomId(`lore_upg_chap_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setEmoji('1503159176690405426').setStyle(ButtonStyle.Success),
-                        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${messageId}`).setLabel('Editar Capa/Sinopse').setEmoji('🖼️').setStyle(ButtonStyle.Secondary)
+                        new ButtonBuilder().setCustomId(`lore_upg_chap_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setEmoji('1503159176690405426').setStyle(ButtonStyle.Success)
                     );
                 }
                 components.push(row2);
@@ -1089,7 +1110,7 @@ async function handleLoreInteraction(interaction, client) {
 
                 const publicButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_read_${messageId}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${messageId}`).setLabel('Editar Capa / Lore').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${messageId}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
                     new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
                 );
 
@@ -1203,7 +1224,7 @@ async function handleLoreInteraction(interaction, client) {
 
                 const publicButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_read_${loreMessage.id}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${loreMessage.id}`).setLabel('Editar Capa / Lore').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${loreMessage.id}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
                     new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${loreMessage.id}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
                 );
                 await loreMessage.edit({ components: [publicButtons] });
@@ -1310,9 +1331,68 @@ async function handleLoreInteraction(interaction, client) {
     }
 }
 
+/**
+ * Atualiza todas as mensagens fixas de lore pré-existentes para garantir que os botões exibam
+ * "Editar Informações" com o emoji ✏️ no lugar de "Editar Título" ou "Editar Capa / Lore".
+ */
+async function syncPreExistingLores(client) {
+    try {
+        if (!client?.database?.Lore) return;
+        const lores = await client.database.Lore.find({});
+        if (!lores || lores.length === 0) return;
+        console.log(`[LORE SYNC] Verificando ${lores.length} lore(s) pré-existente(s) no Discord...`);
+        let updatedCount = 0;
+
+        for (const lore of lores) {
+            try {
+                if (!lore.channelId || !lore.messageId) continue;
+                const channel = await client.channels.fetch(lore.channelId).catch(() => null);
+                if (!channel) continue;
+
+                let wasArchived = false;
+                if (channel.isThread?.() && channel.archived) {
+                    wasArchived = true;
+                    await channel.setArchived(false).catch(() => {});
+                }
+
+                const message = await channel.messages.fetch(lore.messageId).catch(() => null);
+                if (!message) {
+                    if (wasArchived) await channel.setArchived(true).catch(() => {});
+                    continue;
+                }
+
+                const currentButton = message.components?.[0]?.components?.find(c => c.customId === `lore_manage_edit-title_${lore.messageId}`);
+                if (!currentButton || currentButton.label !== 'Editar Informações') {
+                    const newRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`lore_read_${lore.messageId}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${lore.messageId}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+                        new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${lore.messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+                    );
+                    await message.edit({ components: [newRow] }).catch(err => {
+                        console.warn(`[LORE SYNC] Não foi possível atualizar lore ${lore.messageId}: ${err.message}`);
+                    });
+                    updatedCount++;
+                }
+
+                if (wasArchived) {
+                    await channel.setArchived(true).catch(() => {});
+                }
+            } catch (err) {
+                // Silencioso para canais ou mensagens não mais acessíveis
+            }
+        }
+        if (updatedCount > 0) {
+            console.log(`[LORE SYNC] ✅ ${updatedCount} mensagem(ns) fixa(s) de lore atualizada(s) para "Editar Informações".`);
+        }
+    } catch (err) {
+        console.error('[LORE SYNC] Erro ao sincronizar mensagens de lore pré-existentes:', err);
+    }
+}
+
 module.exports = {
     handleLoreInteraction,
     resolveValidLoreImageUrl,
     refreshDiscordAttachmentUrl,
-    getChapterReleaseDate
+    getChapterReleaseDate,
+    syncPreExistingLores
 };

@@ -2,6 +2,7 @@ const lembreteVerso = require("../api/cron/lembreteVerso.js");
 const lembreteMigracao = require("../api/cron/lembreteMigracao.js");
 const monitorIA = require("../api/cron/monitorIA.js");
 const { ensurePanelExists } = require("../api/aiUsageManager.js");
+const { syncPreExistingLores } = require("./loreInteraction.js");
 
 module.exports = class ClientReady {
   constructor(client) {
@@ -51,5 +52,8 @@ module.exports = class ClientReady {
     // Inicia e atualiza o painel da Inteligência Artificial
     await ensurePanelExists(this.client);
     monitorIA(this.client);
+
+    // Sincroniza botões das mensagens fixas de Lore pré-existentes
+    await syncPreExistingLores(this.client);
   }
 };

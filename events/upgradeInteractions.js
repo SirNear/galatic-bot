@@ -26,6 +26,7 @@ const ADM_CHANNEL_ID = '1502919601107763252';
 
 const cacheUpgradeSystem = new Map();
 const cacheAdmNavigationState = new Map();
+const cacheUpgradePartes = new Map();
 
 function divText(text, maxLength = 3900) {
     const parts = [];
@@ -444,7 +445,7 @@ REGRAS OBRIGATÓRIAS:
 5. "tipo": classifique como "Física", "Mágica", "Passiva" ou "Status".
 6. "categoria": classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for nova, inicie com "(NOVA) ".
 7. "descricao": MANTENHA A DESCRIÇÃO O MAIS FIEL POSSÍVEL AO ORIGINAL. Não reescreva demais, não resuma excessivamente e NUNCA remova informações vitais como variáveis matemáticas ou valores indefinidos. Remova apenas trechos que sejam pura narrativa e que não descrevam a mecânica do poder em si. NUNCA INVENTE VALORES que não estejam escritos. Caso a lista cite uma melhoria sem valor, SUGIRA baseando-se no esforço e DEIXE EXPLICITO (ex: "[VALOR SUGERIDO PELA IA]: +X").
-8. "resumo": DEVE SER UMA JUSTIFICATIVA NARRATIVA do motivo pelo qual o personagem ganhou o upgrade, baseando-se nos esforços e ações lidos na "LORE". Crie um resumo ÚNICO e ESPECÍFICO para CADA upgrade listado. NUNCA repita o mesmo texto para upgrades diferentes, a menos que sejam literalmente a mesma coisa. Caso não haja explicação na LORE, insira um aviso claro (ex: "[AVISO DA IA: Não foi possível identificar o contexto na Lore]").
+8. "resumo": DEVE SER UMA JUSTIFICATIVA NARRATIVA do motivo pelo qual o personagem ganhou o upgrade, baseando-se nos esforços e ações lidos na "LORE". Se o texto original já contiver algum rascunho ou justificativa escrita pelo jogador, você DEVE OBRIGATORIAMENTE USAR O QUE ELE ESCREVEU COMO BASE PRINCIPAL, enriquecendo e integrando narrativamente com os eventos da LORE. Crie um resumo ÚNICO e ESPECÍFICO para CADA upgrade listado. NUNCA repita o mesmo texto para upgrades diferentes, a menos que sejam literalmente a mesma coisa. Caso não haja explicação na LORE, insira um aviso claro (ex: "[AVISO DA IA: Não foi possível identificar o contexto na Lore]").
 
 Retorne EXATAMENTE um objeto JSON neste formato:
 { "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
@@ -469,18 +470,61 @@ async function processarIA_Resumo(upgradesObj, loreText, client, interaction) {
         } catch(e) {}
     }
 
-    const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá "UPGRADES" (um JSON com habilidades) e "LORE" (a narrativa).
-Sua função é ler os upgrades e, APENAS para aqueles cujo campo "resumo" estiver vazio, gerar uma JUSTIFICATIVA NARRATIVA (1 parágrafo) explicando por que o personagem merece o ganho, baseando-se EXCLUSIVAMENTE nos eventos da "LORE".
-REGRAS:
-1. NUNCA reescreva a descrição do poder no resumo. O resumo NÃO É para explicar como a habilidade funciona.
-2. O resumo DEVE explicar QUAIS AÇÕES NA LORE (treinos, combates, descobertas) levaram o personagem a evoluir ou obter esse upgrade.
+    const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá "UPGRADES" (um JSON com habilidades/status) e "LORE" (a narrativa do treino).
+Sua função é gerar ou aprimorar a JUSTIFICATIVA NARRATIVA (campo "resumo", de 1 a 2 parágrafos) para cada upgrade listado, explicando por que o personagem merece o ganho com base nos eventos e ações da "LORE".
+
+REGRA FUNDAMENTAL SOBRE TEXTO PRÉ-EXISTENTE DO USUÁRIO:
+- Se o campo "resumo" do upgrade JÁ CONTIVER algum texto ou rascunho escrito pelo usuário, você DEVE OBRIGATORIAMENTE USAR O QUE ELE ESCREVEU COMO BASE PRINCIPAL. Preserve as ideias, justificativas e pontos mencionados pelo jogador, refinando o texto narrativamente, corrigindo eventuais falhas e conectando-o com riqueza de detalhes aos acontecimentos da "LORE". NUNCA descarte ou ignore o que o usuário escreveu.
+- Se o campo "resumo" estiver vazio ou sem justificativa prévia, crie uma justificativa narrativa do zero baseando-se nos acontecimentos e esforços da "LORE".
+
+REGRAS GERAIS:
+1. NUNCA reescreva a descrição mecânica do poder no resumo. O resumo NÃO É para explicar como a habilidade funciona mecanicamente.
+2. O resumo DEVE explicar QUAIS AÇÕES NA LORE (treinos, combates, superações, descobertas) levaram o personagem a evoluir ou obter esse upgrade.
 3. Crie um resumo ÚNICO e ESPECÍFICO para CADA upgrade processado. NUNCA copie e cole ou repita o mesmo resumo para upgrades diferentes.
-4. Caso não haja menção ao upgrade ou treinamento correspondente na LORE, insira o aviso: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]".
+4. Caso não haja menção ao upgrade ou treinamento correspondente na LORE e o usuário não tenha fornecido contexto, insira o aviso: "[AVISO DA IA: Não foi possível identificar o contexto ou a explicação na Lore para este upgrade]".
 Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta que seja um JSON válido):
-{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Nova justificativa NARRATIVA baseada na LORE aqui" } ] }${exemplosTreino}`;
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "Justificativa narrativa baseada na LORE e no texto do usuário aqui" } ] }${exemplosTreino}`;
     
     const prompt = `--- LORE ---\n${loreText}\n\n--- UPGRADES ---\n${JSON.stringify(upgradesObj)}`;
     return await chamarIA(sys, prompt, null, true, { client: interaction.client, userId: interaction.user.id });
+}
+
+async function processarIA_JustificarUpgradeIndividual(upg, loreText, client, interaction) {
+    let exemplosTreino = "";
+    if (client) {
+        try {
+            const treinos = await client.database.AiTraining.find({ tipo: 'estilo_resumo' }).sort({ createdAt: -1 }).limit(5);
+            if (treinos && treinos.length > 0) {
+                exemplosTreino = "\n\nEXEMPLOS DE BONS RESUMOS (USE COMO INSPIRAÇÃO DE ESTILO E TAMANHO):\n";
+                treinos.forEach(t => {
+                    t.exemplos.forEach(ex => {
+                        exemplosTreino += `- ${ex.nome}: ${ex.resumo}\n`;
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
+    const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário fornecerá um UPGRADE e a narrativa completa do treino ("LORE").
+Sua tarefa é produzir ou refinar a JUSTIFICATIVA NARRATIVA (1 a 2 parágrafos) explicando por que o personagem merece o ganho deste upgrade específico, conectando-o com os acontecimentos da "LORE".
+
+REGRA FUNDAMENTAL SOBRE TEXTO PRÉVIO DO JOGADOR:
+- Se o campo "Justificativa Prévia / Rascunho do Usuário" contiver algum texto já escrito pelo usuário, você DEVE OBRIGATORIAMENTE USAR O QUE ELE ESCREVEU COMO BASE FUNDAMENTAL. Mantenha os pontos e intenções do jogador, polindo a escrita, expandindo narrativamente e amarrando de forma fluida aos trechos da "LORE". NUNCA delete ou ignore as ideias do jogador.
+- Se estiver vazio ou sem rascunho, crie a justificativa narrativa do zero a partir dos treinos e eventos da "LORE".
+
+REGRAS:
+1. NÃO reescreva a descrição mecânica da habilidade no resumo.
+2. Foque nas ações, combates, superações e esforços narrados na LORE.
+3. Retorne APENAS um objeto JSON válido no formato:
+{ "resumo": "Sua justificativa narrativa aqui" }${exemplosTreino}`;
+
+    const prompt = `--- LORE DO TREINO ---\n${loreText}\n\n--- DADOS DO UPGRADE ---\nNome: ${upg.nome || 'Não informado'}\nTipo: ${upg.tipo || 'Não informado'}\nCategoria: ${upg.categoria || 'Não informado'}\nDescrição: ${upg.descricao || 'Não informado'}\nJustificativa Prévia / Rascunho do Usuário: ${upg.resumo || '(Nenhum rascunho fornecido - criar do zero com base na Lore)'}`;
+
+    const res = await chamarIA(sys, prompt, null, true, { client: interaction.client, userId: interaction.user.id });
+    if (res && res.resumo) {
+        return res.resumo;
+    }
+    return null;
 }
 
 async function processarIA_Hibrido(titulosTexto, loreText, client, interaction, debugInfo = null) {
@@ -661,11 +705,201 @@ async function listenerInteractionUpg(interaction, client) {
         timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
     }
 
+    if (interaction.isButton() && interaction.customId === 'upgrade_mode_lore_ai') {
+        const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada. Inicie o processo novamente.', flags: 64 });
+
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+
+        await interaction.editReply({
+            content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Analisando o capítulo da Lore com a IA e identificando upgrades... Isso pode levar alguns segundos.`,
+            embeds: [],
+            components: []
+        }).catch(() => {});
+
+        let debugInfo = {};
+        const resultadoIA = await processarIA_Extrair(
+            cacheUpgradeSystemAtu.loreText,
+            cacheUpgradeSystemAtu.loreText,
+            client,
+            interaction,
+            debugInfo
+        );
+
+        if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
+            const files = [];
+            if (debugInfo.rawText) {
+                files.push(new AttachmentBuilder(Buffer.from(debugInfo.rawText, 'utf-8'), { name: 'ia_resposta_bruta.txt' }));
+            }
+            await interaction.followUp({
+                content: '❌ A IA não conseguiu identificar upgrades explícitos no texto da Lore. Redirecionando para o modo manual...',
+                files,
+                flags: 64
+            }).catch(() => {});
+            return QntUpg(interaction, 1, false);
+        }
+
+        cacheUpgradeSystemAtu.aiMode = true;
+        cacheUpgradeSystemAtu.upgrades = resultadoIA.upgrades.map(u => ({ ...u, status: 'pendente' }));
+        cacheUpgradeSystemAtu.currentStep = 0;
+        cacheUpgradeSystemAtu.upgAmount = cacheUpgradeSystemAtu.upgrades.length;
+
+        return mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
+    }
+
     if (interaction.isButton() && interaction.customId === 'upgrade_mode_manual') {
         const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
         if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
         await interaction.deferUpdate();
         await QntUpg(interaction, 1, true);
+    }
+
+    if (interaction.isButton() && interaction.customId === 'upgrade_mode_partes') {
+        const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada. Inicie o processo novamente.', flags: 64 });
+
+        return iniciarUpgradesEmPartes(interaction, client, cacheUpgradeSystemAtu);
+    }
+
+    if (interaction.isButton() && interaction.customId === 'upgrade_partes_add') {
+        const sessao = cacheUpgradePartes.get(interaction.user.id);
+        if (!sessao) return interaction.reply({ content: '❌ Sessão de upgrades em partes expirada ou não encontrada.', flags: 64 });
+
+        sessao.lastInteraction = interaction;
+
+        const modalUpg = new ModalBuilder()
+            .setCustomId('upgrade_partes_modal_add')
+            .setTitle(`Adicionar Upgrade (${sessao.upgrades.length + 1})`.substring(0, 45));
+
+        const inputTipo = new TextInputBuilder()
+            .setCustomId('partes_input_tipo')
+            .setLabel('Tipo de Habilidade')
+            .setPlaceholder('Física, mágica, passiva ou status')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const inputCategoria = new TextInputBuilder()
+            .setCustomId('partes_input_categoria')
+            .setLabel('Categoria')
+            .setPlaceholder('Atributo, principal, sub-habilidade ou técnica')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const inputNome = new TextInputBuilder()
+            .setCustomId('partes_input_nome')
+            .setLabel('Nome')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Nome da habilidade ou status')
+            .setRequired(true);
+
+        const inputDesc = new TextInputBuilder()
+            .setCustomId('partes_input_descricao')
+            .setLabel('Descrição')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Descreva os detalhes mecânicos da habilidade')
+            .setRequired(true);
+
+        const inputResumo = new TextInputBuilder()
+            .setCustomId('partes_input_resumo')
+            .setLabel('Justificativa do Treino (Opcional)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Deixe em branco para a IA gerar automaticamente com base na Lore, ou escreva seu rascunho')
+            .setRequired(false);
+
+        modalUpg.addComponents(
+            new ActionRowBuilder().addComponents(inputTipo),
+            new ActionRowBuilder().addComponents(inputCategoria),
+            new ActionRowBuilder().addComponents(inputNome),
+            new ActionRowBuilder().addComponents(inputDesc),
+            new ActionRowBuilder().addComponents(inputResumo)
+        );
+
+        return interaction.showModal(modalUpg);
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'upgrade_partes_modal_add') {
+        const sessao = cacheUpgradePartes.get(interaction.user.id);
+        if (!sessao) return interaction.reply({ content: '❌ Sessão expirada.', flags: 64 });
+
+        sessao.lastInteraction = interaction;
+
+        const novoUpgrade = {
+            tipo: interaction.fields.getTextInputValue('partes_input_tipo')?.trim(),
+            categoria: interaction.fields.getTextInputValue('partes_input_categoria')?.trim(),
+            nome: interaction.fields.getTextInputValue('partes_input_nome')?.trim(),
+            descricao: interaction.fields.getTextInputValue('partes_input_descricao')?.trim(),
+            resumo: interaction.fields.getTextInputValue('partes_input_resumo')?.trim() || ''
+        };
+
+        sessao.upgrades.push(novoUpgrade);
+        sessao.resetTimers(sessao);
+
+        if (sessao.managerMessage) {
+            await sessao.managerMessage.edit({
+                embeds: [sessao.buildEmbedManager(sessao)],
+                components: [sessao.buildRowManager(sessao)]
+            }).catch(() => {});
+        }
+
+        return interaction.reply({
+            content: `✅ Upgrade **"${novoUpgrade.nome}"** adicionado temporariamente (${sessao.upgrades.length} no total)! O prazo de **10 minutos** foi reiniciado.`,
+            flags: 64
+        });
+    }
+
+    if (interaction.isButton() && interaction.customId === 'upgrade_partes_finish') {
+        const sessao = cacheUpgradePartes.get(interaction.user.id);
+        if (!sessao) return interaction.reply({ content: '❌ Sessão de upgrades em partes expirada ou não encontrada.', flags: 64 });
+
+        if (sessao.upgrades.length === 0) {
+            return interaction.reply({ content: '❌ Você ainda não adicionou nenhum upgrade temporário. Clique no botão ➕ para adicionar.', flags: 64 });
+        }
+
+        if (sessao.timeoutTimer) clearTimeout(sessao.timeoutTimer);
+        if (sessao.intervalTimer) clearInterval(sessao.intervalTimer);
+
+        if (sessao.managerMessage) {
+            await sessao.managerMessage.delete().catch(() => {});
+        }
+
+        if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 });
+
+        const needsSummary = sessao.upgrades.some(u => !u.resumo || u.resumo.trim() === '');
+        if (needsSummary) {
+            await interaction.editReply({ content: '<a:discordchristmas:1502159689528512612> Gerando/ajustando justificativas com a IA com base na Lore e no que você escreveu...', embeds: [], components: [] }).catch(() => {});
+            const resultadoIA = await processarIA_Resumo(sessao.upgrades, sessao.loreText, client, interaction);
+            if (resultadoIA && resultadoIA.upgrades) {
+                sessao.upgrades = resultadoIA.upgrades.map(u => ({ ...u, status: 'pendente' }));
+            }
+        }
+
+        const cacheData = {
+            personagem: sessao.personagem,
+            loreText: sessao.loreText,
+            fromLore: true,
+            loreTitle: sessao.loreTitle,
+            chapterName: sessao.chapterName,
+            upgrades: sessao.upgrades.map(u => ({ ...u, status: 'pendente' })),
+            upgAmount: sessao.upgrades.length,
+            currentStep: 0,
+            aiMode: true
+        };
+
+        cacheUpgradeSystem.set(interaction.user.id, cacheData);
+        cacheUpgradePartes.delete(interaction.user.id);
+
+        return mosAiUpg(interaction, cacheData, true);
+    }
+
+    if (interaction.isButton() && interaction.customId === 'upgrade_partes_cancel') {
+        const sessao = cacheUpgradePartes.get(interaction.user.id);
+        if (sessao) {
+            if (sessao.timeoutTimer) clearTimeout(sessao.timeoutTimer);
+            if (sessao.intervalTimer) clearInterval(sessao.intervalTimer);
+            if (sessao.managerMessage) await sessao.managerMessage.delete().catch(() => {});
+            cacheUpgradePartes.delete(interaction.user.id);
+        }
+        return interaction.reply({ content: '❌ Sessão de upgrades em partes cancelada. A mensagem e os dados temporários foram excluídos.', flags: 64 });
     }
 
     if (interaction.isButton() && interaction.customId === 'upgrade_mode_hybrid') {
@@ -890,6 +1124,29 @@ async function listenerInteractionUpg(interaction, client) {
             const modSumm = new ModalBuilder().setCustomId('upgrade_ai_modal_summary').setTitle('Editar Justificativa do Upgrade');
             modSumm.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resumo_ai_input').setLabel('Justificativa da Lore').setStyle(TextInputStyle.Paragraph).setValue(upgAtual.resumo || '').setRequired(true)));
             await interaction.showModal(modSumm);
+        } else if (acao === 'ai_justify') {
+            const upgAtual = cacheUpgradeSystemAtu.upgrades[cacheUpgradeSystemAtu.currentStep];
+            if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+            
+            await interaction.editReply({
+                content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> Gerando/Aprimorando justificativa com a IA usando a Lore${upgAtual.resumo ? ' e o que você escreveu como base' : ''}...`,
+                components: []
+            }).catch(() => {});
+
+            const novaJustificativa = await processarIA_JustificarUpgradeIndividual(
+                upgAtual,
+                cacheUpgradeSystemAtu.loreText,
+                client,
+                interaction
+            );
+
+            if (novaJustificativa) {
+                cacheUpgradeSystemAtu.upgrades[cacheUpgradeSystemAtu.currentStep].resumo = novaJustificativa;
+            } else {
+                await interaction.followUp({ content: '⚠️ Não foi possível aprimorar a justificativa com a IA neste momento. O texto anterior foi mantido.', flags: 64 }).catch(() => {});
+            }
+
+            return mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'confirm') {
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             await interaction.editReply({ content: 'Preparando envio...', embeds: [], components: [] });
@@ -955,24 +1212,25 @@ async function listenerInteractionUpg(interaction, client) {
             );
             return interaction.reply({ content: `✅ Dados do Upgrade ${cacheUpgradeSystemAtual.currentStep - 1} (${cacheUpgradeSystemAtual.upgrades[cacheUpgradeSystemAtual.currentStep - 2].nome}) salvos.`, components: [botaoProxModalUpg], flags: 64 });
         } else {
+            cacheUpgradeSystemAtual.aiMode = true;
+            cacheUpgradeSystemAtual.currentStep = 0;
+            cacheUpgradeSystemAtual.upgAmount = cacheUpgradeSystemAtual.upgrades.length;
+
             const needsSummary = cacheUpgradeSystemAtual.upgrades.some(u => !u.resumo || u.resumo.trim() === '');
             if (needsSummary) {
                 if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
-                await interaction.editReply({ content: '<a:discordchristmas:1502159689528512612> Gerando resumos automáticos com a IA baseando-se no seu treino...', embeds: [], components: [] });
+                await interaction.editReply({ content: '<a:discordchristmas:1502159689528512612> Gerando/Ajustando resumos com a IA baseando-se no seu treino...', embeds: [], components: [] });
                 
                 const resultadoIA = await processarIA_Resumo(cacheUpgradeSystemAtual.upgrades, cacheUpgradeSystemAtual.loreText, client, interaction);
                 if (resultadoIA && resultadoIA.upgrades) {
                     cacheUpgradeSystemAtual.upgrades = resultadoIA.upgrades.map(u => ({...u, status: 'pendente'}));
-                    cacheUpgradeSystemAtual.aiMode = true; 
-                    cacheUpgradeSystemAtual.currentStep = 0;
-                    return mosAiUpg(interaction, cacheUpgradeSystemAtual, true);
                 } else {
-                    await interaction.followUp({ content: '❌ Houve um erro ao gerar os resumos com a IA. Enviando assim mesmo...', flags: 64 });
-                    return envioUpg(interaction, client, cacheUpgradeSystemAtual);
+                    await interaction.followUp({ content: '⚠️ Não foi possível gerar resumos automáticos com a IA. Você poderá preencher na prévia de confirmação.', flags: 64 }).catch(() => {});
                 }
-            } else {
-                return envioUpg(interaction, client, cacheUpgradeSystemAtual);
             }
+
+            if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+            return mosAiUpg(interaction, cacheUpgradeSystemAtual, true);
         }
     }
 
@@ -1383,15 +1641,37 @@ async function listenerInteractionUpg(interaction, client) {
     }
 }
 
-module.exports = { listenerInteractionUpg, cacheUpgradeSystem, QntUpg, chamarIA };
+module.exports = { listenerInteractionUpg, cacheUpgradeSystem, cacheUpgradePartes, QntUpg, iniciarUpgradesEmPartes, chamarIA };
 
 async function QntUpg(interaction, qntAtual, qntNova = false) {
-    const emb = new EmbedBuilder().setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>').setAuthor({name: 'Sistema de Treinos', iconURL: interaction.guild.iconURL()}).setDescription('Ajuste quantos upgrades deseja registrar.').setColor('#2b2d31');
-    const row = new ActionRowBuilder().addComponents(
+    const cacheData = cacheUpgradeSystem.get(interaction.user.id);
+    const isFromLore = cacheData?.fromLore || false;
+
+    let desc = 'Ajuste quantos upgrades deseja registrar para adicionar em lote (defina no ➖ e ➕ e confirme no botão central).';
+    if (isFromLore) {
+        desc += '\n\n💡 **Deseja fazer em partes / aos poucos?**\nVocê pode salvar temporariamente os upgrades um a um, com um prazo de **10 minutos** para adicionar novos (a cada 2 min você recebe um lembrete efêmero). Para ativar esse modo, clique no botão sem texto **⏱️** abaixo.';
+    }
+
+    const emb = new EmbedBuilder()
+        .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | <a:rahhh:1502049620640006257>')
+        .setAuthor({ name: 'Sistema de Treinos', iconURL: interaction.guild?.iconURL?.() || null })
+        .setDescription(desc)
+        .setColor('#2b2d31');
+
+    const rowComponents = [
         new ButtonBuilder().setCustomId('upgrade_qntUpgrade_reduzir').setLabel('➖').setStyle(ButtonStyle.Secondary).setDisabled(qntAtual <= 1),
         new ButtonBuilder().setCustomId('upgrade_qntUpgrade_confirmar').setLabel(`${qntAtual}`).setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('upgrade_qntUpgrade_aumentar').setLabel('➕').setStyle(ButtonStyle.Secondary)
-    );
+    ];
+
+    if (isFromLore) {
+        // Novo botão sem texto (apenas emoji) para adicionar em partes
+        rowComponents.push(
+            new ButtonBuilder().setCustomId('upgrade_mode_partes').setEmoji('⏱️').setStyle(ButtonStyle.Success)
+        );
+    }
+
+    const row = new ActionRowBuilder().addComponents(rowComponents);
     const opcQntd = { content: `<@${interaction.user.id}>`, embeds: [emb], components: [row] };
     try {
         if (qntNova) { await interaction.editReply(opcQntd); } 
@@ -1402,43 +1682,190 @@ async function QntUpg(interaction, qntAtual, qntNova = false) {
     }
 }
 
+async function iniciarUpgradesEmPartes(interaction, client, cacheData) {
+    if (!cacheData) return interaction.reply({ content: '❌ Dados da sessão não encontrados. Inicie o processo novamente.', flags: 64 });
+
+    // Se já havia uma sessão em partes ativa para esse usuário, limpa os timers e apaga a mensagem anterior
+    if (cacheUpgradePartes.has(interaction.user.id)) {
+        const sessaoAntiga = cacheUpgradePartes.get(interaction.user.id);
+        if (sessaoAntiga.timeoutTimer) clearTimeout(sessaoAntiga.timeoutTimer);
+        if (sessaoAntiga.intervalTimer) clearInterval(sessaoAntiga.intervalTimer);
+        if (sessaoAntiga.managerMessage) await sessaoAntiga.managerMessage.delete().catch(() => {});
+        cacheUpgradePartes.delete(interaction.user.id);
+    }
+
+    const sessao = {
+        userId: interaction.user.id,
+        channelId: interaction.channelId,
+        loreText: cacheData.loreText,
+        personagem: cacheData.personagem,
+        loreTitle: cacheData.loreTitle,
+        chapterName: cacheData.chapterName,
+        upgrades: [],
+        lastUpdateTime: Date.now(),
+        lastInteraction: interaction,
+        managerMessage: null,
+        timeoutTimer: null,
+        intervalTimer: null
+    };
+
+    const buildEmbedManager = (s) => {
+        let listaTexto = '*Nenhum upgrade adicionado ainda. Clique no botão ➕ abaixo para registrar o primeiro.*';
+        if (s.upgrades.length > 0) {
+            listaTexto = s.upgrades.map((u, i) => `**${i + 1}.** \`[${u.tipo} | ${u.categoria}]\` **${u.nome}**\n↳ *${String(u.descricao).substring(0, 85)}...*`).join('\n');
+        }
+
+        return new EmbedBuilder()
+            .setTitle('<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | REGISTRO EM PARTES')
+            .setDescription(`**Lore:** ${s.loreTitle || 'Lore'} | **Capítulo:** ${s.chapterName || 'Capítulo'}${s.personagem && s.personagem !== 'Não informado' ? `\n**Personagem:** ${s.personagem}` : ''}\n\nClique no botão **➕** abaixo para adicionar um upgrade por vez.\n\n⏳ **Regras de Tempo & Funcionamento:**\n• Você tem até **10 minutos** para adicionar novos upgrades.\n• A cada **2 minutos** você receberá um aviso de tempo em mensagem efêmera.\n• Cada vez que você adicionar um novo upgrade, o prazo de **10 minutos é reiniciado**.\n• Caso passem **10 minutos sem novas atualizações**, esta sessão será cancelada automaticamente.\n\n📝 **Upgrades salvos temporariamente (${s.upgrades.length}):**\n${listaTexto}\n\n⚠️ **Aviso:** Esta mensagem será excluída automaticamente após o término dos 10 minutos sem novas atualizações ou após a conclusão dos upgrades via confirmação no botão abaixo.`)
+            .setColor('#2ecc71');
+    };
+
+    const buildRowManager = (s) => {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('upgrade_partes_add').setEmoji('➕').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('upgrade_partes_finish').setLabel('Concluir e Revisar').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(s.upgrades.length === 0),
+            new ButtonBuilder().setCustomId('upgrade_partes_cancel').setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Danger)
+        );
+    };
+
+    sessao.buildEmbedManager = buildEmbedManager;
+    sessao.buildRowManager = buildRowManager;
+
+    const resetTimers = (s) => {
+        if (s.timeoutTimer) clearTimeout(s.timeoutTimer);
+        if (s.intervalTimer) clearInterval(s.intervalTimer);
+
+        s.lastUpdateTime = Date.now();
+
+        // Notificação efêmera a cada 2 minutos
+        s.intervalTimer = setInterval(async () => {
+            const decorrido = Date.now() - s.lastUpdateTime;
+            const restanteMs = 600000 - decorrido;
+            const minutosRestantes = Math.max(1, Math.ceil(restanteMs / 60000));
+
+            if (restanteMs > 15000) {
+                let notificado = false;
+                try {
+                    if (s.lastInteraction) {
+                        await s.lastInteraction.followUp({
+                            content: `⏳ <@${s.userId}> **Lembrete de Upgrades em Partes:** Sua sessão está ativa! Restam aproximadamente **${minutosRestantes} minuto(s)** para adicionar novos upgrades antes do cancelamento automático.`,
+                            flags: 64
+                        });
+                        notificado = true;
+                    }
+                } catch (_) {}
+
+                if (!notificado) {
+                    try {
+                        const ch = await client.channels.fetch(s.channelId);
+                        if (ch) {
+                            const msgAlerta = await ch.send({
+                                content: `⏳ <@${s.userId}> **Lembrete:** Restam **${minutosRestantes} minuto(s)** na sua sessão de upgrades em partes antes do cancelamento!`
+                            });
+                            setTimeout(() => msgAlerta.delete().catch(() => {}), 15000);
+                        }
+                    } catch (_) {}
+                }
+            }
+        }, 120000);
+
+        // Cancelamento definitivo após 10 minutos de inatividade
+        s.timeoutTimer = setTimeout(async () => {
+            if (s.intervalTimer) clearInterval(s.intervalTimer);
+            if (s.managerMessage) {
+                await s.managerMessage.delete().catch(() => {});
+            }
+            cacheUpgradePartes.delete(s.userId);
+
+            let notificado = false;
+            try {
+                if (s.lastInteraction) {
+                    await s.lastInteraction.followUp({
+                        content: `❌ <@${s.userId}> O prazo de **10 minutos** sem atualizações expirou. Sua sessão de upgrades em partes foi cancelada e os dados temporários foram excluídos.`,
+                        flags: 64
+                    });
+                    notificado = true;
+                }
+            } catch (_) {}
+
+            if (!notificado) {
+                try {
+                    const ch = await client.channels.fetch(s.channelId);
+                    if (ch) {
+                        const msgExp = await ch.send({
+                            content: `❌ <@${s.userId}> O prazo de **10 minutos** sem atualizações expirou. A sessão de upgrades em partes foi cancelada e a mensagem foi excluída.`
+                        });
+                        setTimeout(() => msgExp.delete().catch(() => {}), 15000);
+                    }
+                } catch (_) {}
+            }
+        }, 600000);
+    };
+
+    sessao.resetTimers = resetTimers;
+    resetTimers(sessao);
+
+    // Envia a mensagem não-efêmera no canal de chat
+    const msgManager = await interaction.channel.send({
+        content: `<@${interaction.user.id}>`,
+        embeds: [buildEmbedManager(sessao)],
+        components: [buildRowManager(sessao)]
+    });
+
+    sessao.managerMessage = msgManager;
+    cacheUpgradePartes.set(interaction.user.id, sessao);
+
+    if (!interaction.deferred && !interaction.replied) {
+        await interaction.reply({ content: `✅ Modo de upgrades em partes iniciado! Veja a mensagem enviada no chat.`, flags: 64 });
+    } else {
+        await interaction.editReply({ content: `✅ Modo de upgrades em partes iniciado! Veja a mensagem enviada no chat.`, embeds: [], components: [] }).catch(() => {});
+    }
+}
+
 async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     const upg = cacheData.upgrades[cacheData.currentStep];
     
     const embed = new EmbedBuilder()
-        .setTitle(`<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES (IA) | <a:rahhh:1502049620640006257>`)
-        .setDescription(`**Foram identificados ${cacheData.upgAmount} upgrades!**\nRevise-os abaixo e edite se necessário.`)
+        .setTitle(`<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | PRÉVIA & CONFIRMAÇÃO | <a:rahhh:1502049620640006257>`)
+        .setDescription(`**Foram listados ${cacheData.upgAmount} upgrade(s)!**\nRevise seus ganhos antes de enviar para aprovação dos ADMs.\nVocê pode **adicionar**, **modificar**, **escrever justificativa** ou **usar IA para justificar**!`)
         .addFields(
             { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}`, value: `**Nome:** ${String(upg.nome || 'Desconhecido').substring(0, 300)}\n**Tipo:** ${String(upg.tipo || 'Desconhecido').substring(0, 300)}\n**Categoria:** ${String(upg.categoria || 'Desconhecida').substring(0, 300)}` },
-            { name: 'Descrição / Valor', value: String(upg.descricao || 'Sem descrição').substring(0, 1024) },
-            { name: 'Justificativa (Lore)', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: 'Descrição / Mecânica', value: String(upg.descricao || 'Sem descrição').substring(0, 1024) },
+            { name: 'Justificativa Narrativa (Lore)', value: String(upg.resumo || 'Sem justificativa. Clique em "🤖 Justificar c/ IA" ou "✍️ Justificativa" para preencher.').substring(0, 1024) }
         )
         .setColor('#2b2d31');
 
     const rowNav = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('upgrade_ai_nav_prev').setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(cacheData.currentStep === 0),
-        new ButtonBuilder().setCustomId('upgrade_ai_nav_edit').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('upgrade_ai_nav_next').setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(cacheData.currentStep === cacheData.upgAmount - 1)
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_edit').setLabel('Modificar').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_next').setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(cacheData.currentStep === cacheData.upgAmount - 1),
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_remove').setLabel('Remover').setEmoji('🗑️').setStyle(ButtonStyle.Danger).setDisabled(cacheData.upgAmount <= 1)
     );
 
     const rowAcao = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('upgrade_ai_nav_add').setLabel('Adicionar').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
-        new ButtonBuilder().setCustomId('upgrade_ai_nav_remove').setLabel('Remover').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(cacheData.upgAmount <= 1),
-            new ButtonBuilder().setCustomId('upgrade_ai_nav_editsummary').setLabel('Editar Justificativa').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_editsummary').setLabel('Justificativa').setStyle(ButtonStyle.Secondary).setEmoji('✍️'),
+        new ButtonBuilder().setCustomId('upgrade_ai_nav_ai_justify').setLabel('Justificar c/ IA').setStyle(ButtonStyle.Primary).setEmoji('🤖'),
         new ButtonBuilder().setCustomId('upgrade_ai_nav_confirm').setLabel('Confirmar e Enviar').setStyle(ButtonStyle.Success).setEmoji('✅')
     );
 
     const payload = { embeds: [embed], components: [rowNav, rowAcao] };
     try {
-        if (isUpdate) { await interaction.editReply(payload); }
-            else { 
+        if (isUpdate) { 
+            await interaction.editReply(payload); 
+        } else { 
+            payload.content = `<@${interaction.user.id}>`;
+            if (cacheData.fromLore) {
+                await interaction.channel.send(payload);
+            } else {
                 payload.flags = 64; 
-                payload.content = `<@${interaction.user.id}>`;
                 await interaction.followUp(payload); 
             }
+        }
     } catch (e) {
         delete payload.flags;
-            payload.content = `<@${interaction.user.id}>`;
+        payload.content = `<@${interaction.user.id}>`;
         await interaction.channel.send(payload);
     }
 }
