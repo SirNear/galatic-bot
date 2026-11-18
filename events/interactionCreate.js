@@ -84,6 +84,9 @@ module.exports = class {
                 } else if (customId.startsWith('ai_log_')) {
                     const { handleAiLogInteraction } = require('../api/aiUsageManager.js');
                     await handleAiLogInteraction(interaction);
+                } else if (customId.startsWith('genesis_')) {
+                    const { handleGenesisInteraction } = require('../api/statusEvolution.js');
+                    await handleGenesisInteraction(interaction, this.client);
                 }
             }
             

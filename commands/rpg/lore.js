@@ -147,8 +147,15 @@ module.exports = class lore extends Command {
                 const modal = new ModalBuilder().setCustomId('lore_modal_config').setTitle('Configuração Final da Lore');
                 const titleInput = new TextInputBuilder().setCustomId('lore_title').setLabel("Título da Lore").setStyle(TextInputStyle.Short).setValue("Lore de Teste Dev").setRequired(true);
                 const chapterInput = new TextInputBuilder().setCustomId('lore_chapter').setLabel("Nome/Número do Capítulo").setStyle(TextInputStyle.Short).setValue("Capítulo 1").setRequired(true);
+                const synopsisInput = new TextInputBuilder().setCustomId('lore_synopsis').setLabel("Descritor / Sinopse (Página Inicial)").setStyle(TextInputStyle.Paragraph).setPlaceholder("Escreva um resumo ou apresentação para a mensagem eterna da lore...").setRequired(false);
+                const coverInput = new TextInputBuilder().setCustomId('lore_cover_image').setLabel("URL da Imagem de Capa (Opcional)").setStyle(TextInputStyle.Short).setPlaceholder("https://exemplo.com/capa.png").setRequired(false);
 
-                modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(chapterInput));
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(titleInput),
+                    new ActionRowBuilder().addComponents(chapterInput),
+                    new ActionRowBuilder().addComponents(synopsisInput),
+                    new ActionRowBuilder().addComponents(coverInput)
+                );
 
                 await i.showModal(modal);
                 allComponentsCollector.stop();
@@ -240,7 +247,10 @@ module.exports = class lore extends Command {
                                 textBlock.push(msg.content);
                             }
 
-                            const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'));
+                            const imageAttachment = msg.attachments.find(att =>
+                                att.contentType?.startsWith('image/') ||
+                                /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(att.url || att.name || '')
+                            );
 
                             // Se a mensagem atual tem uma imagem, ou se é a última mensagem do loop,
                             // processamos o bloco de texto acumulado até agora.
@@ -348,7 +358,26 @@ module.exports = class lore extends Command {
                                         .setPlaceholder('Ex: "Capítulo 1", "Prólogo", etc.')
                                         .setRequired(true);
 
-                                    modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(chapterInput));
+                                    const synopsisInput = new TextInputBuilder()
+                                        .setCustomId('lore_synopsis')
+                                        .setLabel("Descritor / Sinopse (Página Inicial)")
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setPlaceholder('Resumo ou apresentação para a mensagem eterna da lore (Opcional)')
+                                        .setRequired(false);
+
+                                    const coverInput = new TextInputBuilder()
+                                        .setCustomId('lore_cover_image')
+                                        .setLabel("URL da Imagem de Capa (Opcional)")
+                                        .setStyle(TextInputStyle.Short)
+                                        .setPlaceholder('https://exemplo.com/capa.png')
+                                        .setRequired(false);
+
+                                    modal.addComponents(
+                                        new ActionRowBuilder().addComponents(titleInput),
+                                        new ActionRowBuilder().addComponents(chapterInput),
+                                        new ActionRowBuilder().addComponents(synopsisInput),
+                                        new ActionRowBuilder().addComponents(coverInput)
+                                    );
 
                                     await i.showModal(modal);
  

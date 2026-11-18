@@ -2,6 +2,25 @@ const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Moda
 const { iniciarContador, pararContador } = require('../api/contador.js');
 const fetch = global.fetch || require('node-fetch');
 const { registerUsage, sendLogIA } = require('../api/aiUsageManager.js');
+const {
+    SYSTEM_NAME: STATUS_V2_SYSTEM_NAME,
+    parseForceOrResistanceToKgf,
+    formatForceOrResistance,
+    parseSpeedToKmh,
+    formatSpeed,
+    parseMana,
+    formatMana,
+    parseManaAndCristaisField,
+    detectAttributesInUpgrade,
+    isStatusUpgrade,
+    garantirUpgradeCristaisNoFinal,
+    capturaSilenciosaStatus,
+    obterStatusPersonagemV2,
+    obterCapturaSilenciosa,
+    aplicarSomaStatusV2,
+    buildStatusV2Modal,
+    formatCharacterStatusV2Summary
+} = require('../api/statusEvolution.js');
 const FILA_CHANNEL_ID = '1502919510787887104';
 const ADM_CHANNEL_ID = '1502919601107763252';
 
@@ -464,6 +483,41 @@ Retorne EXATAMENTE o mesmo JSON completo e atualizado no campo "resumo" (garanta
     return await chamarIA(sys, prompt, null, true, { client: interaction.client, userId: interaction.user.id });
 }
 
+async function processarIA_Hibrido(titulosTexto, loreText, client, interaction, debugInfo = null) {
+    let exemplosTreino = "";
+    if (client) {
+        try {
+            const treinos = await client.database.AiTraining.find({ tipo: 'estilo_resumo' }).sort({ createdAt: -1 }).limit(5);
+            if (treinos && treinos.length > 0) {
+                exemplosTreino = "\n\nEXEMPLOS DE BONS RESUMOS (USE COMO INSPIRAÇÃO DE ESTILO E TAMANHO):\n";
+                treinos.forEach(t => {
+                    t.exemplos.forEach(ex => {
+                        exemplosTreino += `- ${ex.nome}: ${ex.resumo}\n`;
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
+    const sys = `Você é uma IA especializada em RPG de mesa textual. O usuário está usando o MODO HÍBRIDO: ele fornecerá os "TÍTULOS DOS UPGRADES" (nomes ou tópicos de melhorias que ele treinou) e o texto completo do treino ("LORE").
+
+Sua função é buscar automaticamente dentro da "LORE" todas as cenas, ações, exercícios, combates ou menções referentes a cada título listado pelo usuário e montar os upgrades estruturados e ajustados.
+
+REGRAS OBRIGATÓRIAS:
+1. Para CADA título listado pelo usuário em "TÍTULOS DOS UPGRADES", gere um objeto correspondente na array "upgrades".
+2. "nome": Ajuste o título do upgrade de forma limpa. Se houver múltiplos personagens, inclua o nome do personagem (Ex: "Força (Fulano)").
+3. "tipo": Classifique como "Física", "Mágica", "Passiva" ou "Status". (Se for Força, Velocidade, Resistência ou Mana, classifique como "Status").
+4. "categoria": Classifique como "Atributo", "Habilidade Principal", "Sub-habilidade" ou "Técnica". Se for uma habilidade recém-desbloqueada na Lore, inicie com "(NOVA) ".
+5. "descricao": Busque na "LORE" os detalhes mecânicos, efeitos, alcances, condições ou evolução referentes àquele título e escreva uma descrição técnica fiel ao treino. Caso seja um upgrade de atributo/status ou melhoria sem valor numérico explícito no texto, SUGIRA um valor condizente com o esforço narrado e deixe explícito (ex: "[VALOR SUGERIDO PELA IA]: +X kgf" ou "+X km/h").
+6. "resumo": Crie uma JUSTIFICATIVA NARRATIVA única e específica (1 parágrafo) explicando quais ações e esforços na "LORE" justificaram a obtenção ou evolução deste upgrade. Caso não haja menção correspondente na Lore, insira "[AVISO DA IA: Não foi possível identificar o contexto na Lore para este título]".
+
+Retorne EXATAMENTE um objeto JSON neste formato:
+{ "upgrades": [ { "tipo": "...", "categoria": "...", "nome": "...", "descricao": "...", "resumo": "..." } ] }${exemplosTreino}`;
+
+    const prompt = `--- LORE (TREINO) ---\n${loreText}\n\n--- TÍTULOS DOS UPGRADES SOLICITADOS PELO JOGADOR ---\n${titulosTexto}`;
+    return await chamarIA(sys, prompt, debugInfo, true, { client: interaction.client, userId: interaction.user.id });
+}
+
 async function listenerInteractionUpg(interaction, client) {
     if (interaction.isButton() && interaction.customId === 'upgrade_cancel') {
         return interaction.update({ content: '❌ Operação cancelada.', embeds: [], components: [] });
@@ -504,10 +558,19 @@ async function listenerInteractionUpg(interaction, client) {
         if (client.maintenance && client.owners.includes(interaction.user.id)) {
             const textoLorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n".repeat(15);
             
-            await interaction.update({ content: '🛠️ Modo desenvolvedor ativo: Auto-preenchendo treino com Lorem Ipsum...', embeds: [], components: [] });
-            
-            cacheUpgradeSystem.set(interaction.user.id, { personagem, loreText: textoLorem, upgAmount: 1, currentStep: 1, upgrades: [] });
-            await QntUpg(interaction, 1);
+            cacheUpgradeSystem.set(interaction.user.id, { personagem, loreText: textoLorem, upgAmount: 1, currentStep: 1, upgrades: [], aiMode: false });
+
+            const embAi = new EmbedBuilder()
+                .setTitle('<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES (DEV MODE) | <a:rahhh:1502049620640006257>')
+                .setDescription('🛠️ **Modo desenvolvedor ativo:** Treino auto-preenchido!\n\n**Como você deseja enviar os seus upgrades?**')
+                .setColor('#2b2d31');
+            const rowAi = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
+                new ButtonBuilder().setCustomId('upgrade_mode_hybrid').setLabel('Modo Híbrido (IA)').setStyle(ButtonStyle.Primary).setEmoji('⚡'),
+                new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary).setEmoji('✍️')
+            );
+
+            await interaction.update({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] });
             return;
         }
 
@@ -577,7 +640,8 @@ async function listenerInteractionUpg(interaction, client) {
                         .setColor('#2b2d31');
                     const rowAi = new ActionRowBuilder().addComponents(
                         new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Success).setEmoji('🤖'),
-                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary)
+                        new ButtonBuilder().setCustomId('upgrade_mode_hybrid').setLabel('Modo Híbrido (IA)').setStyle(ButtonStyle.Primary).setEmoji('⚡'),
+                        new ButtonBuilder().setCustomId('upgrade_mode_manual').setLabel('Preencher Manualmente').setStyle(ButtonStyle.Secondary).setEmoji('✍️')
                     );
                     
                     try {
@@ -602,6 +666,85 @@ async function listenerInteractionUpg(interaction, client) {
         if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
         await interaction.deferUpdate();
         await QntUpg(interaction, 1, true);
+    }
+
+    if (interaction.isButton() && interaction.customId === 'upgrade_mode_hybrid') {
+        const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
+
+        const modalHybrid = new ModalBuilder()
+            .setCustomId('upgrade_modal_hybrid')
+            .setTitle('⚡ Modo Híbrido - Listar Upgrades');
+
+        const persVal = (cacheUpgradeSystemAtu.personagem && cacheUpgradeSystemAtu.personagem !== 'Não informado')
+            ? cacheUpgradeSystemAtu.personagem
+            : '';
+
+        const inputPersonagem = new TextInputBuilder()
+            .setCustomId('hybrid_personagem_input')
+            .setLabel('Nome do Personagem')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ex: Arthur Pendragon')
+            .setValue(persVal.substring(0, 100))
+            .setRequired(false);
+
+        const inputTitles = new TextInputBuilder()
+            .setCustomId('hybrid_titles_input')
+            .setLabel('Títulos dos Upgrades (1 por linha)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Liste apenas os títulos/nomes dos upgrades que deseja extrair do seu treino.\nEx:\nForça Física\nCorte Flamejante\nVelocidade')
+            .setRequired(true);
+
+        modalHybrid.addComponents(
+            new ActionRowBuilder().addComponents(inputPersonagem),
+            new ActionRowBuilder().addComponents(inputTitles)
+        );
+
+        return interaction.showModal(modalHybrid);
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'upgrade_modal_hybrid') {
+        const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: '❌ Sua sessão expirou. Inicie novamente.', flags: 64 });
+
+        const persInput = interaction.fields.getTextInputValue('hybrid_personagem_input')?.trim();
+        const titulosTexto = interaction.fields.getTextInputValue('hybrid_titles_input')?.trim();
+
+        if (persInput) {
+            cacheUpgradeSystemAtu.personagem = persInput;
+        }
+
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+
+        await interaction.editReply({
+            content: `<@${interaction.user.id}>\n<a:discordchristmas:1502159689528512612> **Modo Híbrido:** Buscando os títulos listados dentro do seu treino e ajustando com a IA... Isso pode levar alguns segundos.`,
+            embeds: [],
+            components: []
+        }).catch(() => {});
+
+        let debugInfo = {};
+        const resultadoIA = await processarIA_Hibrido(titulosTexto, cacheUpgradeSystemAtu.loreText, client, interaction, debugInfo);
+
+        if (!resultadoIA || !resultadoIA.upgrades || resultadoIA.upgrades.length === 0) {
+            const files = [];
+            if (debugInfo.rawText) {
+                files.push(new AttachmentBuilder(Buffer.from(debugInfo.rawText, 'utf-8'), { name: 'ia_hibrido_bruta.txt' }));
+            }
+            await interaction.followUp({
+                content: '❌ A IA não conseguiu localizar ou estruturar os upgrades solicitados. Redirecionando para o modo manual...',
+                files,
+                flags: 64
+            }).catch(() => {});
+            return QntUpg(interaction, 1, true);
+        }
+
+        cacheUpgradeSystemAtu.aiMode = true;
+        cacheUpgradeSystemAtu.hybridMode = true;
+        cacheUpgradeSystemAtu.upgrades = resultadoIA.upgrades.map(u => ({ ...u, status: 'pendente' }));
+        cacheUpgradeSystemAtu.currentStep = 0;
+        cacheUpgradeSystemAtu.upgAmount = cacheUpgradeSystemAtu.upgrades.length;
+
+        return mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
     }
 
     if (interaction.isButton() && interaction.customId === 'upgrade_mode_chat') {
@@ -848,6 +991,14 @@ async function listenerInteractionUpg(interaction, client) {
             return interaction.editReply({ content: `🔒 Em avaliação por <@${docDbUpgAtual.lockAdmod.userId}>` });
         }
 
+        // Garante que haja um upgrade para Cristais do Tempo ao final se o jogador não solicitou
+        const prevCount = docDbUpgAtual.upgrades.length;
+        garantirUpgradeCristaisNoFinal(docDbUpgAtual.upgrades);
+        if (docDbUpgAtual.upgrades.length > prevCount) {
+            docDbUpgAtual.markModified('upgrades');
+            await capturaSilenciosaStatus(client, docDbUpgAtual);
+        }
+
         docDbUpgAtual.lockAdmod = { userId: interaction.user.id, expiresAt: Date.now() + 1200000 };
         await docDbUpgAtual.save();
         cacheAdmNavigationState.set(interaction.user.id, { idUpgAtual, currentIndex: 0 });
@@ -967,6 +1118,24 @@ async function listenerInteractionUpg(interaction, client) {
         return mosLorUpg(interaction, docNavUpg, pagina);
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_adm_statusv2_')) {
+        const parts = interaction.customId.split('_');
+        const idDocDbUpg = parts[3];
+        const upgIndex = parseInt(parts[4] || '0', 10);
+
+        const isDevOwner = (client.owners && client.owners.includes(interaction.user.id)) || interaction.user.id === '540725346241216534';
+        if (!isDevOwner) {
+            return interaction.reply({ content: '❌ Apenas o Dono/Desenvolvedor pode utilizar o menu do Sistema Paralelo (Status V2).', flags: 64 });
+        }
+
+        const docDb = await client.database.UpgradeModel.findById(idDocDbUpg);
+        if (!docDb) return interaction.reply({ content: '❌ Upgrade não encontrado.', flags: 64 });
+
+        const captureDoc = await obterCapturaSilenciosa(client, docDb._id, upgIndex);
+        const modalStatusV2 = buildStatusV2Modal(docDb, upgIndex, 'currentUpgd', captureDoc);
+        return interaction.showModal(modalStatusV2);
+    }
+
     if (interaction.isButton() && (interaction.customId.startsWith('upgrade_adm_navegar_accept_') || interaction.customId.startsWith('upgrade_adm_navegar_reject_'))) {
         const parts = interaction.customId.split('_');
         const acao = parts[3]; // accept ou reject
@@ -974,6 +1143,21 @@ async function listenerInteractionUpg(interaction, client) {
         const idDocDbUpg = parts[5]; // O ID do documento
 
         if (acao === 'accept') {
+            const isDevOwner = (client.owners && client.owners.includes(interaction.user.id)) || interaction.user.id === '540725346241216534';
+            const cacheAdmNav = cacheAdmNavigationState.get(interaction.user.id);
+            const currentUpgIdx = cacheAdmNav ? cacheAdmNav.currentIndex : 0;
+
+            // Se o avaliador for o Dono/Dev e o upgrade atual for de Status, abre o menu exclusivo do Sistema Paralelo (Status V2)
+            if (isDevOwner && escopo === 'currentUpgd') {
+                const docDb = await client.database.UpgradeModel.findById(idDocDbUpg).catch(() => null);
+                const upgTarget = docDb?.upgrades?.[currentUpgIdx];
+                const captureDoc = docDb ? await obterCapturaSilenciosa(client, docDb._id, currentUpgIdx) : null;
+                if (docDb && upgTarget && (isStatusUpgrade(upgTarget) || captureDoc)) {
+                    const modalStatusV2 = buildStatusV2Modal(docDb, currentUpgIdx, escopo, captureDoc);
+                    return interaction.showModal(modalStatusV2);
+                }
+            }
+
             if (escopo === 'allUpgd') {
                 const rowConfirm = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`upgrade_adm_confirmAll_${idDocDbUpg}`).setLabel('Tenho certeza, continuar').setStyle(ButtonStyle.Success)
@@ -1014,6 +1198,92 @@ async function listenerInteractionUpg(interaction, client) {
         return interaction.showModal(modRejUpg);
     }
 
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('upgrade_adm_modal_statusv2_')) {
+        await interaction.deferUpdate();
+        const parts = interaction.customId.split('_');
+        const escopo = parts[4] || 'currentUpgd';
+        const idAccUpg = parts[5];
+        const upgIndex = parseInt(parts[6] || '0', 10);
+
+        const docDbAccUpg = await client.database.UpgradeModel.findById(idAccUpg);
+        if (!docDbAccUpg) return interaction.editReply({ content: '❌ Upgrade não encontrado.', embeds: [], components: [] });
+
+        const targetUpg = docDbAccUpg.upgrades[upgIndex] || docDbAccUpg.upgrades[0];
+        const attrs = detectAttributesInUpgrade(targetUpg);
+        const isCrystalOnly = (attrs.includes('cristais') && attrs.length === 1) || Boolean(targetUpg?.autoGeneratedCrystal);
+
+        const forcaRaw = interaction.fields.getTextInputValue('statusv2_forca');
+        const resistenciaRaw = interaction.fields.getTextInputValue('statusv2_resistencia');
+        const velocidadeRaw = interaction.fields.getTextInputValue('statusv2_velocidade');
+        let manaCristaisRaw = '0 | 0';
+        try {
+            manaCristaisRaw = interaction.fields.getTextInputValue('statusv2_mana_cristais');
+        } catch (_) {
+            try { manaCristaisRaw = interaction.fields.getTextInputValue('statusv2_mana'); } catch (__) {}
+        }
+        const feedbackUpg = interaction.fields.getTextInputValue('upgrade_adm_modal_accept_input_motif') || 'Aprovado';
+
+        const addedForcaKgf = parseForceOrResistanceToKgf(forcaRaw);
+        const addedResistenciaKgf = parseForceOrResistanceToKgf(resistenciaRaw);
+        const addedVelocidadeKmh = parseSpeedToKmh(velocidadeRaw);
+        const { mana: addedMana, cristais: addedCristais } = parseManaAndCristaisField(manaCristaisRaw, isCrystalOnly);
+
+        // Soma os valores de status e Cristais no Sistema Paralelo (CharacterStatusV2) e checa evolução de Estrela
+        const { charDoc: updatedCharStatus, evoResult } = await aplicarSomaStatusV2(client, {
+            userId: docDbAccUpg.userId,
+            personagem: docDbAccUpg.personagem,
+            upgradeId: docDbAccUpg._id,
+            upgradeIndex: upgIndex,
+            nomeUpgrade: targetUpg?.nome || 'Upgrade de Status',
+            addedForcaKgf,
+            addedResistenciaKgf,
+            addedVelocidadeKmh,
+            addedMana,
+            addedCristais,
+            avaliadoPor: interaction.user.id,
+            feedbackPublico: feedbackUpg,
+            dispararCheckEvolucao: true
+        });
+
+        let statusV2Resumo = `🧬 **[${STATUS_V2_SYSTEM_NAME}] Status acumulado atualizado para ${updatedCharStatus.personagem}:**\n` +
+            `• 💪 Força: \`${formatForceOrResistance(updatedCharStatus.forcaKgf)}\` (${addedForcaKgf ? `+${formatForceOrResistance(addedForcaKgf)}` : '+0'})\n` +
+            `• 🛡️ Resistência: \`${formatForceOrResistance(updatedCharStatus.resistenciaKgf)}\` (${addedResistenciaKgf ? `+${formatForceOrResistance(addedResistenciaKgf)}` : '+0'})\n` +
+            `• ⚡ Velocidade: \`${formatSpeed(updatedCharStatus.velocidadeKmh)}\` (${addedVelocidadeKmh ? `+${formatSpeed(addedVelocidadeKmh)}` : '+0'})\n` +
+            `• 💧 Mana: \`${formatMana(updatedCharStatus.mana)}\` (${addedMana ? `+${formatMana(addedMana)}` : '+0'})\n` +
+            `• 💎 Cristais do Tempo: \`${updatedCharStatus.cristais} Cristais\` (${addedCristais ? `+${addedCristais} 💎` : '+0'})`;
+
+        if (evoResult?.sent) {
+            statusV2Resumo += `\n\n🌟 **Evolução de Estrela detectada!** Uma proposta interativa de evolução foi enviada no PV (${evoResult.testMode ? 'Seu PV em Modo de Teste' : 'PV do Jogador'}).`;
+        }
+
+        if (escopo === 'allUpgd' || docDbAccUpg.upgrades.length === 1) {
+            docDbAccUpg.status = 'aprovado';
+            docDbAccUpg.upgrades.forEach(u => { u.status = 'aprovado'; u.motivo = feedbackUpg; });
+            docDbAccUpg.AdmodAvaliou = interaction.user.id;
+            await docDbAccUpg.save();
+            await atualStatusUpg(interaction, client, docDbAccUpg, `Aprovado: ${feedbackUpg}`);
+            return interaction.editReply({ content: `✅ Avaliação concluída!\n\n${statusV2Resumo}`, embeds: [], components: [] });
+        }
+
+        docDbAccUpg.upgrades[upgIndex].status = 'aprovado';
+        docDbAccUpg.upgrades[upgIndex].motivo = feedbackUpg;
+        await docDbAccUpg.save();
+
+        const allEvaluated = docDbAccUpg.upgrades.every(u => u.status !== 'pendente');
+        if (allEvaluated) {
+            docDbAccUpg.status = 'avaliado';
+            docDbAccUpg.AdmodAvaliou = interaction.user.id;
+            await docDbAccUpg.save();
+            const aprovados = docDbAccUpg.upgrades.filter(u => u.status === 'aprovado').length;
+            const recusados = docDbAccUpg.upgrades.filter(u => u.status === 'recusado').length;
+            await atualStatusUpg(interaction, client, docDbAccUpg, `${aprovados} Aprovado(s), ${recusados} Recusado(s)`);
+            return interaction.editReply({ content: `✅ Avaliação concluída!\n\n${statusV2Resumo}`, embeds: [], components: [] });
+        } else {
+            await interaction.followUp({ content: statusV2Resumo, flags: 64 }).catch(() => {});
+            return navAdmUpg(interaction, client, docDbAccUpg, true);
+        }
+    }
+
     if (interaction.isModalSubmit() && interaction.customId.startsWith('upgrade_adm_modal_accept_')) {
         await interaction.deferUpdate();
         const parts = interaction.customId.split('_');
@@ -1032,6 +1302,12 @@ async function listenerInteractionUpg(interaction, client) {
             docDbAccUpg.upgrades.forEach(u => { u.status = 'aprovado'; u.motivo = feedbackUpg; });
             docDbAccUpg.AdmodAvaliou = interaction.user.id;
             await docDbAccUpg.save();
+            if (client.database.SilentStatusCapture) {
+                await client.database.SilentStatusCapture.updateMany(
+                    { upgradeId: String(docDbAccUpg._id), status: 'capturado_silenciosamente' },
+                    { $set: { motivoAvaliadorComum: feedbackUpg, status: 'avaliado_admod_comum' } }
+                ).catch(() => {});
+            }
             await atualStatusUpg(interaction, client, docDbAccUpg, `Aprovado: ${feedbackUpg}`);
             return interaction.editReply({ content: '✅ Avaliação concluída!', embeds: [], components: [] });
         }
@@ -1040,6 +1316,13 @@ async function listenerInteractionUpg(interaction, client) {
         docDbAccUpg.upgrades[upgIndex].status = 'aprovado';
         docDbAccUpg.upgrades[upgIndex].motivo = feedbackUpg;
         await docDbAccUpg.save();
+
+        if (client.database.SilentStatusCapture) {
+            await client.database.SilentStatusCapture.findOneAndUpdate(
+                { upgradeId: String(docDbAccUpg._id), upgradeIndex: upgIndex, status: 'capturado_silenciosamente' },
+                { $set: { motivoAvaliadorComum: feedbackUpg, status: 'avaliado_admod_comum' } }
+            ).catch(() => {});
+        }
 
         const allEvaluated = docDbAccUpg.upgrades.every(u => u.status !== 'pendente');
         if (allEvaluated) {
@@ -1257,6 +1540,10 @@ async function mosModUpg(interaction, qntdAtual, qntdTotal, prefill = null) {
 async function envioUpg(interaction, client, listaUpg) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 });
     
+    // Se não foi detectado pedido de Cristais do Tempo pelo usuário, adiciona ao final um upgrade para Cristais
+    garantirUpgradeCristaisNoFinal(listaUpg.upgrades);
+    listaUpg.upgAmount = listaUpg.upgrades.length;
+
     const loreChu = divText(listaUpg.loreText);
     const upgDoc = await client.database.UpgradeModel.create({
         userId: interaction.user.id,
@@ -1300,7 +1587,10 @@ async function envioUpg(interaction, client, listaUpg) {
     }
 
     await upgDoc.save();
-    
+
+    // === SISTEMA PARALELO (StatusEvolutionV2 / Projeto Genesis): Captura Silenciosa ===
+    await capturaSilenciosaStatus(client, upgDoc);
+
     const logChaId = '1409063037905670154';
     if (logChaId) {
         const logChannel = await client.channels.fetch(logChaId).catch(() => null);
@@ -1356,17 +1646,34 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
         if (updated) return interaction.update(payload);
         return interaction.reply(payload);
     }
-    
+
+    const isDevOwner = (client.owners && client.owners.includes(interaction.user.id)) || interaction.user.id === '540725346241216534';
+    const isCurrentStatusUpg = isStatusUpgrade(upgAtual);
+
     const embedUpgAtual = new EmbedBuilder()
         .setTitle(`Avaliação: ${upgAtual.nome || 'Desconhecido'} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})`)
         .setColor(upgAtual.status === 'aprovado' ? 'Green' : 'Blue')
         .setDescription(String(upgAtual.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
+            { name: 'Personagem', value: `${upgDocDb.personagem || 'Não informado'}`, inline: true },
             { name: 'Tipo/Categoria', value: `${String(upgAtual.tipo || 'Desconhecido').substring(0, 100)} | ${String(upgAtual.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status do Upgrade', value: upgAtual.status, inline: true },
             { name: 'Justificativa', value: String(upgAtual.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setFooter({ text: `Jogador <@${upgDocDb.userId}>` });
+
+    // Se o avaliador for o Dono/Dev, exibe o painel do Sistema Paralelo (StatusEvolutionV2)
+    if (isDevOwner) {
+        const captureDoc = await obterCapturaSilenciosa(client, upgDocDb._id, AdmAtual.currentIndex);
+        const charStatus = await obterStatusPersonagemV2(client, upgDocDb.userId, upgDocDb.personagem);
+        if (isCurrentStatusUpg || captureDoc || charStatus) {
+            embedUpgAtual.addFields({
+                name: `🧬 [${STATUS_V2_SYSTEM_NAME}]`,
+                value: formatCharacterStatusV2Summary(charStatus, captureDoc, upgAtual).substring(0, 1024),
+                inline: false
+            });
+        }
+    }
 
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_previousUpgd_${upgDocDb._id}`).setEmoji('🔙').setStyle(ButtonStyle.Secondary).setDisabled(AdmAtual.currentIndex === 0),
@@ -1384,6 +1691,18 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_allUpgd_${upgDocDb._id}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
     );
 
+    const admRows = [row1, row2];
+    if (isDevOwner) {
+        const rowDev = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`upgrade_adm_statusv2_${upgDocDb._id}_${AdmAtual.currentIndex}`)
+                .setLabel('Inserir Valores Status V2 (Genesis)')
+                .setEmoji('🧬')
+                .setStyle(isCurrentStatusUpg ? ButtonStyle.Success : ButtonStyle.Secondary)
+        );
+        admRows.push(rowDev);
+    }
+
     const embedLegenda = new EmbedBuilder()
         .setColor('Grey')
         .setTitle('Legenda de Ações')
@@ -1397,10 +1716,11 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
             `☑️ **Aprovar Atual** - Aprova apenas o upgrade selecionado na tela.\n` +
             `✅ **Aprovar Todos** - Aprova toda a solicitação de uma vez.\n` +
             `🚫 **Recusar Atual** - Recusa apenas o upgrade selecionado.\n` +
-            `🗑️ **Recusar Todos** - Recusa toda a solicitação de uma vez.`
+            `🗑️ **Recusar Todos** - Recusa toda a solicitação de uma vez.` +
+            (isDevOwner ? `\n🧬 **Status V2 (Genesis)** - Menu exclusivo p/ registrar Força (kgf/Tf), Resistência (kgf/Tf), Velocidade (km/h) e Mana.` : '')
         );
 
-    const botoesEmbedAdm = { embeds: [embedUpgAtual, embedLegenda], components: [row1, row2], flags: 64 };
+    const botoesEmbedAdm = { embeds: [embedUpgAtual, embedLegenda], components: admRows, flags: 64 };
     if (interaction.deferred || interaction.replied) { 
         await interaction.editReply(botoesEmbedAdm);
     } else if (updated) { 
