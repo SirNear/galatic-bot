@@ -426,7 +426,7 @@ async function handleCronInteraction(interaction) {
         const start = Date.now();
 
         try {
-            const res = await job.taskFn();
+            const res = await job.taskFn(interaction);
             const durationMs = Date.now() - start;
             job.lastRun = new Date();
             job.lastDurationMs = durationMs;

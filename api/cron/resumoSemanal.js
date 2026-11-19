@@ -1,7 +1,6 @@
-const { ChannelType } = require('discord.js');
-const { resumirRP } = require('../resumir.js');
+const { ChannelType, EmbedBuilder } = require('discord.js');
 const { generatePdf } = require('../pdfGenerator.js');
-const { uploadToDrive } = require('../driveUploader.js');
+const { uploadToDrive, ensureBackupFolder } = require('../driveUploader.js');
 const cronManager = require('./cronManager.js');
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
@@ -11,21 +10,38 @@ const LOG_CHANNEL_ID = '1423848686391394454';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function buildProgressBar(current, total, size = 15) {
+    const pct = total > 0 ? Math.min(1, Math.max(0, current / total)) : 0;
+    const filled = Math.round(pct * size);
+    const empty = size - filled;
+    return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${Math.round(pct * 100)}% (${current}/${total})`;
+}
+
 /**
- * Coleta todas as mensagens de um canal de texto de forma paginada.
+ * Coleta todas as mensagens de um canal de texto de forma paginada sem poluir o cache de RAM.
  */
 async function fetchAllMessages(channel) {
     const messages = [];
     let cursor = null;
 
     while (true) {
-        const options = { limit: 100 };
+        const options = { limit: 100, cache: false };
         if (cursor) options.before = cursor;
 
         try {
             const fetched = await channel.messages.fetch(options);
             if (fetched.size === 0) break;
-            messages.push(...fetched.values());
+
+            for (const msg of fetched.values()) {
+                messages.push({
+                    id: msg.id,
+                    content: msg.content || '',
+                    createdAt: msg.createdAt,
+                    createdTimestamp: msg.createdTimestamp || 0,
+                    authorUsername: msg.author?.username || 'Desconhecido',
+                    channelName: channel.name || 'Desconhecido',
+                });
+            }
             cursor = fetched.last()?.id;
         } catch (e) {
             console.error(`[CRON-RESUMO] Erro ao buscar mensagens em ${channel.name}:`, e.message);
@@ -37,17 +53,16 @@ async function fetchAllMessages(channel) {
 }
 
 /**
- * Processa um canal (ou thread) e retorna { fileTextLines, aiText } prontos para o resumo/PDF.
+ * Processa um canal (ou thread) e retorna { fileTextLines } prontos para o PDF.
  */
 async function processChannel(channel, client) {
     const msgs = await fetchAllMessages(channel);
     if (msgs.length === 0) return null;
 
     const channelIds = [channel.id];
-    const channelLores = await client.database.Lore.find({ channelId: { $in: channelIds } });
+    const channelLores = await client.database.Lore.find({ channelId: { $in: channelIds } }).lean().catch(() => []);
     const loreMap = new Map(channelLores.map(l => [l.messageId, l]));
 
-    const aiText = [];
     const fileText = [];
 
     // Cabeçalho do arquivo
@@ -70,29 +85,24 @@ async function processChannel(channel, client) {
 
     for (const msg of msgs) {
         const lore = loreMap.get(msg.id);
-        const time = msg.createdAt ? msg.createdAt.toLocaleString('pt-BR') : 'Data desconhecida';
-        const channelName = msg.channel.name || 'Desconhecido';
+        const time = msg.createdAt ? new Date(msg.createdAt).toLocaleString('pt-BR') : 'Data desconhecida';
+        const channelName = msg.channelName || 'Desconhecido';
 
         if (lore) {
-            aiText.push(`\n--- [INÍCIO DA LORE: ${lore.title}] ---\n`);
-            fileText.push(`\n${'='.repeat(20)} [LORE: ${lore.title.toUpperCase()}] ${'='.repeat(20)}`);
-            fileText.push(`Canal: ${channelName} | Autor: ${msg.author.username} | Data: ${time}\n`);
+            fileText.push(`\n${'='.repeat(20)} [LORE: ${(lore.title || 'Sem Título').toUpperCase()}] ${'='.repeat(20)}`);
+            fileText.push(`Canal: ${channelName} | Autor: ${msg.authorUsername} | Data: ${time}\n`);
 
-            for (const chapter of lore.chapters) {
-                aiText.push(`Capítulo: ${chapter.name}`);
+            for (const chapter of (lore.chapters || [])) {
                 fileText.push(`\n>> CAPÍTULO: ${chapter.name}`);
                 fileText.push('-'.repeat(40));
-                for (const page of chapter.pages) {
-                    aiText.push(page.content);
+                for (const page of (chapter.pages || [])) {
                     fileText.push(page.content);
                 }
             }
-            aiText.push(`\n--- [FIM DA LORE: ${lore.title}] ---\n`);
             fileText.push(`\n${'='.repeat(20)} [FIM DA LORE] ${'='.repeat(20)}\n`);
         } else {
             if (msg.content && msg.content.trim().length > 0) {
-                aiText.push(`${msg.author.username}: ${msg.content}`);
-                fileText.push(`[${time}] [${channelName}] ${msg.author.username}:`);
+                fileText.push(`[${time}] [${channelName}] ${msg.authorUsername}:`);
                 fileText.push(`${msg.content}`);
                 fileText.push('-'.repeat(60));
             }
@@ -101,7 +111,6 @@ async function processChannel(channel, client) {
 
     return {
         fileTextLines: fileText,
-        aiText: aiText.join('\n'),
         catName,
         forumChanName,
         postTitle,
@@ -111,8 +120,9 @@ async function processChannel(channel, client) {
 
 // ─── Função Principal do Cron ──────────────────────────────────────────────────
 
-async function executarResumoSemanal(client) {
+async function executarResumoSemanal(client, triggerInteraction = null) {
     console.log('[CRON-RESUMO] Iniciando resumo semanal de todas as categorias...');
+    const startTime = Date.now();
 
     let logChannel = null;
     try {
@@ -122,24 +132,98 @@ async function executarResumoSemanal(client) {
     const guild = await client.guilds.fetch('731974689798488185').catch(() => null);
     if (!guild) {
         console.error('[CRON-RESUMO] Guild não encontrada!');
-        return;
+        return 'Erro: Guild não encontrada.';
     }
 
     const allChannels = await guild.channels.fetch().catch(() => null);
-    if (!allChannels) return;
+    if (!allChannels) return 'Erro: Não foi possível listar canais da guild.';
+
+    const datStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const subfolderName = `Resumo Semanal - ${datStr}`;
+
+    let driveFolderInfo = {
+        id: null,
+        webViewLink: 'https://drive.google.com',
+    };
+    try {
+        driveFolderInfo = await ensureBackupFolder(subfolderName);
+    } catch (err) {
+        console.warn('[CRON-RESUMO] Aviso ao preparar pasta do Drive:', err.message);
+    }
 
     // Coleta todas as categorias do servidor
-    const categorias = allChannels.filter(c => c && c.type === ChannelType.GuildCategory);
-    console.log(`[CRON-RESUMO] ${categorias.size} categorias encontradas.`);
+    const categorias = Array.from(allChannels.filter(c => c && c.type === ChannelType.GuildCategory).values());
+    const totalCategorias = categorias.length;
+    console.log(`[CRON-RESUMO] ${totalCategorias} categorias encontradas. Pasta: ${subfolderName}`);
 
     const resultados = [];
+    const puladas = [];
     const erros = [];
+    let progressMessage = null;
+    let lastUpdateTs = 0;
 
-    for (const [, categoria] of categorias) {
+    async function updateProgressPanel(currentCatIndex, statusText, force = false) {
+        const now = Date.now();
+        if (!force && now - lastUpdateTs < 3500) return;
+        lastUpdateTs = now;
+
+        const isFinished = currentCatIndex >= totalCategorias && force && statusText.startsWith('✅');
+        const ramMb = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+        const elapsedSec = Math.floor((now - startTime) / 1000);
+        const elapsedFormatted = `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`;
+        const unixNow = Math.floor(now / 1000);
+
+        const embed = new EmbedBuilder()
+            .setTitle(isFinished ? '📅 Resumo Semanal de RP — Concluído!' : '⏳ Resumo Semanal de RP — Em Andamento...')
+            .setColor(isFinished ? (erros.length > 0 ? '#e67e22' : '#2ecc71') : '#3498db')
+            .setTimestamp()
+            .setDescription(
+                `**Progresso Geral:** \`${buildProgressBar(currentCatIndex, totalCategorias)}\`\n` +
+                `**Status Atual:** ${statusText}\n` +
+                `**Último Pulso (Vivo):** <t:${unixNow}:R> • **Tempo:** \`${elapsedFormatted}\` • **RAM:** \`${ramMb} MB\`\n` +
+                `**Resumo Parcial:** ✅ **${resultados.length}** salvas | ⏭️ **${puladas.length}** vazias | ❌ **${erros.length}** erro(s)\n\n` +
+                `📁 **Pasta no Google Drive:** [Abrir "${subfolderName}"](${driveFolderInfo.webViewLink})`
+            );
+
+        if (resultados.length > 0) {
+            const ultimosResultados = resultados
+                .slice(-12)
+                .map(r => `${r.jaExistia ? '⏭️' : '✅'} **${r.categoria}** — [${r.arquivo}](${r.link})`)
+                .join('\n');
+            embed.addFields({
+                name: `📄 Categorias Sincronizadas (${resultados.length})`,
+                value: ultimosResultados.substring(0, 1024),
+            });
+        }
+
+        if (erros.length > 0) {
+            const errStr = erros.slice(-5).map(e => `❌ **${e.categoria}**: ${e.erro}`).join('\n');
+            embed.addFields({ name: `⚠️ Erros (${erros.length})`, value: errStr.substring(0, 1024) });
+        }
+
+        if (logChannel) {
+            if (!progressMessage) {
+                progressMessage = await logChannel.send({ embeds: [embed] }).catch(() => null);
+            } else {
+                await progressMessage.edit({ embeds: [embed] }).catch(() => {});
+            }
+        }
+
+        if (triggerInteraction) {
+            await triggerInteraction.editReply({ content: null, embeds: [embed] }).catch(() => {});
+        }
+    }
+
+    await updateProgressPanel(0, 'Iniciando varredura das categorias...', true);
+
+    for (let idx = 0; idx < totalCategorias; idx++) {
+        const categoria = categorias[idx];
         try {
+            await updateProgressPanel(idx, `🔄 **[${idx + 1}/${totalCategorias}]** Mapeando canais de **${categoria.name}**...`, true);
+
             // Coleta filhos: canais de texto e fóruns
             const filhos = allChannels.filter(c => c && c.parentId === categoria.id);
-            let channelsToProcess = [];
+            const channelsToProcess = [];
 
             for (const [, filho] of filhos) {
                 if (filho.isTextBased() && filho.type !== ChannelType.GuildForum) {
@@ -155,34 +239,50 @@ async function executarResumoSemanal(client) {
                 }
             }
 
-            if (channelsToProcess.length === 0) continue;
+            if (channelsToProcess.length === 0) {
+                puladas.push(categoria.name);
+                continue;
+            }
 
             // Processa todos os canais da categoria
             const allFileLines = [];
-            const allAiText = [];
 
-            for (const ch of channelsToProcess) {
+            for (let cIdx = 0; cIdx < channelsToProcess.length; cIdx++) {
+                const ch = channelsToProcess[cIdx];
                 try {
+                    await updateProgressPanel(
+                        idx,
+                        `🔄 **[${idx + 1}/${totalCategorias}] ${categoria.name}** — Lendo canal ${cIdx + 1}/${channelsToProcess.length} (\`#${ch.name}\`)...`,
+                        false
+                    );
                     const result = await processChannel(ch, client);
                     if (!result) continue;
-                    allFileLines.push(...result.fileTextLines);
-                    if (result.aiText.length > 10) allAiText.push(result.aiText);
+                    for (const line of result.fileTextLines) {
+                        allFileLines.push(line);
+                    }
                 } catch (e) {
                     console.error(`[CRON-RESUMO] Erro ao processar canal ${ch.name}:`, e.message);
                 }
             }
 
-            if (allFileLines.length === 0) continue;
+            if (allFileLines.length === 0) {
+                puladas.push(categoria.name);
+                continue;
+            }
 
-            const datStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-            const nomCat = categoria.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_');
+            const nomCat = categoria.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_').trim();
             const pdfFileName = `RP-${nomCat}-${datStr}.pdf`;
 
             let uploadResult;
             let finalFileName = pdfFileName;
 
+            await updateProgressPanel(
+                idx,
+                `📄 **[${idx + 1}/${totalCategorias}] ${categoria.name}** — Gerando PDF e enviando para a pasta do Drive...`,
+                true
+            );
+
             try {
-                // Gera o PDF (sem resumo de IA — apenas coleta de conteúdo)
                 const pdfBuffer = await generatePdf({
                     titulo: `RP — ${categoria.name}`,
                     categoria: categoria.name,
@@ -191,18 +291,18 @@ async function executarResumoSemanal(client) {
                     mensagensRange: 'Início a Fim',
                     modo: 'Coleta Automática Semanal (Sem IA)',
                     fileTextLines: allFileLines,
-                    resumo: null, // Nunca gera resumo de IA automaticamente para economizar tokens
+                    resumo: null,
                 });
 
-                // Faz upload para o Drive (skipIfExists evita duplicatas)
                 uploadResult = await uploadToDrive({
                     buffer: pdfBuffer,
                     fileName: pdfFileName,
                     mimeType: 'application/pdf',
                     skipIfExists: true,
+                    subfolderName,
                 });
             } catch (pdfErr) {
-                console.warn(`[CRON-RESUMO] Falha ao gerar PDF para ${categoria.name}. Usando fallback em TXT:`, pdfErr.message);
+                console.warn(`[CRON-RESUMO] Falha ao gerar/enviar PDF para ${categoria.name}. Usando fallback em TXT:`, pdfErr.message);
                 finalFileName = `RP-${nomCat}-${datStr}.txt`;
                 const txtBuffer = Buffer.from(allFileLines.join('\n'), 'utf-8');
                 uploadResult = await uploadToDrive({
@@ -210,7 +310,12 @@ async function executarResumoSemanal(client) {
                     fileName: finalFileName,
                     mimeType: 'text/plain',
                     skipIfExists: true,
+                    subfolderName,
                 });
+            }
+
+            if (uploadResult?.folderLink) {
+                driveFolderInfo.webViewLink = uploadResult.folderLink;
             }
 
             resultados.push({
@@ -220,43 +325,21 @@ async function executarResumoSemanal(client) {
                 jaExistia: uploadResult.alreadyExisted,
             });
 
-            console.log(`[CRON-RESUMO] ✅ ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${finalFileName}`);
-
+            console.log(`[CRON-RESUMO] ✅ [${idx + 1}/${totalCategorias}] ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${finalFileName}`);
         } catch (e) {
-            console.error(`[CRON-RESUMO] ❌ Erro na categoria ${categoria.name}:`, e);
+            console.error(`[CRON-RESUMO] ❌ Erro na categoria ${categoria.name}:`, e.message);
             erros.push({ categoria: categoria.name, erro: e.message });
         }
     }
 
-    // Log no canal do Discord
-    if (logChannel && (resultados.length > 0 || erros.length > 0)) {
-        const { EmbedBuilder } = require('discord.js');
-        const embed = new EmbedBuilder()
-            .setTitle('📅 Resumo Semanal de RP — Concluído')
-            .setColor(erros.length > 0 ? '#e67e22' : '#2ecc71')
-            .setTimestamp()
-            .setDescription(
-                `**${resultados.length}** categoria(s) processada(s). **${erros.length}** erro(s).\n\n` +
-                `📁 [Ver pasta do Drive](https://drive.google.com/drive/folders/1n5rkbn5TbTEK2X-NTTnWVQXjzq9vUssB)`
-            );
+    await updateProgressPanel(
+        totalCategorias,
+        `✅ **Concluído!** ${resultados.length} categoria(s) sincronizada(s) na pasta **${subfolderName}**.`,
+        true
+    );
 
-        if (resultados.length > 0) {
-            const resStr = resultados
-                .slice(0, 15)
-                .map(r => `${r.jaExistia ? '⏭️' : '✅'} **${r.categoria}** — [${r.arquivo}](${r.link})`)
-                .join('\n');
-            embed.addFields({ name: '📄 Arquivos no Drive', value: resStr.substring(0, 1024) });
-        }
-
-        if (erros.length > 0) {
-            const errStr = erros.slice(0, 5).map(e => `❌ **${e.categoria}**: ${e.erro}`).join('\n');
-            embed.addFields({ name: '⚠️ Erros', value: errStr.substring(0, 1024) });
-        }
-
-        await logChannel.send({ embeds: [embed] }).catch(console.error);
-    }
-
-    console.log(`[CRON-RESUMO] ✅ Concluído! ${resultados.length} categorias processadas, ${erros.length} erros.`);
+    console.log(`[CRON-RESUMO] ✅ Concluído! ${resultados.length} categorias processadas, ${puladas.length} vazias, ${erros.length} erros.`);
+    return `${resultados.length} categorias salvas na pasta "${subfolderName}" (${erros.length} erros).`;
 }
 
 // ─── Registro no CronManager ──────────────────────────────────────────────────
@@ -266,10 +349,9 @@ module.exports = (client) => {
         id: 'resumo-semanal-rp',
         name: '📜 Resumo Semanal de RP',
         schedule: '0 3 * * 0',
-        description: 'Coleta o roleplay de todas as categorias do servidor, gera PDFs pesquisáveis e faz upload automático no Google Drive.',
-        taskFn: async () => {
-            await executarResumoSemanal(client);
-            return 'Categorias processadas e sincronizadas com o Drive.';
+        description: 'Coleta o roleplay de todas as categorias do servidor, gera PDFs pesquisáveis e faz upload automático em pasta organizada no Google Drive.',
+        taskFn: async (interaction = null) => {
+            return await executarResumoSemanal(client, interaction);
         }
     });
     console.log('[CRON-RESUMO] Job semanal registrado (todo domingo às 03:00).');

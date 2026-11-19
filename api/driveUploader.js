@@ -1,7 +1,9 @@
 const { google } = require('googleapis');
 const mongoose = require('mongoose');
 
-const DRIVE_FOLDER_ID = '1n5rkbn5TbTEK2X-NTTnWVQXjzq9vUssB';
+const ROOT_FOLDER_NAME = 'Backups RP - Galatic Bot';
+let cachedRootFolder = null;
+const cachedSubfolders = new Map();
 
 /**
  * Cria e retorna um cliente autenticado do Google Drive.
@@ -35,7 +37,6 @@ async function getDriveClient() {
             console.warn('[DRIVE] Falha ao consultar credenciais OAuth no MongoDB:', err.message);
         }
     } else if (clientId && clientSecret && refreshToken && mongoose.connection?.readyState === 1) {
-        // Sincroniza silenciosamente com o MongoDB para que o container remoto tenha acesso
         mongoose.connection.db.collection('botconfigs').replaceOne(
             { _id: 'google_oauth' },
             { _id: 'google_oauth', clientId, clientSecret, refreshToken, updatedAt: new Date() },
@@ -73,14 +74,89 @@ async function getDriveClient() {
 }
 
 /**
- * Verifica se já existe um arquivo com o nome dado na pasta do Drive.
- * @param {object} drive - Cliente do Drive autenticado
- * @param {string} fileName - Nome do arquivo a verificar
- * @returns {Promise<string|null>} ID do arquivo existente ou null
+ * Busca ou cria uma pasta no Google Drive.
  */
-async function findExistingFile(drive, fileName) {
+async function getOrCreateFolder(drive, folderName, parentId = null) {
+    const sanitizedName = folderName.replace(/'/g, "\\'");
+    let query = `name='${sanitizedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    if (parentId) {
+        query += ` and '${parentId}' in parents`;
+    }
+
+    const res = await drive.files.list({
+        q: query,
+        fields: 'files(id, name, webViewLink)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+    });
+
+    if (res.data.files && res.data.files.length > 0) {
+        const f = res.data.files[0];
+        return {
+            id: f.id,
+            webViewLink: f.webViewLink || `https://drive.google.com/drive/folders/${f.id}`,
+        };
+    }
+
+    const requestBody = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+    };
+    if (parentId) {
+        requestBody.parents = [parentId];
+    }
+
+    const created = await drive.files.create({
+        requestBody,
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true,
+    });
+
+    await drive.permissions.create({
+        fileId: created.data.id,
+        supportsAllDrives: true,
+        requestBody: {
+            role: 'reader',
+            type: 'anyone',
+        },
+    }).catch(() => {});
+
+    return {
+        id: created.data.id,
+        webViewLink: created.data.webViewLink || `https://drive.google.com/drive/folders/${created.data.id}`,
+    };
+}
+
+/**
+ * Garante a pasta principal "Backups RP - Galatic Bot" e, opcionalmente, uma subpasta (ex: por data).
+ */
+async function ensureBackupFolder(subfolderName = null, existingDrive = null) {
+    const drive = existingDrive || await getDriveClient();
+
+    if (!cachedRootFolder) {
+        cachedRootFolder = await getOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
+    }
+
+    if (!subfolderName) {
+        return cachedRootFolder;
+    }
+
+    if (cachedSubfolders.has(subfolderName)) {
+        return cachedSubfolders.get(subfolderName);
+    }
+
+    const sub = await getOrCreateFolder(drive, subfolderName, cachedRootFolder.id);
+    cachedSubfolders.set(subfolderName, sub);
+    return sub;
+}
+
+/**
+ * Verifica se já existe um arquivo com o nome dado na pasta do Drive.
+ */
+async function findExistingFile(drive, fileName, folderId) {
     const sanitizedName = fileName.replace(/'/g, "\\'");
-    const query = `name='${sanitizedName}' and '${DRIVE_FOLDER_ID}' in parents and trashed=false`;
+    const query = `name='${sanitizedName}' and '${folderId}' in parents and trashed=false`;
     const res = await drive.files.list({
         q: query,
         fields: 'files(id, name)',
@@ -94,22 +170,23 @@ async function findExistingFile(drive, fileName) {
 }
 
 /**
- * Faz upload de um Buffer como arquivo no Google Drive.
- * Se já existir um arquivo com o mesmo nome na pasta, retorna o ID existente sem fazer upload.
+ * Faz upload de um Buffer como arquivo dentro da pasta organizada no Google Drive.
  *
  * @param {object} params
  * @param {Buffer} params.buffer - Conteúdo do arquivo
  * @param {string} params.fileName - Nome do arquivo no Drive
  * @param {string} params.mimeType - MIME type (ex: 'application/pdf', 'text/plain', 'application/zip')
  * @param {boolean} [params.skipIfExists=true] - Se true, pula upload se já existir
- * @returns {Promise<{ id: string, webViewLink: string, alreadyExisted: boolean }>}
+ * @param {string} [params.subfolderName=null] - Nome da subpasta dentro de "Backups RP - Galatic Bot"
+ * @returns {Promise<{ id: string, webViewLink: string, alreadyExisted: boolean, folderId: string, folderLink: string }>}
  */
 async function uploadToDrive(params) {
-    const { buffer, fileName, mimeType, skipIfExists = true } = params;
+    const { buffer, fileName, mimeType, skipIfExists = true, subfolderName = null } = params;
     const drive = await getDriveClient();
+    const targetFolder = await ensureBackupFolder(subfolderName, drive);
 
     if (skipIfExists) {
-        const existingId = await findExistingFile(drive, fileName);
+        const existingId = await findExistingFile(drive, fileName, targetFolder.id);
         if (existingId) {
             const fileInfo = await drive.files.get({
                 fileId: existingId,
@@ -120,6 +197,8 @@ async function uploadToDrive(params) {
                 id: existingId,
                 webViewLink: fileInfo?.data?.webViewLink || `https://drive.google.com/file/d/${existingId}/view`,
                 alreadyExisted: true,
+                folderId: targetFolder.id,
+                folderLink: targetFolder.webViewLink,
             };
         }
     }
@@ -130,7 +209,7 @@ async function uploadToDrive(params) {
     const res = await drive.files.create({
         requestBody: {
             name: fileName,
-            parents: [DRIVE_FOLDER_ID],
+            parents: [targetFolder.id],
             mimeType,
         },
         media: {
@@ -149,13 +228,15 @@ async function uploadToDrive(params) {
             role: 'reader',
             type: 'anyone',
         },
-    }).catch(() => {}); // Não bloqueia se não conseguir tornar público
+    }).catch(() => {});
 
     return {
         id: res.data.id,
         webViewLink: res.data.webViewLink || `https://drive.google.com/file/d/${res.data.id}/view`,
         alreadyExisted: false,
+        folderId: targetFolder.id,
+        folderLink: targetFolder.webViewLink,
     };
 }
 
-module.exports = { uploadToDrive, findExistingFile, DRIVE_FOLDER_ID };
+module.exports = { uploadToDrive, findExistingFile, ensureBackupFolder, getDriveClient, ROOT_FOLDER_NAME };
