@@ -50,6 +50,7 @@ const REGISTRY_CONFIG = {
 };
 
 function normalize(str) {
+  []
   return String(str || "")
     .toLowerCase()
     .trim()
@@ -253,7 +254,7 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   const sheetsUp = google.sheets({ version: "v4", auth });
 
   const isDev = client.owners && client.owners.includes(interaction.user.id);
-  
+
   const resUni = await sheetsUp.spreadsheets.values.get({
     spreadsheetId: "17L8NZsgH5_tjPhj4eIZogbeteYN54WG8Ex1dpXV3aCo",
     range: "UNIVERSO!A:C"
@@ -261,19 +262,19 @@ async function showRegistrationModal(interaction, config, target, userDb, sheets
   const rowsUni = resUni.data.values || [];
 
   // Busca os Domínios Totais pertencentes ao jogador
-  const userDominiosTotais = rowsUni.filter(r => 
-    normalize(r[2]) === normalize(args.jogador) && 
+  const userDominiosTotais = rowsUni.filter(r =>
+    normalize(r[2]) === normalize(args.jogador) &&
     r[1] && r[1].toLowerCase().includes('[domínio total]')
   ).map(r => normalize(r[0]));
 
   const hasDominioTotal = userDominiosTotais.length > 0;
-  
+
   // Define o universo alvo (Aparência tem argUniverso, Verso tem argNome como sendo o universo)
   const targetUniverso = normalize(config.nomeItem === 'Aparência' ? args.argUniverso : args.argNome);
-  
+
   if (hasDominioTotal && !isDev) {
     const isSameUniverse = userDominiosTotais.includes(targetUniverso);
-    
+
     if (!isSameUniverse) {
       if (userDb.tokenAp > 0) {
         userDb.tokenAp -= 1;

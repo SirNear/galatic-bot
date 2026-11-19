@@ -1,5 +1,11 @@
 const cron = require('node-cron');
-const { CronExpressionParser } = require('cron-parser');
+let CronExpressionParser = null;
+try {
+    const cp = require('cron-parser');
+    CronExpressionParser = cp.CronExpressionParser || cp;
+} catch (_) {
+    // cron-parser opcional: fallback nativo utilizado para evitar MODULE_NOT_FOUND em ambientes restritos
+}
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const mongoose = require('../../mongoose.js');
 
@@ -51,12 +57,54 @@ function humanizeSchedule(schedule) {
  * Calcula a data da próxima execução com base na expressão cron.
  */
 function getNextExecution(schedule) {
-    try {
-        const interval = CronExpressionParser.parse(schedule, { tz: 'America/Sao_Paulo' });
-        return interval.next().toDate();
-    } catch {
-        return null;
+    if (CronExpressionParser) {
+        try {
+            const interval = CronExpressionParser.parse(schedule, { tz: 'America/Sao_Paulo' });
+            return interval.next().toDate();
+        } catch (_) {}
     }
+    // Fallback nativo simples para calcular próxima execução sem cron-parser
+    try {
+        if (!schedule) return null;
+        const parts = schedule.trim().split(/\s+/);
+        if (parts.length !== 5) return null;
+        const [min, hour, dom, mon, dow] = parts;
+        const now = new Date();
+        const next = new Date(now);
+
+        if (min.startsWith('*/') && hour === '*' && dom === '*' && mon === '*' && dow === '*') {
+            const step = parseInt(min.replace('*/', ''), 10) || 5;
+            const currentMin = now.getMinutes();
+            const nextMin = (Math.floor(currentMin / step) + 1) * step;
+            next.setMinutes(nextMin, 0, 0);
+            return next;
+        }
+
+        if (min === '0' && hour.startsWith('*/') && dom === '*' && mon === '*' && dow === '*') {
+            const step = parseInt(hour.replace('*/', ''), 10) || 1;
+            const currentHour = now.getHours();
+            const nextHour = (Math.floor(currentHour / step) + 1) * step;
+            next.setHours(nextHour, 0, 0, 0);
+            return next;
+        }
+
+        if (!isNaN(parseInt(min, 10)) && !isNaN(parseInt(hour, 10)) && dom === '*' && mon === '*' && dow === '*') {
+            next.setHours(parseInt(hour, 10), parseInt(min, 10), 0, 0);
+            if (next <= now) next.setDate(next.getDate() + 1);
+            return next;
+        }
+
+        if (!isNaN(parseInt(min, 10)) && !isNaN(parseInt(hour, 10)) && dom === '*' && mon === '*' && !isNaN(parseInt(dow, 10))) {
+            const targetDow = parseInt(dow, 10);
+            next.setHours(parseInt(hour, 10), parseInt(min, 10), 0, 0);
+            const currentDow = now.getDay();
+            let daysAhead = (targetDow - currentDow + 7) % 7;
+            if (daysAhead === 0 && next <= now) daysAhead = 7;
+            next.setDate(next.getDate() + daysAhead);
+            return next;
+        }
+    } catch (_) {}
+    return null;
 }
 
 /**

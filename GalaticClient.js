@@ -132,7 +132,17 @@ module.exports = class GalaticClient extends Client {
                 { body: commands }
             );
 
-            console.log(`✅ ${data.length} slash commands registrados com sucesso!`);
+            console.log(`✅ ${data.length} slash commands registrados globalmente com sucesso!`);
+
+            // Registra também diretamente no servidor principal para propagação instantânea
+            const targetGuildId = process.env.GUILD_ID || "731974689798488185";
+            if (targetGuildId) {
+                await rest.put(
+                    Routes.applicationGuildCommands(this.user.id, targetGuildId),
+                    { body: commands }
+                ).catch(err => console.warn(`[COMMANDS] Aviso ao registrar comandos na guild ${targetGuildId}: ${err.message}`));
+                console.log(`✅ Comandos sincronizados instantaneamente no servidor (${targetGuildId})!`);
+            }
         } catch (error) {
             console.error('Erro ao registrar slash commands:', error);
         }
