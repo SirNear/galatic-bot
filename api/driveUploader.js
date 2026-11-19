@@ -1,31 +1,61 @@
 const { google } = require('googleapis');
+const mongoose = require('mongoose');
 
 const DRIVE_FOLDER_ID = '1n5rkbn5TbTEK2X-NTTnWVQXjzq9vUssB';
 
 /**
  * Cria e retorna um cliente autenticado do Google Drive.
- * Prioriza OAuth 2.0 (conta pessoal com cota normal) se configurado no .env,
- * ou faz fallback para a Service Account (GOOGLE_CREDENTIALS).
+ * 1. Recarrega o .env do disco caso tenha sido atualizado em runtime.
+ * 2. Caso as variáveis OAuth 2.0 não estejam no ambiente (ex: .env ignorado no deploy da Discloud),
+ *    busca automaticamente do MongoDB (coleção botconfigs, _id: 'google_oauth').
+ * 3. Faz fallback para a Service Account (GOOGLE_CREDENTIALS) apenas se OAuth não existir em ambos.
  */
-function getDriveClient() {
-    if (
-        process.env.GOOGLE_OAUTH_CLIENT_ID &&
-        process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
-        process.env.GOOGLE_OAUTH_REFRESH_TOKEN
-    ) {
+async function getDriveClient() {
+    try {
+        require('dotenv').config({ override: true });
+    } catch (_) {}
+
+    let clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+    let clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    let refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+
+    if ((!clientId || !clientSecret || !refreshToken) && mongoose.connection?.readyState === 1) {
+        try {
+            const doc = await mongoose.connection.db.collection('botconfigs').findOne({ _id: 'google_oauth' });
+            if (doc && doc.clientId && doc.clientSecret && doc.refreshToken) {
+                clientId = doc.clientId;
+                clientSecret = doc.clientSecret;
+                refreshToken = doc.refreshToken;
+                process.env.GOOGLE_OAUTH_CLIENT_ID = clientId;
+                process.env.GOOGLE_OAUTH_CLIENT_SECRET = clientSecret;
+                process.env.GOOGLE_OAUTH_REFRESH_TOKEN = refreshToken;
+                console.log('[DRIVE] Credenciais OAuth 2.0 carregadas do MongoDB com sucesso.');
+            }
+        } catch (err) {
+            console.warn('[DRIVE] Falha ao consultar credenciais OAuth no MongoDB:', err.message);
+        }
+    } else if (clientId && clientSecret && refreshToken && mongoose.connection?.readyState === 1) {
+        // Sincroniza silenciosamente com o MongoDB para que o container remoto tenha acesso
+        mongoose.connection.db.collection('botconfigs').replaceOne(
+            { _id: 'google_oauth' },
+            { _id: 'google_oauth', clientId, clientSecret, refreshToken, updatedAt: new Date() },
+            { upsert: true }
+        ).catch(() => {});
+    }
+
+    if (clientId && clientSecret && refreshToken) {
         const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_OAUTH_CLIENT_ID,
-            process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+            clientId,
+            clientSecret,
             'https://developers.google.com/oauthplayground'
         );
         oauth2Client.setCredentials({
-            refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+            refresh_token: refreshToken,
         });
-        console.log('[DRIVE] Autenticado via OAuth 2.0 (conta pessoal).');
         return google.drive({ version: 'v3', auth: oauth2Client });
     }
 
-    console.warn('[DRIVE] Variáveis OAuth 2.0 ausentes. Usando Service Account (GOOGLE_CREDENTIALS).');
+    console.warn('[DRIVE] Variáveis OAuth 2.0 ausentes (.env e MongoDB). Usando Service Account (GOOGLE_CREDENTIALS).');
 
     let credentials;
     try {
@@ -76,7 +106,7 @@ async function findExistingFile(drive, fileName) {
  */
 async function uploadToDrive(params) {
     const { buffer, fileName, mimeType, skipIfExists = true } = params;
-    const drive = getDriveClient();
+    const drive = await getDriveClient();
 
     if (skipIfExists) {
         const existingId = await findExistingFile(drive, fileName);
