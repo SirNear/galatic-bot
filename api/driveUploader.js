@@ -21,8 +21,11 @@ function getDriveClient() {
         oauth2Client.setCredentials({
             refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
         });
+        console.log('[DRIVE] Autenticado via OAuth 2.0 (conta pessoal).');
         return google.drive({ version: 'v3', auth: oauth2Client });
     }
+
+    console.warn('[DRIVE] Variáveis OAuth 2.0 ausentes. Usando Service Account (GOOGLE_CREDENTIALS).');
 
     let credentials;
     try {
