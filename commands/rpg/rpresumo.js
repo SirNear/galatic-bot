@@ -10,7 +10,7 @@ const {
 } = require('discord.js');
 const Command = require('../../structures/Command');
 const { resumirRP, summarizeSummary } = require('../../api/resumir.js');
-const { generatePdf } = require('../../api/pdfGenerator.js');
+const { generatePdf, splitLinesForNotebookLM } = require('../../api/pdfGenerator.js');
 const { uploadToDrive } = require('../../api/driveUploader.js');
 let AdmZip = null;
 try {
@@ -354,7 +354,8 @@ module.exports = class rpresumo extends Command {
         const masterZip = new AdmZip();
         let totalServerMessages = 0;
         let processedCatsCount = 0;
-        const MAX_MSGS_PER_CH_TUDO = 3000;
+        let interactionExpired = false;
+        let fallbackChannelMsg = null;
 
         const tudoState = {
             skipCurrentChannel: false,
@@ -391,26 +392,54 @@ module.exports = class rpresumo extends Command {
         };
 
         let lastUiUpdate = 0;
+        let isEditingUi = false;
+        const safeUpdateMessage = async (payload) => {
+            if (!interactionExpired) {
+                try {
+                    await interaction.editReply(payload);
+                    return;
+                } catch (err) {
+                    if (err?.code === 50027 || err?.status === 401) {
+                        interactionExpired = true;
+                    }
+                }
+            }
+            if (interaction.channel) {
+                if (!fallbackChannelMsg) {
+                    fallbackChannelMsg = await interaction.channel.send(payload).catch(() => null);
+                } else {
+                    await fallbackChannelMsg.edit(payload).catch(() => {});
+                }
+            }
+        };
+
         const updateTudoProgress = async (catIndex, force = false) => {
             const now = Date.now();
             if (!force && now - lastUiUpdate < 3000) return;
+            if (isEditingUi && !force) return;
+            isEditingUi = true;
             lastUiUpdate = now;
 
-            const ramMb = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
-            const feedbackStr = tudoState.lastActionFeedback ? `\n⚡ **Ação Manual:** ${tudoState.lastActionFeedback}` : '';
+            try {
+                const ramMb = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+                const feedbackStr = tudoState.lastActionFeedback ? `\n⚡ **Ação Manual:** ${tudoState.lastActionFeedback}` : '';
+                const unixNow = Math.floor(now / 1000);
 
-            const lines = [
-                `⏳ **Extração Completa do Servidor em Andamento...**`,
-                `**Barra de Progresso:** \`${buildBar(catIndex, categoryList.length)}\``,
-                `📂 **Categoria Atual:** **${tudoState.currentCategoryName}**`,
-                `💬 **Chat Atual Sendo Visto:** **#${tudoState.currentChannelName}** ${tudoState.currentChannelMsgs > 0 ? `(*${tudoState.currentChannelMsgs} msgs lidas...*)` : ''}`,
-                `📊 **Acumulado:** \`${totalServerMessages}\` mensagens em \`${processedCatsCount}\` categorias • **RAM:** \`${ramMb} MB\`${feedbackStr}`,
-            ];
+                const lines = [
+                    `⏳ **Extração Completa do Servidor em Andamento (Otimizado para NotebookLM)...**`,
+                    `**Barra de Progresso:** \`${buildBar(catIndex, categoryList.length)}\``,
+                    `📂 **Categoria Atual:** **${tudoState.currentCategoryName}**`,
+                    `💬 **Chat Atual Sendo Visto:** **#${tudoState.currentChannelName}** ${tudoState.currentChannelMsgs > 0 ? `(*${tudoState.currentChannelMsgs} msgs lidas...*)` : ''}`,
+                    `💓 **Último Pulso:** <t:${unixNow}:R> • 📊 **Acumulado:** \`${totalServerMessages}\` msgs em \`${processedCatsCount}\` categorias • **RAM:** \`${ramMb} MB\`${feedbackStr}`,
+                ];
 
-            await interaction.editReply({
-                content: lines.join('\n'),
-                components: [controlRow],
-            }).catch(() => {});
+                await safeUpdateMessage({
+                    content: lines.join('\n'),
+                    components: [controlRow],
+                });
+            } finally {
+                isEditingUi = false;
+            }
         };
 
         const progressMsg = await interaction.fetchReply().catch(() => null);
@@ -478,7 +507,7 @@ module.exports = class rpresumo extends Command {
 
                 try {
                     const msgs = await this.fetchMessages(item.channel, startId, endId, targetUserId, {
-                        maxMessages: MAX_MSGS_PER_CH_TUDO,
+                        maxMessages: 0, // Nunca corta chats grandes automaticamente — lê 100% e divide para NotebookLM
                         state: tudoState,
                         onProgress: async () => {
                             await updateTudoProgress(i, false);
@@ -489,6 +518,7 @@ module.exports = class rpresumo extends Command {
                         tudoState.skipCurrentChannel = false;
                         continue;
                     }
+                    // Pula automaticamente apenas os canais vazios
                     if (!msgs || msgs.length === 0) continue;
 
                     msgs.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
@@ -510,7 +540,11 @@ module.exports = class rpresumo extends Command {
                         : item.channel.name;
                     const cleanItemName = rawItemName.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_').trim() || `Canal_${item.channel.id}`;
 
-                    masterZip.addFile(`${safeCatName}/${cleanItemName}.txt`, Buffer.from(fileText.join('\n'), 'utf-8'));
+                    const itemParts = splitLinesForNotebookLM(fileText, `${cat.name} / ${rawItemName}`);
+                    for (let pIdx = 0; pIdx < itemParts.length; pIdx++) {
+                        const partSuffix = itemParts.length > 1 ? `_Parte-${pIdx + 1}-de-${itemParts.length}` : '';
+                        masterZip.addFile(`${safeCatName}/${cleanItemName}${partSuffix}.txt`, Buffer.from(itemParts[pIdx].join('\n'), 'utf-8'));
+                    }
                 } catch (chErr) {
                     console.error(`[RPRESUMO-TUDO] Erro no canal ${item.channel.name}:`, chErr.message);
                 }
@@ -525,7 +559,7 @@ module.exports = class rpresumo extends Command {
                 totalServerMessages += catAllMessages.length;
                 processedCatsCount++;
 
-                // Arquivo consolidado da categoria
+                // Arquivo consolidado da categoria (dividido automaticamente para o NotebookLM)
                 const { fileText: catAllLines } = this.formatMessages(
                     catAllMessages, 
                     loreMap, 
@@ -536,26 +570,33 @@ module.exports = class rpresumo extends Command {
                     `${startId || 'Início'} a ${endId || 'Fim'}`,
                     targetUser
                 );
-                masterZip.addFile(`${safeCatName}/00_TODOS_OS_CHATS_${safeCatName}.txt`, Buffer.from(catAllLines.join('\n'), 'utf-8'));
 
-                // Se formato for PDF ou ZIP, gera também o PDF da categoria
-                if (formato === 'pdf' || formato === 'zip') {
-                    try {
-                        tudoState.currentChannelName = 'Gerando PDF da categoria...';
-                        await updateTudoProgress(i, false);
-                        const pdfBuffer = await generatePdf({
-                            titulo: targetUser ? `RP — ${cat.name} (${targetUser.username})` : `RP — ${cat.name}`,
-                            categoria: cat.name,
-                            canal: 'Categoria Inteira',
-                            postTitle: 'Todos os Tópicos e Chats',
-                            mensagensRange: `${startId || 'Início'} a ${endId || 'Fim'}`,
-                            modo: targetUser ? `Backup Servidor Completo (Filtro: @${targetUser.username})` : 'Backup Servidor Completo',
-                            fileTextLines: catAllLines,
-                            resumo: null,
-                        });
-                        masterZip.addFile(`${safeCatName}/RP-${safeCatName}.pdf`, pdfBuffer);
-                    } catch (pdfErr) {
-                        console.warn(`[RPRESUMO-TUDO] Erro ao gerar PDF de ${cat.name}:`, pdfErr.message);
+                const catParts = splitLinesForNotebookLM(catAllLines, `Categoria: ${cat.name}`);
+                for (let pIdx = 0; pIdx < catParts.length; pIdx++) {
+                    const partSuffix = catParts.length > 1 ? `_Parte-${pIdx + 1}-de-${catParts.length}` : '';
+                    const partTitleSuffix = catParts.length > 1 ? ` (Parte ${pIdx + 1} de ${catParts.length})` : '';
+
+                    masterZip.addFile(`${safeCatName}/00_TODOS_OS_CHATS_${safeCatName}${partSuffix}.txt`, Buffer.from(catParts[pIdx].join('\n'), 'utf-8'));
+
+                    // Se formato for PDF ou ZIP, gera também os PDFs da categoria divididos para o NotebookLM
+                    if (formato === 'pdf' || formato === 'zip') {
+                        try {
+                            tudoState.currentChannelName = `Gerando PDF${partTitleSuffix}...`;
+                            await updateTudoProgress(i, false);
+                            const pdfBuffer = await generatePdf({
+                                titulo: (targetUser ? `RP — ${cat.name} (${targetUser.username})` : `RP — ${cat.name}`) + partTitleSuffix,
+                                categoria: cat.name,
+                                canal: catParts.length > 1 ? `Categoria Inteira (Volume ${pIdx + 1}/${catParts.length})` : 'Categoria Inteira',
+                                postTitle: 'Todos os Tópicos e Chats',
+                                mensagensRange: `${startId || 'Início'} a ${endId || 'Fim'}`,
+                                modo: targetUser ? `Backup Servidor Completo (Filtro: @${targetUser.username})` : 'Backup Servidor Completo (NotebookLM)',
+                                fileTextLines: catParts[pIdx],
+                                resumo: null,
+                            });
+                            masterZip.addFile(`${safeCatName}/RP-${safeCatName}${partSuffix}.pdf`, pdfBuffer);
+                        } catch (pdfErr) {
+                            console.warn(`[RPRESUMO-TUDO] Erro ao gerar PDF de ${cat.name}${partTitleSuffix}:`, pdfErr.message);
+                        }
                     }
                 }
             }
@@ -564,7 +605,7 @@ module.exports = class rpresumo extends Command {
         if (btnCollector) btnCollector.stop('finished');
 
         if (totalServerMessages === 0) {
-            return interaction.editReply({ 
+            return safeUpdateMessage({ 
                 content: targetUser 
                     ? `❌ Nenhuma mensagem encontrada para o usuário <@${targetUser.id}> em todo o servidor.` 
                     : '❌ Nenhuma mensagem encontrada no servidor dentro do critério especificado.',
@@ -572,7 +613,7 @@ module.exports = class rpresumo extends Command {
             });
         }
 
-        await interaction.editReply({ content: '📦 Compactando todos os arquivos do servidor em ZIP...', components: [] });
+        await safeUpdateMessage({ content: '📦 Compactando todos os arquivos do servidor em ZIP...', components: [] });
 
         const zipBuffer = masterZip.toBuffer();
         const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
@@ -584,12 +625,13 @@ module.exports = class rpresumo extends Command {
 
         if (enviarDrive || isTooBigForDiscord) {
             try {
-                await interaction.editReply({ content: '📤 Enviando arquivo ZIP com o backup de TUDO para o Google Drive...' }).catch(() => {});
+                await safeUpdateMessage({ content: '📤 Enviando arquivo ZIP com o backup de TUDO para o Google Drive...', components: [] });
                 const uploadResult = await uploadToDrive({
                     buffer: zipBuffer,
                     fileName: zipFileName,
                     mimeType: 'application/zip',
                     skipIfExists: false,
+                    subfolderName: `Backup Completo - ${datAtu}`,
                 });
                 driveLink = uploadResult.webViewLink;
             } catch (driveErr) {
@@ -605,7 +647,7 @@ module.exports = class rpresumo extends Command {
         const replyLines = [
             `✅ **Log de TUDO Concluído com Sucesso!**`,
             targetUser ? `👤 **Usuário filtrado:** <@${targetUser.id}> (\`${targetUser.tag}\`)` : null,
-            `📁 **Categorias com conteúdo do usuário:** \`${processedCatsCount}\``,
+            `📁 **Categorias com conteúdo:** \`${processedCatsCount}\``,
             `💬 **Total de mensagens coletadas:** \`${totalServerMessages}\``,
             `📦 **Arquivo:** \`${zipFileName}\` (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`,
         ].filter(Boolean);
@@ -625,9 +667,10 @@ module.exports = class rpresumo extends Command {
             driveLink,
         });
 
-        return interaction.editReply({
+        return safeUpdateMessage({
             content: replyLines.join('\n'),
             files: filesToSend,
+            components: [],
         });
 
     } catch (err) {
@@ -643,47 +686,76 @@ module.exports = class rpresumo extends Command {
   }
 
   /**
-   * Gera os buffers de TXT e PDF e monta os attachments conforme o formato escolhido.
+   * Gera os buffers de TXT e PDF (divididos automaticamente em volumes saudáveis para o NotebookLM)
+   * e monta os attachments conforme o formato escolhido.
    */
   async buildOutputFiles(textForFile, fileTextLines, summaryPages, targetChannel, formato, pdfMeta, targetUser = null) {
     const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
     const nomCan = targetChannel.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E]/g, '_');
     const userSuffix = targetUser ? `-${targetUser.username.replace(/[^a-zA-Z0-9-_\u00C0-\u017E]/g, '_')}` : '';
     const resumoTexto = summaryPages ? summaryPages.join('\n\n') : null;
-
-    const transcriptBuffer = Buffer.from(textForFile, 'utf-8');
     const summaryBuffer = summaryPages ? Buffer.from(resumoTexto, 'utf-8') : null;
-
-    const txtTranscricao = new AttachmentBuilder(transcriptBuffer, { name: `mensagens-${nomCan}${userSuffix}-${datAtu}.txt` });
     const txtResumo = summaryBuffer ? new AttachmentBuilder(summaryBuffer, { name: `resumo-${nomCan}${userSuffix}-${datAtu}.txt` }) : null;
 
+    const notebookParts = splitLinesForNotebookLM(fileTextLines, pdfMeta?.titulo || targetChannel.name);
+    const totalParts = notebookParts.length;
+
     if (formato === 'pdf' || formato === 'zip') {
-        const pdfBuffer = await generatePdf({
-            ...pdfMeta,
-            fileTextLines,
-            resumo: resumoTexto,
-        });
+        const pdfParts = [];
+        for (let i = 0; i < totalParts; i++) {
+            const partSuffix = totalParts > 1 ? `_Parte-${i + 1}-de-${totalParts}` : '';
+            const partTitleSuffix = totalParts > 1 ? ` (Parte ${i + 1} de ${totalParts})` : '';
+            const buf = await generatePdf({
+                ...pdfMeta,
+                titulo: `${pdfMeta.titulo}${partTitleSuffix}`,
+                fileTextLines: notebookParts[i],
+                resumo: i === 0 ? resumoTexto : null,
+            });
+            pdfParts.push({
+                buffer: buf,
+                fileName: `rp-${nomCan}${userSuffix}-${datAtu}${partSuffix}.pdf`,
+                txtBuffer: Buffer.from(notebookParts[i].join('\n'), 'utf-8'),
+                txtName: `mensagens-${nomCan}${userSuffix}-${datAtu}${partSuffix}.txt`,
+            });
+        }
 
         if (formato === 'pdf') {
-            const pdfAttachment = new AttachmentBuilder(pdfBuffer, { name: `rp-${nomCan}${userSuffix}-${datAtu}.pdf` });
-            return { attachments: [pdfAttachment], pdfBuffer, pdfFileName: `rp-${nomCan}${userSuffix}-${datAtu}.pdf` };
+            const pdfAttachments = pdfParts.slice(0, 10).map(p => new AttachmentBuilder(p.buffer, { name: p.fileName }));
+            return {
+                attachments: pdfAttachments,
+                pdfBuffer: pdfParts[0].buffer,
+                pdfFileName: pdfParts[0].fileName,
+                allPdfParts: pdfParts,
+            };
         }
 
         if (formato === 'zip') {
             const zip = new AdmZip();
-            zip.addFile(`mensagens-${nomCan}${userSuffix}-${datAtu}.txt`, transcriptBuffer);
             if (summaryBuffer) zip.addFile(`resumo-${nomCan}${userSuffix}-${datAtu}.txt`, summaryBuffer);
-            zip.addFile(`rp-${nomCan}${userSuffix}-${datAtu}.pdf`, pdfBuffer);
+            for (const p of pdfParts) {
+                zip.addFile(p.txtName, p.txtBuffer);
+                zip.addFile(p.fileName, p.buffer);
+            }
             const zipBuffer = zip.toBuffer();
             const zipAttachment = new AttachmentBuilder(zipBuffer, { name: `rp-${nomCan}${userSuffix}-${datAtu}.zip` });
-            return { attachments: [zipAttachment], pdfBuffer, pdfFileName: `rp-${nomCan}${userSuffix}-${datAtu}.pdf` };
+            return {
+                attachments: [zipAttachment],
+                pdfBuffer: pdfParts[0].buffer,
+                pdfFileName: pdfParts[0].fileName,
+                allPdfParts: pdfParts,
+            };
         }
     }
 
-    // TXT (padrão)
-    const files = [txtTranscricao];
+    // TXT (padrão) — dividido em partes se ultrapassar o limite saudável do NotebookLM
+    const files = [];
+    for (let i = 0; i < Math.min(totalParts, 9); i++) {
+        const partSuffix = totalParts > 1 ? `_Parte-${i + 1}-de-${totalParts}` : '';
+        const partBuf = Buffer.from(notebookParts[i].join('\n'), 'utf-8');
+        files.push(new AttachmentBuilder(partBuf, { name: `mensagens-${nomCan}${userSuffix}-${datAtu}${partSuffix}.txt` }));
+    }
     if (txtResumo) files.push(txtResumo);
-    return { attachments: files, pdfBuffer: null, pdfFileName: null };
+    return { attachments: files, pdfBuffer: null, pdfFileName: null, allPdfParts: [] };
   }
 
   async execute(interaction) {

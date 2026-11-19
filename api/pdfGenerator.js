@@ -641,10 +641,83 @@ function fileTextToHtmlBlocks(fileTextLines) {
     return cleanDiscordText((fileTextLines || []).join('\n'));
 }
 
+// Limite saudável por arquivo para o Google NotebookLM (~400.000 caracteres / ~70.000 palavras por parte)
+// Mantém máxima precisão de indexação/citação no NotebookLM e baixo uso de RAM na geração do PDF.
+const NOTEBOOKLM_MAX_CHARS = 400000;
+
+/**
+ * Divide automaticamente um array de linhas de texto em partes saudáveis para o NotebookLM,
+ * priorizando quebras entre mensagens/seções para nunca cortar uma fala ao meio.
+ *
+ * @param {string[]} fileTextLines - Array de linhas formatadas
+ * @param {string} [contextLabel='Registro de RP'] - Identificador da categoria/canal para o cabeçalho de cada parte
+ * @param {number} [maxChars=NOTEBOOKLM_MAX_CHARS] - Limite máximo de caracteres por parte
+ * @returns {string[][]} Array de partes (cada parte é um array de linhas)
+ */
+function splitLinesForNotebookLM(fileTextLines, contextLabel = 'Registro de RP', maxChars = NOTEBOOKLM_MAX_CHARS) {
+    if (!Array.isArray(fileTextLines) || fileTextLines.length === 0) return [[]];
+
+    let totalChars = 0;
+    for (const line of fileTextLines) {
+        totalChars += (line ? line.length : 0) + 1;
+    }
+
+    if (totalChars <= maxChars) {
+        return [fileTextLines];
+    }
+
+    const rawParts = [];
+    let currentPart = [];
+    let currentLen = 0;
+
+    for (let i = 0; i < fileTextLines.length; i++) {
+        const line = fileTextLines[i] ?? '';
+        const lineLen = line.length + 1;
+
+        if (currentLen + lineLen > maxChars && currentPart.length > 0) {
+            rawParts.push(currentPart);
+            currentPart = [];
+            currentLen = 0;
+        }
+
+        currentPart.push(line);
+        currentLen += lineLen;
+
+        // Se já atingiu >= 88% do limite e encontramos um separador de mensagem/seção, quebramos de forma limpa
+        const isSeparator = line.startsWith('--------------------') || line.startsWith('====================');
+        if (isSeparator && currentLen >= maxChars * 0.88) {
+            rawParts.push(currentPart);
+            currentPart = [];
+            currentLen = 0;
+        }
+    }
+
+    if (currentPart.length > 0) {
+        rawParts.push(currentPart);
+    }
+
+    if (rawParts.length <= 1) {
+        return [fileTextLines];
+    }
+
+    const totalParts = rawParts.length;
+    return rawParts.map((partLines, idx) => {
+        const partHeader = [
+            `======================================================================`,
+            `   VOLUME ${idx + 1} DE ${totalParts} — DIVISÃO AUTOMÁTICA PARA NOTEBOOKLM`,
+            `   Contexto: ${contextLabel}`,
+            `======================================================================\n`,
+        ];
+        return [...partHeader, ...partLines];
+    });
+}
+
 module.exports = {
     generatePdf,
     cleanDiscordText,
     parseFileTextLines,
     fileTextToHtmlBlocks,
     discordMdToHtml,
+    splitLinesForNotebookLM,
+    NOTEBOOKLM_MAX_CHARS,
 };
