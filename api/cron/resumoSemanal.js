@@ -1,4 +1,4 @@
-const { ChannelType, EmbedBuilder } = require('discord.js');
+const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { generatePdf } = require('../pdfGenerator.js');
 const { uploadToDrive, ensureBackupFolder } = require('../driveUploader.js');
 const cronManager = require('./cronManager.js');
@@ -7,6 +7,21 @@ const cronManager = require('./cronManager.js');
 
 // Canal de log do cron (mesmo usado em commandLogger.js)
 const LOG_CHANNEL_ID = '1423848686391394454';
+
+// Teto inteligente por canal para evitar que chats gigantes (ex: chat-off) estourem os 100MB de RAM
+const MAX_MESSAGES_PER_CHANNEL = 3000;
+
+// Estado em tempo real da execução ativa (permite pular chat/categoria via botão)
+const activeRunState = {
+    isRunning: false,
+    skipCurrentChannel: false,
+    savePartialChannel: false,
+    skipCurrentCategory: false,
+    currentCategoryName: 'N/A',
+    currentChannelName: 'N/A',
+    currentChannelMsgs: 0,
+    lastActionFeedback: null,
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -17,14 +32,92 @@ function buildProgressBar(current, total, size = 15) {
     return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${Math.round(pct * 100)}% (${current}/${total})`;
 }
 
+function buildControlButtons(disabled = false) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('cron_resumo_action_skip_channel')
+            .setLabel('Pular Chat Atual')
+            .setEmoji('⏭️')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(disabled),
+        new ButtonBuilder()
+            .setCustomId('cron_resumo_action_partial_channel')
+            .setLabel('Cortar & Salvar Chat')
+            .setEmoji('💾')
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(disabled),
+        new ButtonBuilder()
+            .setCustomId('cron_resumo_action_skip_category')
+            .setLabel('Pular Categoria')
+            .setEmoji('⏩')
+            .setStyle(ButtonStyle.Danger)
+            .setDisabled(disabled)
+    );
+}
+
 /**
- * Coleta todas as mensagens de um canal de texto de forma paginada sem poluir o cache de RAM.
+ * Trata cliques nos botões de controle de progresso (Pular Chat, Cortar & Salvar, Pular Categoria).
  */
-async function fetchAllMessages(channel) {
+async function handleResumoControlInteraction(interaction) {
+    if (!activeRunState.isRunning) {
+        return interaction.reply({
+            content: 'ℹ️ Nenhum resumo semanal está em execução neste momento.',
+            flags: 64,
+        });
+    }
+
+    const action = interaction.customId.replace('cron_resumo_action_', '');
+
+    if (action === 'skip_channel') {
+        activeRunState.skipCurrentChannel = true;
+        activeRunState.lastActionFeedback = `⏭️ Chat **#${activeRunState.currentChannelName}** pulado por ${interaction.user.username}.`;
+        return interaction.reply({
+            content: `⏭️ Pulando imediatamente o chat **#${activeRunState.currentChannelName}** (da categoria **${activeRunState.currentCategoryName}**)...`,
+            flags: 64,
+        });
+    }
+
+    if (action === 'partial_channel') {
+        activeRunState.savePartialChannel = true;
+        activeRunState.lastActionFeedback = `💾 Chat **#${activeRunState.currentChannelName}** cortado e salvo parcialmente (${activeRunState.currentChannelMsgs} msgs).`;
+        return interaction.reply({
+            content: `💾 Parando leitura de **#${activeRunState.currentChannelName}** e salvando as **${activeRunState.currentChannelMsgs}** mensagens já coletadas...`,
+            flags: 64,
+        });
+    }
+
+    if (action === 'skip_category') {
+        activeRunState.skipCurrentCategory = true;
+        activeRunState.lastActionFeedback = `⏩ Categoria **${activeRunState.currentCategoryName}** pulada por ${interaction.user.username}.`;
+        return interaction.reply({
+            content: `⏩ Pulando imediatamente toda a categoria **${activeRunState.currentCategoryName}**...`,
+            flags: 64,
+        });
+    }
+}
+
+/**
+ * Coleta as mensagens de um canal de texto de forma paginada sem poluir o cache de RAM,
+ * respeitando o teto de segurança e verificando os botões de pular a cada página.
+ */
+async function fetchAllMessages(channel, onPageProgress = null) {
     const messages = [];
     let cursor = null;
+    let truncatedByLimit = false;
+    let truncatedManually = false;
+
+    activeRunState.currentChannelMsgs = 0;
 
     while (true) {
+        if (activeRunState.skipCurrentChannel || activeRunState.skipCurrentCategory) {
+            return { messages: [], skipped: true, truncatedByLimit: false, truncatedManually: false };
+        }
+        if (activeRunState.savePartialChannel) {
+            activeRunState.savePartialChannel = false;
+            truncatedManually = true;
+            break;
+        }
+
         const options = { limit: 100, cache: false };
         if (cursor) options.before = cursor;
 
@@ -42,21 +135,38 @@ async function fetchAllMessages(channel) {
                     channelName: channel.name || 'Desconhecido',
                 });
             }
+
+            activeRunState.currentChannelMsgs = messages.length;
             cursor = fetched.last()?.id;
+
+            if (onPageProgress && messages.length % 400 === 0) {
+                await onPageProgress(messages.length);
+            }
+
+            if (messages.length >= MAX_MESSAGES_PER_CHANNEL) {
+                truncatedByLimit = true;
+                break;
+            }
         } catch (e) {
             console.error(`[CRON-RESUMO] Erro ao buscar mensagens em ${channel.name}:`, e.message);
             break;
         }
     }
 
-    return messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    return {
+        messages: messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp),
+        skipped: false,
+        truncatedByLimit,
+        truncatedManually,
+    };
 }
 
 /**
- * Processa um canal (ou thread) e retorna { fileTextLines } prontos para o PDF.
+ * Processa um canal (ou thread) e retorna { fileTextLines, skipped } prontos para o PDF.
  */
-async function processChannel(channel, client) {
-    const msgs = await fetchAllMessages(channel);
+async function processChannel(channel, client, onPageProgress = null) {
+    const { messages: msgs, skipped, truncatedByLimit, truncatedManually } = await fetchAllMessages(channel, onPageProgress);
+    if (skipped) return { skipped: true };
     if (msgs.length === 0) return null;
 
     const channelIds = [channel.id];
@@ -77,7 +187,14 @@ async function processChannel(channel, client) {
     fileText.push(`- Categoria: ${catName}`);
     fileText.push(`- Fórum/Canal: ${forumChanName}`);
     fileText.push(`- Título da Postagem: ${postTitle}`);
-    fileText.push(`- Intervalo de Mensagens: Início a Fim`);
+    fileText.push(`- Total de Mensagens Coletadas: ${msgs.length}`);
+    if (truncatedByLimit) {
+        fileText.push(`- Nota de Volume: Canal massivo — coletadas as ${msgs.length} mensagens mais recentes (limite de segurança de RAM).`);
+    } else if (truncatedManually) {
+        fileText.push(`- Nota de Volume: Leitura cortada manualmente via botão — salvas as ${msgs.length} mensagens mais recentes.`);
+    } else {
+        fileText.push(`- Intervalo de Mensagens: Início a Fim`);
+    }
     fileText.push(`- Data de Geração: ${dataGeracao}\n`);
     fileText.push(`======================================================================`);
     fileText.push(`                        CONTEÚDO`);
@@ -115,6 +232,7 @@ async function processChannel(channel, client) {
         forumChanName,
         postTitle,
         channelName: channel.name,
+        skipped: false,
     };
 }
 
@@ -124,6 +242,15 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
     console.log('[CRON-RESUMO] Iniciando resumo semanal de todas as categorias...');
     const startTime = Date.now();
 
+    activeRunState.isRunning = true;
+    activeRunState.skipCurrentChannel = false;
+    activeRunState.savePartialChannel = false;
+    activeRunState.skipCurrentCategory = false;
+    activeRunState.currentCategoryName = 'Iniciando...';
+    activeRunState.currentChannelName = 'Aguardando...';
+    activeRunState.currentChannelMsgs = 0;
+    activeRunState.lastActionFeedback = null;
+
     let logChannel = null;
     try {
         logChannel = client.channels.cache.get(LOG_CHANNEL_ID) || await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
@@ -131,12 +258,16 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
 
     const guild = await client.guilds.fetch('731974689798488185').catch(() => null);
     if (!guild) {
+        activeRunState.isRunning = false;
         console.error('[CRON-RESUMO] Guild não encontrada!');
         return 'Erro: Guild não encontrada.';
     }
 
     const allChannels = await guild.channels.fetch().catch(() => null);
-    if (!allChannels) return 'Erro: Não foi possível listar canais da guild.';
+    if (!allChannels) {
+        activeRunState.isRunning = false;
+        return 'Erro: Não foi possível listar canais da guild.';
+    }
 
     const datStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
     const subfolderName = `Resumo Semanal - ${datStr}`;
@@ -158,6 +289,7 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
 
     const resultados = [];
     const puladas = [];
+    const chatsPulados = [];
     const erros = [];
     let progressMessage = null;
     let lastUpdateTs = 0;
@@ -173,15 +305,25 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
         const elapsedFormatted = `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`;
         const unixNow = Math.floor(now / 1000);
 
+        const chatLine = isFinished
+            ? `💬 **Chat Atual Sendo Visto:** \`Finalizado\``
+            : `💬 **Chat Atual Sendo Visto:** \`#${activeRunState.currentChannelName}\` ${activeRunState.currentChannelMsgs > 0 ? `(*${activeRunState.currentChannelMsgs} msgs lidas...*)` : ''}`;
+
+        const actionFeedbackLine = activeRunState.lastActionFeedback
+            ? `\n⚡ **Última Ação Manual:** ${activeRunState.lastActionFeedback}`
+            : '';
+
         const embed = new EmbedBuilder()
             .setTitle(isFinished ? '📅 Resumo Semanal de RP — Concluído!' : '⏳ Resumo Semanal de RP — Em Andamento...')
             .setColor(isFinished ? (erros.length > 0 ? '#e67e22' : '#2ecc71') : '#3498db')
             .setTimestamp()
             .setDescription(
                 `**Progresso Geral:** \`${buildProgressBar(currentCatIndex, totalCategorias)}\`\n` +
-                `**Status Atual:** ${statusText}\n` +
+                `📂 **Categoria Atual:** \`${isFinished ? 'Todas concluídas' : activeRunState.currentCategoryName}\`\n` +
+                `${chatLine}\n` +
+                `**Status:** ${statusText}${actionFeedbackLine}\n` +
                 `**Último Pulso (Vivo):** <t:${unixNow}:R> • **Tempo:** \`${elapsedFormatted}\` • **RAM:** \`${ramMb} MB\`\n` +
-                `**Resumo Parcial:** ✅ **${resultados.length}** salvas | ⏭️ **${puladas.length}** vazias | ❌ **${erros.length}** erro(s)\n\n` +
+                `**Resumo Parcial:** ✅ **${resultados.length}** salvas | ⏭️ **${puladas.length}** cat. puladas/vazias | 💬 **${chatsPulados.length}** chats pulados | ❌ **${erros.length}** erro(s)\n\n` +
                 `📁 **Pasta no Google Drive:** [Abrir "${subfolderName}"](${driveFolderInfo.webViewLink})`
             );
 
@@ -201,135 +343,181 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
             embed.addFields({ name: `⚠️ Erros (${erros.length})`, value: errStr.substring(0, 1024) });
         }
 
+        const components = isFinished ? [] : [buildControlButtons(false)];
+
         if (logChannel) {
             if (!progressMessage) {
-                progressMessage = await logChannel.send({ embeds: [embed] }).catch(() => null);
+                progressMessage = await logChannel.send({ embeds: [embed], components }).catch(() => null);
             } else {
-                await progressMessage.edit({ embeds: [embed] }).catch(() => {});
+                await progressMessage.edit({ embeds: [embed], components }).catch(() => {});
             }
         }
 
         if (triggerInteraction) {
-            await triggerInteraction.editReply({ content: null, embeds: [embed] }).catch(() => {});
+            await triggerInteraction.editReply({ content: null, embeds: [embed], components }).catch(() => {});
         }
     }
 
     await updateProgressPanel(0, 'Iniciando varredura das categorias...', true);
 
-    for (let idx = 0; idx < totalCategorias; idx++) {
-        const categoria = categorias[idx];
-        try {
-            await updateProgressPanel(idx, `🔄 **[${idx + 1}/${totalCategorias}]** Mapeando canais de **${categoria.name}**...`, true);
-
-            // Coleta filhos: canais de texto e fóruns
-            const filhos = allChannels.filter(c => c && c.parentId === categoria.id);
-            const channelsToProcess = [];
-
-            for (const [, filho] of filhos) {
-                if (filho.isTextBased() && filho.type !== ChannelType.GuildForum) {
-                    channelsToProcess.push(filho);
-                } else if (filho.type === ChannelType.GuildForum) {
-                    try {
-                        const active = await filho.threads.fetchActive();
-                        const archived = await filho.threads.fetchArchived({ type: 'public', limit: 50 });
-                        channelsToProcess.push(...active.threads.values(), ...archived.threads.values());
-                    } catch (e) {
-                        console.error(`[CRON-RESUMO] Erro ao buscar threads de ${filho.name}:`, e.message);
-                    }
-                }
-            }
-
-            if (channelsToProcess.length === 0) {
-                puladas.push(categoria.name);
-                continue;
-            }
-
-            // Processa todos os canais da categoria
-            const allFileLines = [];
-
-            for (let cIdx = 0; cIdx < channelsToProcess.length; cIdx++) {
-                const ch = channelsToProcess[cIdx];
-                try {
-                    await updateProgressPanel(
-                        idx,
-                        `🔄 **[${idx + 1}/${totalCategorias}] ${categoria.name}** — Lendo canal ${cIdx + 1}/${channelsToProcess.length} (\`#${ch.name}\`)...`,
-                        false
-                    );
-                    const result = await processChannel(ch, client);
-                    if (!result) continue;
-                    for (const line of result.fileTextLines) {
-                        allFileLines.push(line);
-                    }
-                } catch (e) {
-                    console.error(`[CRON-RESUMO] Erro ao processar canal ${ch.name}:`, e.message);
-                }
-            }
-
-            if (allFileLines.length === 0) {
-                puladas.push(categoria.name);
-                continue;
-            }
-
-            const nomCat = categoria.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_').trim();
-            const pdfFileName = `RP-${nomCat}-${datStr}.pdf`;
-
-            let uploadResult;
-            let finalFileName = pdfFileName;
-
-            await updateProgressPanel(
-                idx,
-                `📄 **[${idx + 1}/${totalCategorias}] ${categoria.name}** — Gerando PDF e enviando para a pasta do Drive...`,
-                true
-            );
+    try {
+        for (let idx = 0; idx < totalCategorias; idx++) {
+            const categoria = categorias[idx];
+            activeRunState.currentCategoryName = `[${idx + 1}/${totalCategorias}] ${categoria.name}`;
+            activeRunState.currentChannelName = 'Mapeando canais...';
+            activeRunState.currentChannelMsgs = 0;
+            activeRunState.skipCurrentCategory = false;
 
             try {
-                const pdfBuffer = await generatePdf({
-                    titulo: `RP — ${categoria.name}`,
+                await updateProgressPanel(idx, `🔄 Mapeando canais da categoria **${categoria.name}**...`, true);
+
+                // Coleta filhos: canais de texto e fóruns
+                const filhos = allChannels.filter(c => c && c.parentId === categoria.id);
+                const channelsToProcess = [];
+
+                for (const [, filho] of filhos) {
+                    if (activeRunState.skipCurrentCategory) break;
+                    if (filho.isTextBased() && filho.type !== ChannelType.GuildForum) {
+                        channelsToProcess.push(filho);
+                    } else if (filho.type === ChannelType.GuildForum) {
+                        try {
+                            const active = await filho.threads.fetchActive();
+                            const archived = await filho.threads.fetchArchived({ type: 'public', limit: 50 });
+                            channelsToProcess.push(...active.threads.values(), ...archived.threads.values());
+                        } catch (e) {
+                            console.error(`[CRON-RESUMO] Erro ao buscar threads de ${filho.name}:`, e.message);
+                        }
+                    }
+                }
+
+                if (activeRunState.skipCurrentCategory) {
+                    activeRunState.skipCurrentCategory = false;
+                    puladas.push(`${categoria.name} (pulada)`);
+                    continue;
+                }
+
+                if (channelsToProcess.length === 0) {
+                    puladas.push(categoria.name);
+                    continue;
+                }
+
+                // Processa todos os canais da categoria
+                const allFileLines = [];
+
+                for (let cIdx = 0; cIdx < channelsToProcess.length; cIdx++) {
+                    if (activeRunState.skipCurrentCategory) break;
+
+                    const ch = channelsToProcess[cIdx];
+                    activeRunState.currentChannelName = `${ch.name} (${cIdx + 1}/${channelsToProcess.length})`;
+                    activeRunState.currentChannelMsgs = 0;
+                    activeRunState.skipCurrentChannel = false;
+                    activeRunState.savePartialChannel = false;
+
+                    try {
+                        await updateProgressPanel(
+                            idx,
+                            `🔄 Lendo chat **#${ch.name}** (${cIdx + 1} de ${channelsToProcess.length} em **${categoria.name}**)...`,
+                            false
+                        );
+
+                        const result = await processChannel(ch, client, async (msgCount) => {
+                            await updateProgressPanel(
+                                idx,
+                                `🔄 Lendo chat **#${ch.name}** (${msgCount}/${MAX_MESSAGES_PER_CHANNEL} msgs coletadas)...`,
+                                false
+                            );
+                        });
+
+                        if (activeRunState.skipCurrentChannel || result?.skipped) {
+                            activeRunState.skipCurrentChannel = false;
+                            chatsPulados.push(`#${ch.name}`);
+                            continue;
+                        }
+
+                        if (!result) continue;
+                        for (const line of result.fileTextLines) {
+                            allFileLines.push(line);
+                        }
+                    } catch (e) {
+                        console.error(`[CRON-RESUMO] Erro ao processar canal ${ch.name}:`, e.message);
+                    }
+                }
+
+                if (activeRunState.skipCurrentCategory) {
+                    activeRunState.skipCurrentCategory = false;
+                    puladas.push(`${categoria.name} (pulada)`);
+                    continue;
+                }
+
+                if (allFileLines.length === 0) {
+                    puladas.push(categoria.name);
+                    continue;
+                }
+
+                const nomCat = categoria.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_').trim();
+                const pdfFileName = `RP-${nomCat}-${datStr}.pdf`;
+
+                let uploadResult;
+                let finalFileName = pdfFileName;
+
+                activeRunState.currentChannelName = 'Gerando PDF e enviando ao Drive...';
+                await updateProgressPanel(
+                    idx,
+                    `📄 **[${idx + 1}/${totalCategorias}] ${categoria.name}** — Gerando PDF e enviando para a pasta do Drive...`,
+                    true
+                );
+
+                try {
+                    const pdfBuffer = await generatePdf({
+                        titulo: `RP — ${categoria.name}`,
+                        categoria: categoria.name,
+                        canal: 'Categoria Inteira',
+                        postTitle: 'Vários Tópicos',
+                        mensagensRange: 'Início a Fim',
+                        modo: 'Coleta Automática Semanal (Sem IA)',
+                        fileTextLines: allFileLines,
+                        resumo: null,
+                    });
+
+                    uploadResult = await uploadToDrive({
+                        buffer: pdfBuffer,
+                        fileName: pdfFileName,
+                        mimeType: 'application/pdf',
+                        skipIfExists: true,
+                        subfolderName,
+                    });
+                } catch (pdfErr) {
+                    console.warn(`[CRON-RESUMO] Falha ao gerar/enviar PDF para ${categoria.name}. Usando fallback em TXT:`, pdfErr.message);
+                    finalFileName = `RP-${nomCat}-${datStr}.txt`;
+                    const txtBuffer = Buffer.from(allFileLines.join('\n'), 'utf-8');
+                    uploadResult = await uploadToDrive({
+                        buffer: txtBuffer,
+                        fileName: finalFileName,
+                        mimeType: 'text/plain',
+                        skipIfExists: true,
+                        subfolderName,
+                    });
+                }
+
+                if (uploadResult?.folderLink) {
+                    driveFolderInfo.webViewLink = uploadResult.folderLink;
+                }
+
+                resultados.push({
                     categoria: categoria.name,
-                    canal: 'Categoria Inteira',
-                    postTitle: 'Vários Tópicos',
-                    mensagensRange: 'Início a Fim',
-                    modo: 'Coleta Automática Semanal (Sem IA)',
-                    fileTextLines: allFileLines,
-                    resumo: null,
+                    arquivo: finalFileName,
+                    link: uploadResult.webViewLink,
+                    jaExistia: uploadResult.alreadyExisted,
                 });
 
-                uploadResult = await uploadToDrive({
-                    buffer: pdfBuffer,
-                    fileName: pdfFileName,
-                    mimeType: 'application/pdf',
-                    skipIfExists: true,
-                    subfolderName,
-                });
-            } catch (pdfErr) {
-                console.warn(`[CRON-RESUMO] Falha ao gerar/enviar PDF para ${categoria.name}. Usando fallback em TXT:`, pdfErr.message);
-                finalFileName = `RP-${nomCat}-${datStr}.txt`;
-                const txtBuffer = Buffer.from(allFileLines.join('\n'), 'utf-8');
-                uploadResult = await uploadToDrive({
-                    buffer: txtBuffer,
-                    fileName: finalFileName,
-                    mimeType: 'text/plain',
-                    skipIfExists: true,
-                    subfolderName,
-                });
+                console.log(`[CRON-RESUMO] ✅ [${idx + 1}/${totalCategorias}] ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${finalFileName}`);
+            } catch (e) {
+                console.error(`[CRON-RESUMO] ❌ Erro na categoria ${categoria.name}:`, e.message);
+                erros.push({ categoria: categoria.name, erro: e.message });
             }
-
-            if (uploadResult?.folderLink) {
-                driveFolderInfo.webViewLink = uploadResult.folderLink;
-            }
-
-            resultados.push({
-                categoria: categoria.name,
-                arquivo: finalFileName,
-                link: uploadResult.webViewLink,
-                jaExistia: uploadResult.alreadyExisted,
-            });
-
-            console.log(`[CRON-RESUMO] ✅ [${idx + 1}/${totalCategorias}] ${categoria.name} → ${uploadResult.alreadyExisted ? 'Já existia' : 'Enviado'}: ${finalFileName}`);
-        } catch (e) {
-            console.error(`[CRON-RESUMO] ❌ Erro na categoria ${categoria.name}:`, e.message);
-            erros.push({ categoria: categoria.name, erro: e.message });
         }
+    } finally {
+        activeRunState.isRunning = false;
     }
 
     await updateProgressPanel(
@@ -338,7 +526,7 @@ async function executarResumoSemanal(client, triggerInteraction = null) {
         true
     );
 
-    console.log(`[CRON-RESUMO] ✅ Concluído! ${resultados.length} categorias processadas, ${puladas.length} vazias, ${erros.length} erros.`);
+    console.log(`[CRON-RESUMO] ✅ Concluído! ${resultados.length} categorias processadas, ${puladas.length} vazias/puladas, ${erros.length} erros.`);
     return `${resultados.length} categorias salvas na pasta "${subfolderName}" (${erros.length} erros).`;
 }
 
@@ -358,3 +546,4 @@ module.exports = (client) => {
 };
 
 module.exports.executarResumoSemanal = executarResumoSemanal;
+module.exports.handleResumoControlInteraction = handleResumoControlInteraction;

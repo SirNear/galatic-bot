@@ -366,6 +366,11 @@ async function updateDashboard() {
 async function handleCronInteraction(interaction) {
     const customId = interaction.customId;
 
+    if (customId.startsWith('cron_resumo_action_')) {
+        const { handleResumoControlInteraction } = require('./resumoSemanal.js');
+        return handleResumoControlInteraction(interaction);
+    }
+
     if (customId === 'cron_refresh_panel') {
         await interaction.deferReply({ ephemeral: true });
         await updateDashboard();

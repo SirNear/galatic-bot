@@ -121,15 +121,18 @@ module.exports = class rpresumo extends Command {
     }
   }
 
-  async fetchMessages(channel, startId, endId, targetUserId = null) {
+  async fetchMessages(channel, startId, endId, targetUserId = null, controlOptions = null) {
     const messages = [];
     let cursor = endId;
     let stop = false;
+    const maxMessages = controlOptions?.maxMessages || 0;
+    const state = controlOptions?.state || null;
+    const onProgress = controlOptions?.onProgress || null;
 
     // Tenta incluir a mensagem final se ela pertencer a este canal e for válida
     if (endId) {
         try {
-            const endMsg = await channel.messages.fetch(endId);
+            const endMsg = await channel.messages.fetch({ message: endId, cache: false });
             if (!targetUserId || endMsg.author?.id === targetUserId) {
                 messages.push(endMsg);
             }
@@ -139,36 +142,56 @@ module.exports = class rpresumo extends Command {
     }
 
     while (!stop) {
-        const options = { limit: 100 };
-        if (cursor) options.before = cursor;
-
-    try {
-        const fetched = await channel.messages.fetch(options);
-        if (fetched.size === 0) break;
-
-        for (const msg of fetched.values()) {
-            if (startId && msg.id === startId) {
-                if (!targetUserId || msg.author?.id === targetUserId) {
-                    messages.push(msg);
-                }
-                stop = true;
-                break;
+        if (state) {
+            if (state.skipCurrentChannel || state.skipCurrentCategory) {
+                return [];
             }
-            if (startId && BigInt(msg.id) < BigInt(startId)) {
-                stop = true;
+            if (state.savePartialChannel) {
+                state.savePartialChannel = false;
                 break;
-            }
-            if (msg.id !== endId) {
-                if (!targetUserId || msg.author?.id === targetUserId) {
-                    messages.push(msg);
-                }
             }
         }
-        cursor = fetched.last()?.id;
-    } catch (e) {
-        console.error(`Erro ao buscar mensagens no canal ${channel.name}:`, e);
-        break;
-    }
+
+        const options = { limit: 100, cache: false };
+        if (cursor) options.before = cursor;
+
+        try {
+            const fetched = await channel.messages.fetch(options);
+            if (fetched.size === 0) break;
+
+            for (const msg of fetched.values()) {
+                if (startId && msg.id === startId) {
+                    if (!targetUserId || msg.author?.id === targetUserId) {
+                        messages.push(msg);
+                    }
+                    stop = true;
+                    break;
+                }
+                if (startId && BigInt(msg.id) < BigInt(startId)) {
+                    stop = true;
+                    break;
+                }
+                if (msg.id !== endId) {
+                    if (!targetUserId || msg.author?.id === targetUserId) {
+                        messages.push(msg);
+                    }
+                }
+            }
+            cursor = fetched.last()?.id;
+
+            if (state) {
+                state.currentChannelMsgs = messages.length;
+            }
+            if (onProgress && messages.length > 0 && messages.length % 400 === 0) {
+                await onProgress(messages.length);
+            }
+            if (maxMessages > 0 && messages.length >= maxMessages) {
+                break;
+            }
+        } catch (e) {
+            console.error(`Erro ao buscar mensagens no canal ${channel.name}:`, e);
+            break;
+        }
     }
     return messages;
   }
@@ -331,17 +354,110 @@ module.exports = class rpresumo extends Command {
         const masterZip = new AdmZip();
         let totalServerMessages = 0;
         let processedCatsCount = 0;
+        const MAX_MSGS_PER_CH_TUDO = 3000;
+
+        const tudoState = {
+            skipCurrentChannel: false,
+            savePartialChannel: false,
+            skipCurrentCategory: false,
+            currentCategoryName: 'Iniciando...',
+            currentChannelName: 'Aguardando...',
+            currentChannelMsgs: 0,
+            lastActionFeedback: null,
+        };
+
+        const controlRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('rpresumo_tudo_skip_channel')
+                .setLabel('Pular Chat Atual')
+                .setEmoji('⏭️')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('rpresumo_tudo_partial_channel')
+                .setLabel('Cortar & Salvar Chat')
+                .setEmoji('💾')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('rpresumo_tudo_skip_category')
+                .setLabel('Pular Categoria')
+                .setEmoji('⏩')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        const buildBar = (cur, tot, size = 15) => {
+            const pct = tot > 0 ? Math.min(1, Math.max(0, cur / tot)) : 0;
+            const filled = Math.round(pct * size);
+            return `[${'█'.repeat(filled)}${'░'.repeat(size - filled)}] ${Math.round(pct * 100)}% (${cur}/${tot})`;
+        };
+
+        let lastUiUpdate = 0;
+        const updateTudoProgress = async (catIndex, force = false) => {
+            const now = Date.now();
+            if (!force && now - lastUiUpdate < 3000) return;
+            lastUiUpdate = now;
+
+            const ramMb = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+            const feedbackStr = tudoState.lastActionFeedback ? `\n⚡ **Ação Manual:** ${tudoState.lastActionFeedback}` : '';
+
+            const lines = [
+                `⏳ **Extração Completa do Servidor em Andamento...**`,
+                `**Barra de Progresso:** \`${buildBar(catIndex, categoryList.length)}\``,
+                `📂 **Categoria Atual:** **${tudoState.currentCategoryName}**`,
+                `💬 **Chat Atual Sendo Visto:** **#${tudoState.currentChannelName}** ${tudoState.currentChannelMsgs > 0 ? `(*${tudoState.currentChannelMsgs} msgs lidas...*)` : ''}`,
+                `📊 **Acumulado:** \`${totalServerMessages}\` mensagens em \`${processedCatsCount}\` categorias • **RAM:** \`${ramMb} MB\`${feedbackStr}`,
+            ];
+
+            await interaction.editReply({
+                content: lines.join('\n'),
+                components: [controlRow],
+            }).catch(() => {});
+        };
+
+        const progressMsg = await interaction.fetchReply().catch(() => null);
+        let btnCollector = null;
+        if (progressMsg) {
+            btnCollector = progressMsg.createMessageComponentCollector({
+                componentType: ComponentType.Button,
+                time: 14 * 60 * 1000,
+            });
+
+            btnCollector.on('collect', async (btnInt) => {
+                if (btnInt.user.id !== interaction.user.id && !this.client.owners?.includes(btnInt.user.id)) {
+                    return btnInt.reply({ content: '❌ Apenas quem iniciou o comando pode controlar o progresso.', flags: 64 });
+                }
+
+                if (btnInt.customId === 'rpresumo_tudo_skip_channel') {
+                    tudoState.skipCurrentChannel = true;
+                    tudoState.lastActionFeedback = `⏭️ Chat **#${tudoState.currentChannelName}** pulado.`;
+                    await btnInt.reply({ content: `⏭️ Pulando imediatamente o chat **#${tudoState.currentChannelName}**...`, flags: 64 }).catch(() => {});
+                } else if (btnInt.customId === 'rpresumo_tudo_partial_channel') {
+                    tudoState.savePartialChannel = true;
+                    tudoState.lastActionFeedback = `💾 Chat **#${tudoState.currentChannelName}** cortado e salvo (${tudoState.currentChannelMsgs} msgs).`;
+                    await btnInt.reply({ content: `💾 Salvando as **${tudoState.currentChannelMsgs}** mensagens já lidas de **#${tudoState.currentChannelName}** e avançando...`, flags: 64 }).catch(() => {});
+                } else if (btnInt.customId === 'rpresumo_tudo_skip_category') {
+                    tudoState.skipCurrentCategory = true;
+                    tudoState.lastActionFeedback = `⏩ Categoria **${tudoState.currentCategoryName}** pulada.`;
+                    await btnInt.reply({ content: `⏩ Pulando imediatamente a categoria **${tudoState.currentCategoryName}**...`, flags: 64 }).catch(() => {});
+                }
+            });
+        }
 
         for (let i = 0; i < categoryList.length; i++) {
             const cat = categoryList[i];
             const safeCatName = cat.name.replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '_').trim() || `Categoria_${i + 1}`;
 
-            await interaction.editReply({ 
-                content: `⏳ [${i + 1}/${categoryList.length}] Processando categoria: **${cat.name}**... (${totalServerMessages} mensagens coletadas${targetUser ? ` de ${targetUser.username}` : ''})` 
-            }).catch(() => {});
+            tudoState.currentCategoryName = `[${i + 1}/${categoryList.length}] ${cat.name}`;
+            tudoState.currentChannelName = 'Mapeando canais...';
+            tudoState.currentChannelMsgs = 0;
+            tudoState.skipCurrentCategory = false;
+
+            await updateTudoProgress(i, true);
 
             const channelsToProcess = await this.getCategoryChannels(cat, allChannels);
-            if (channelsToProcess.length === 0) continue;
+            if (channelsToProcess.length === 0 || tudoState.skipCurrentCategory) {
+                tudoState.skipCurrentCategory = false;
+                continue;
+            }
 
             const channelIds = channelsToProcess.map(item => item.channel.id);
             const categoryLores = await this.client.database.Lore.find({ channelId: { $in: channelIds } }).catch(() => []);
@@ -349,9 +465,30 @@ module.exports = class rpresumo extends Command {
 
             let catAllMessages = [];
 
-            for (const item of channelsToProcess) {
+            for (let cIdx = 0; cIdx < channelsToProcess.length; cIdx++) {
+                if (tudoState.skipCurrentCategory) break;
+
+                const item = channelsToProcess[cIdx];
+                tudoState.currentChannelName = `${item.channel.name} (${cIdx + 1}/${channelsToProcess.length})`;
+                tudoState.currentChannelMsgs = 0;
+                tudoState.skipCurrentChannel = false;
+                tudoState.savePartialChannel = false;
+
+                await updateTudoProgress(i, false);
+
                 try {
-                    const msgs = await this.fetchMessages(item.channel, startId, endId, targetUserId);
+                    const msgs = await this.fetchMessages(item.channel, startId, endId, targetUserId, {
+                        maxMessages: MAX_MSGS_PER_CH_TUDO,
+                        state: tudoState,
+                        onProgress: async () => {
+                            await updateTudoProgress(i, false);
+                        },
+                    });
+
+                    if (tudoState.skipCurrentChannel) {
+                        tudoState.skipCurrentChannel = false;
+                        continue;
+                    }
                     if (!msgs || msgs.length === 0) continue;
 
                     msgs.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
@@ -379,6 +516,10 @@ module.exports = class rpresumo extends Command {
                 }
             }
 
+            if (tudoState.skipCurrentCategory) {
+                tudoState.skipCurrentCategory = false;
+            }
+
             if (catAllMessages.length > 0) {
                 catAllMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
                 totalServerMessages += catAllMessages.length;
@@ -400,6 +541,8 @@ module.exports = class rpresumo extends Command {
                 // Se formato for PDF ou ZIP, gera também o PDF da categoria
                 if (formato === 'pdf' || formato === 'zip') {
                     try {
+                        tudoState.currentChannelName = 'Gerando PDF da categoria...';
+                        await updateTudoProgress(i, false);
                         const pdfBuffer = await generatePdf({
                             titulo: targetUser ? `RP — ${cat.name} (${targetUser.username})` : `RP — ${cat.name}`,
                             categoria: cat.name,
@@ -418,15 +561,18 @@ module.exports = class rpresumo extends Command {
             }
         }
 
+        if (btnCollector) btnCollector.stop('finished');
+
         if (totalServerMessages === 0) {
             return interaction.editReply({ 
                 content: targetUser 
                     ? `❌ Nenhuma mensagem encontrada para o usuário <@${targetUser.id}> em todo o servidor.` 
-                    : '❌ Nenhuma mensagem encontrada no servidor dentro do critério especificado.' 
+                    : '❌ Nenhuma mensagem encontrada no servidor dentro do critério especificado.',
+                components: []
             });
         }
 
-        await interaction.editReply({ content: '📦 Compactando todos os arquivos do servidor em ZIP...' });
+        await interaction.editReply({ content: '📦 Compactando todos os arquivos do servidor em ZIP...', components: [] });
 
         const zipBuffer = masterZip.toBuffer();
         const datAtu = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
