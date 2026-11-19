@@ -3,14 +3,32 @@ const { google } = require('googleapis');
 const DRIVE_FOLDER_ID = '1n5rkbn5TbTEK2X-NTTnWVQXjzq9vUssB';
 
 /**
- * Cria e retorna um cliente autenticado do Google Drive usando a Service Account do .env.
+ * Cria e retorna um cliente autenticado do Google Drive.
+ * Prioriza OAuth 2.0 (conta pessoal com cota normal) se configurado no .env,
+ * ou faz fallback para a Service Account (GOOGLE_CREDENTIALS).
  */
 function getDriveClient() {
+    if (
+        process.env.GOOGLE_OAUTH_CLIENT_ID &&
+        process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+        process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+    ) {
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_OAUTH_CLIENT_ID,
+            process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+            'https://developers.google.com/oauthplayground'
+        );
+        oauth2Client.setCredentials({
+            refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+        });
+        return google.drive({ version: 'v3', auth: oauth2Client });
+    }
+
     let credentials;
     try {
         credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
     } catch (e) {
-        throw new Error('GOOGLE_CREDENTIALS inválido no .env. Verifique o JSON da service account.');
+        throw new Error('Credenciais do Google Drive ausentes ou inválidas no .env (configure OAuth 2.0 ou GOOGLE_CREDENTIALS).');
     }
 
     const auth = new google.auth.GoogleAuth({
@@ -34,6 +52,8 @@ async function findExistingFile(drive, fileName) {
         q: query,
         fields: 'files(id, name)',
         pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
     });
     const files = res.data.files;
     if (files && files.length > 0) return files[0].id;
@@ -61,6 +81,7 @@ async function uploadToDrive(params) {
             const fileInfo = await drive.files.get({
                 fileId: existingId,
                 fields: 'id, webViewLink',
+                supportsAllDrives: true,
             }).catch(() => null);
             return {
                 id: existingId,
@@ -84,11 +105,13 @@ async function uploadToDrive(params) {
             body: stream,
         },
         fields: 'id, webViewLink',
+        supportsAllDrives: true,
     });
 
     // Tornar o arquivo público para visualização
     await drive.permissions.create({
         fileId: res.data.id,
+        supportsAllDrives: true,
         requestBody: {
             role: 'reader',
             type: 'anyone',
