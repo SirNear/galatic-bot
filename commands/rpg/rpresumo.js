@@ -179,6 +179,9 @@ module.exports = class rpresumo extends Command {
             }
             cursor = fetched.last()?.id;
 
+            // Limpa o cache do discord.js para liberar RAM continuamente
+            try { channel.messages.cache.clear(); } catch (_) {}
+
             if (state) {
                 state.currentChannelMsgs = messages.length;
             }
@@ -193,6 +196,7 @@ module.exports = class rpresumo extends Command {
             break;
         }
     }
+    try { channel.messages.cache.clear(); } catch (_) {}
     return messages;
   }
 
