@@ -1,4 +1,9 @@
-const PDFDocument = require('pdfkit');
+let PDFDocument = null;
+try {
+    PDFDocument = require('pdfkit');
+} catch (_) {
+    // pdfkit opcional em tempo de carregamento para prevenir MODULE_NOT_FOUND em ambientes de hospedagem
+}
 
 /**
  * Limpa marcações de markdown e emojis customizados do Discord para exibição limpa no PDF.
@@ -154,7 +159,120 @@ function ensureSpace(doc, neededHeight) {
 }
 
 /**
- * Gera um Buffer de PDF pesquisável e leve a partir dos dados de RP utilizando PDFKit.
+ * Gerador nativo de PDF em JavaScript puro para fallback caso pdfkit não esteja disponível.
+ */
+function generateNativeFallbackPdf(params) {
+    const {
+        titulo = 'Registro de Roleplay',
+        categoria = 'N/A',
+        canal = 'N/A',
+        postTitle = 'N/A',
+        fileTextLines = [],
+        resumo = null,
+    } = params;
+
+    const flatLines = [];
+    flatLines.push('================================================================');
+    flatLines.push('GALATIC BOT - REGISTRO DE ROLEPLAY');
+    flatLines.push('Titulo: ' + titulo);
+    flatLines.push('Categoria: ' + categoria + ' | Canal: ' + canal + (postTitle && postTitle !== 'N/A' ? ' (' + postTitle + ')' : ''));
+    flatLines.push('Data: ' + new Date().toLocaleString('pt-BR'));
+    flatLines.push('================================================================');
+    flatLines.push('');
+
+    if (resumo) {
+        flatLines.push('--- RESUMO NARRATIVO ---');
+        for (const rLine of String(resumo).split('\n')) {
+            flatLines.push(rLine);
+        }
+        flatLines.push('');
+        flatLines.push('--- CONTEUDO COMPLETO ---');
+        flatLines.push('');
+    }
+
+    for (const entry of (fileTextLines || [])) {
+        if (typeof entry === 'string') {
+            for (const l of entry.split('\n')) flatLines.push(l);
+        }
+    }
+
+    const LINES_PER_PAGE = 48;
+    const pages = [];
+    for (let i = 0; i < flatLines.length; i += LINES_PER_PAGE) {
+        pages.push(flatLines.slice(i, i + LINES_PER_PAGE));
+    }
+    if (pages.length === 0) pages.push(['(Nenhum conteudo registrado)']);
+
+    const totalPages = pages.length;
+    const pageObjNums = [];
+    const contentObjNums = [];
+    let curObj = 3;
+
+    for (let p = 0; p < totalPages; p++) {
+        curObj++;
+        pageObjNums.push(curObj);
+        curObj++;
+        contentObjNums.push(curObj);
+    }
+
+    const catalogObj = '<< /Type /Catalog /Pages 2 0 R >>';
+    const pagesKids = pageObjNums.map(n => n + ' 0 R').join(' ');
+    const pagesObj = '<< /Type /Pages /Kids [' + pagesKids + '] /Count ' + totalPages + ' >>';
+    const fontObj = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+
+    const fullObjects = [catalogObj, pagesObj, fontObj];
+
+    for (let p = 0; p < totalPages; p++) {
+        const pageLines = pages[p];
+        const streamLines = ['BT', '/F1 10 Tf', '40 800 Td', '15 TL'];
+        
+        streamLines.push('(Galatic Bot - ' + titulo.slice(0, 50).replace(/[()\\\\]/g, '') + ' [Pagina ' + (p + 1) + '/' + totalPages + ']) Tj');
+        streamLines.push('T*');
+        streamLines.push('(' + '-'.repeat(75) + ') Tj');
+        streamLines.push('T*');
+
+        for (const line of pageLines) {
+            const clean = String(line)
+                .replace(/[\r\n]/g, ' ')
+                .replace(/[\u0080-\uffff]/g, c => {
+                    const map = { 'á':'a','à':'a','ã':'a','â':'a','é':'e','ê':'e','í':'i','ó':'o','ô':'o','õ':'o','ú':'u','ç':'c','Á':'A','À':'A','Ã':'A','Â':'A','É':'E','Ê':'E','Í':'I','Ó':'O','Ô':'O','Õ':'O','Ú':'U','Ç':'C' };
+                    return map[c] || '';
+                })
+                .replace(/[()\\\\]/g, '');
+            streamLines.push('(' + clean.slice(0, 95) + ') Tj');
+            streamLines.push('T*');
+        }
+        streamLines.push('ET');
+        const streamContent = streamLines.join('\n');
+        const streamLen = Buffer.byteLength(streamContent);
+
+        const pageContent = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents ' + contentObjNums[p] + ' 0 R /Resources << /Font << /F1 3 0 R >> >> >>';
+        const streamObj = '<< /Length ' + streamLen + ' >>\nstream\n' + streamContent + '\nendstream';
+
+        fullObjects.push(pageContent);
+        fullObjects.push(streamObj);
+    }
+
+    let output = '%PDF-1.4\n';
+    const offsets = [0];
+
+    for (let i = 0; i < fullObjects.length; i++) {
+        offsets.push(Buffer.byteLength(output));
+        output += (i + 1) + ' 0 obj\n' + fullObjects[i] + '\nendobj\n';
+    }
+
+    const xrefOffset = Buffer.byteLength(output);
+    output += 'xref\n0 ' + (fullObjects.length + 1) + '\n';
+    output += '0000000000 65535 f \n';
+    for (let i = 1; i <= fullObjects.length; i++) {
+        output += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+    }
+    output += 'trailer\n<< /Size ' + (fullObjects.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF';
+    return Buffer.from(output, 'binary');
+}
+
+/**
+ * Gera um Buffer de PDF pesquisável e leve a partir dos dados de RP utilizando PDFKit (ou fallback nativo).
  * Não requer Chromium, Puppeteer ou bibliotecas nativas do sistema operacional (como libglib).
  *
  * @param {Object} params
@@ -169,6 +287,15 @@ function ensureSpace(doc, neededHeight) {
  * @returns {Promise<Buffer>} Buffer do PDF gerado
  */
 async function generatePdf(params) {
+    if (!PDFDocument) {
+        try {
+            PDFDocument = require('pdfkit');
+        } catch (_) {}
+    }
+
+    if (!PDFDocument) {
+        return generateNativeFallbackPdf(params);
+    }
     const {
         titulo = 'Registro de Roleplay',
         categoria = 'N/A',

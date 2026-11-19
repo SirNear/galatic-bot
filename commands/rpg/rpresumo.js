@@ -12,7 +12,12 @@ const Command = require('../../structures/Command');
 const { resumirRP, summarizeSummary } = require('../../api/resumir.js');
 const { generatePdf } = require('../../api/pdfGenerator.js');
 const { uploadToDrive } = require('../../api/driveUploader.js');
-const AdmZip = require('adm-zip');
+let AdmZip = null;
+try {
+    AdmZip = require('adm-zip');
+} catch (_) {
+    // adm-zip opcional em tempo de carga
+}
 
 // ─── Log dedicado do comando rpresumo ─────────────────────────────────────────
 const LOG_CHANNEL_ID = '1423848686391394454';
