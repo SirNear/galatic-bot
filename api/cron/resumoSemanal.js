@@ -9,15 +9,26 @@ const cronManager = require('./cronManager.js');
 
 const LOG_CHANNEL_ID = '1423848686391394454';
 const ITEMS_PER_PAGE = 6;
-const DEFAULT_CONCURRENCY = process.env.CRON_CONCURRENCY ? parseInt(process.env.CRON_CONCURRENCY, 10) : 2;
 
 // ─── Monitoramento e Limite Seguro de Memória ──────────────────────────────────
+
+/**
+ * Determina a concorrência ideal de categorias em paralelo baseada na RAM disponível.
+ */
+function getCronConcurrency(configuredRam) {
+    if (process.env.CRON_CONCURRENCY) {
+        return Math.max(1, parseInt(process.env.CRON_CONCURRENCY, 10));
+    }
+    if (configuredRam >= 900) return 4; // 1 GB (1000 MB): 4 categorias simultâneas
+    if (configuredRam >= 450) return 3; // 500 MB: 3 categorias simultâneas
+    return 2; // 100 MB: 2 categorias simultâneas
+}
 
 /**
  * Obtém os limites dinâmicos de RAM de acordo com o ambiente (Discloud vs Local Dev).
  */
 function getMemoryThresholds() {
-    let configuredRam = 100;
+    let configuredRam = 1000;
     try {
         const configPath = path.join(process.cwd(), 'discloud.config');
         if (fs.existsSync(configPath)) {
@@ -41,13 +52,16 @@ function getMemoryThresholds() {
     }
 
     const isWindows = process.platform === 'win32';
-    // No Windows (ambiente dev/teste local do usuário), permitimos um teto de 320 MB para não pausar falsamente.
-    // No Linux (Discloud), o teto seguro é 80% da RAM máxima contratada (ex: 80 MB em container de 100 MB).
-    const ceilingMb = isWindows ? Math.max(configuredRam, 320) : Math.floor(configuredRam * 0.80);
+    // No Windows (ambiente dev/teste local do usuário), permitimos folga proporcional.
+    // No Linux (Discloud), o teto seguro é 80% da RAM contratada (ex: 800 MB em container de 1000 MB).
+    const ceilingMb = isWindows ? Math.max(configuredRam, 800) : Math.floor(configuredRam * 0.80);
     const recoveryMb = Math.floor(ceilingMb * 0.72);
 
     return { configuredRam, ceilingMb, recoveryMb };
 }
+
+const { configuredRam: _initialRam } = getMemoryThresholds();
+const DEFAULT_CONCURRENCY = getCronConcurrency(_initialRam);
 
 // ─── Estado Global em Tempo Real ──────────────────────────────────────────────
 

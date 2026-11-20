@@ -830,17 +830,37 @@ module.exports = class rpresumo extends Command {
         let allMessages = [];
         let processedCount = 0;
 
-        await interaction.editReply({ content: `⏳ Coletando mensagens de ${channelsToProcess.length} canais/tópicos...` });
+        // Com 1 GB de RAM, processamos múltiplos canais da categoria em paralelo
+        const CHANNEL_CONCURRENCY = Math.min(4, Math.max(1, channelsToProcess.length));
+        await interaction.editReply({ 
+            content: `⏳ Coletando mensagens de ${channelsToProcess.length} canais/tópicos (processamento paralelo: ${CHANNEL_CONCURRENCY} simultâneos)...` 
+        });
 
-        for (const ch of channelsToProcess) {
-            const msgs = await this.fetchMessages(ch, startId, endId, targetUserId);
-            allMessages.push(...msgs);
-            processedCount++;
-            
-            if (processedCount % 5 === 0 || processedCount === channelsToProcess.length) {
-                await interaction.editReply({ content: `⏳ Coletando mensagens... (${processedCount}/${channelsToProcess.length} canais processados | ${allMessages.length} mensagens coletadas${targetUser ? ` de ${targetUser.username}` : ''})` });
+        let queueIndex = 0;
+        const channelWorker = async () => {
+            while (queueIndex < channelsToProcess.length) {
+                const ch = channelsToProcess[queueIndex++];
+                try {
+                    const msgs = await this.fetchMessages(ch, startId, endId, targetUserId);
+                    allMessages.push(...msgs);
+                } catch (e) {
+                    console.error(`[RPRESUMO] Erro ao coletar mensagens do canal ${ch?.name}:`, e.message);
+                }
+                processedCount++;
+
+                if (processedCount % 3 === 0 || processedCount === channelsToProcess.length) {
+                    await interaction.editReply({ 
+                        content: `⏳ Coletando mensagens em paralelo... (${processedCount}/${channelsToProcess.length} canais processados | ${allMessages.length} mensagens coletadas${targetUser ? ` de ${targetUser.username}` : ''})` 
+                    }).catch(() => {});
+                }
             }
+        };
+
+        const workers = [];
+        for (let w = 0; w < CHANNEL_CONCURRENCY; w++) {
+            workers.push(channelWorker());
         }
+        await Promise.all(workers);
 
         allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
         
