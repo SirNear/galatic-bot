@@ -159,7 +159,97 @@ function ensureSpace(doc, neededHeight) {
 }
 
 /**
- * Gerador nativo de PDF em JavaScript puro para fallback caso pdfkit não esteja disponível.
+ * Sanitiza o texto para geração de PDF limpo em WinAnsiEncoding.
+ */
+function sanitizeForPdf(text) {
+    if (!text || typeof text !== 'string') return '';
+    return cleanDiscordText(text)
+        .normalize('NFC')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\u2026/g, '...')
+        .replace(/[\u2022\u25E6\u2023\u2043]/g, '*')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\t/g, '    ');
+}
+
+/**
+ * Escapa uma string para inclusão segura em streams PDF literais (...) com suporte a WinAnsiEncoding.
+ * Caracteres acentuados da língua portuguesa (á, à, ã, â, é, ê, í, ó, ô, õ, ú, ç, etc.)
+ * são codificados em octal (\ddd) para compatibilidade universal com fontes Type 1 em PDF 1.4.
+ */
+function escapePdfString(str) {
+    if (!str) return '';
+    const s = sanitizeForPdf(str);
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        const code = s.charCodeAt(i);
+        if (c === '(') out += '\\(';
+        else if (c === ')') out += '\\)';
+        else if (c === '\\') out += '\\\\';
+        else if (c === '\r' || c === '\n') out += ' ';
+        else if (code >= 32 && code <= 126) out += c;
+        else if (code >= 160 && code <= 255) {
+            out += '\\' + code.toString(8).padStart(3, '0');
+        } else {
+            out += ' ';
+        }
+    }
+    return out;
+}
+
+/**
+ * Quebra uma linha de texto em múltiplas linhas respeitando palavras completas (word-wrap).
+ * Evita que textos longos fiquem cortados na borda da página ou comprimidos em linha única.
+ */
+function wrapLine(line, maxChars = 80) {
+    if (!line || typeof line !== 'string') return [''];
+    if (line.length <= maxChars) return [line];
+
+    const words = line.split(' ');
+    const lines = [];
+    let current = '';
+
+    for (const word of words) {
+        if (!word) {
+            if (current.length < maxChars) current += ' ';
+            continue;
+        }
+        if (!current) {
+            if (word.length <= maxChars) {
+                current = word;
+            } else {
+                for (let i = 0; i < word.length; i += maxChars) {
+                    const chunk = word.slice(i, i + maxChars);
+                    if (i + maxChars < word.length) lines.push(chunk);
+                    else current = chunk;
+                }
+            }
+        } else if ((current + ' ' + word).length <= maxChars) {
+            current += ' ' + word;
+        } else {
+            lines.push(current);
+            if (word.length <= maxChars) {
+                current = word;
+            } else {
+                for (let i = 0; i < word.length; i += maxChars) {
+                    const chunk = word.slice(i, i + maxChars);
+                    if (i + maxChars < word.length) lines.push(chunk);
+                    else current = chunk;
+                }
+            }
+        }
+    }
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : [''];
+}
+
+/**
+ * Gerador nativo de PDF em JavaScript puro (zero dependências, sem binários nativos ou Chromium).
+ * Utiliza fontes padrão PDF 1.4 com WinAnsiEncoding para suporte total aos acentos da língua portuguesa,
+ * quebra automática de linha (word-wrap) sem cortar textos, paginação dinâmica e cabeçalhos/rodapés estruturados.
  */
 function generateNativeFallbackPdf(params) {
     const {
@@ -167,46 +257,133 @@ function generateNativeFallbackPdf(params) {
         categoria = 'N/A',
         canal = 'N/A',
         postTitle = 'N/A',
+        mensagensRange = 'Início a Fim',
+        modo = 'Coleta de Conteúdo',
         fileTextLines = [],
         resumo = null,
     } = params;
 
-    const flatLines = [];
-    flatLines.push('================================================================');
-    flatLines.push('GALATIC BOT - REGISTRO DE ROLEPLAY');
-    flatLines.push('Titulo: ' + titulo);
-    flatLines.push('Categoria: ' + categoria + ' | Canal: ' + canal + (postTitle && postTitle !== 'N/A' ? ' (' + postTitle + ')' : ''));
-    flatLines.push('Data: ' + new Date().toLocaleString('pt-BR'));
-    flatLines.push('================================================================');
-    flatLines.push('');
+    const dataGeracao = new Date().toLocaleString('pt-BR');
+    const cleanDocTitle = sanitizeForPdf(titulo);
 
-    if (resumo) {
-        flatLines.push('--- RESUMO NARRATIVO ---');
-        for (const rLine of String(resumo).split('\n')) {
-            flatLines.push(rLine);
+    const allContentLines = [];
+
+    // ─── 1. RESUMO NARRATIVO (SE HOUVER) ─────────────────────────────────
+    if (resumo && typeof resumo === 'string' && resumo.trim().length > 0) {
+        allContentLines.push({ type: 'section_header', text: '======================================================================' });
+        allContentLines.push({ type: 'section_header', text: '   RESUMO GERADO POR IA' });
+        allContentLines.push({ type: 'section_header', text: '======================================================================' });
+        allContentLines.push({ type: 'text', text: '' });
+
+        const rParagraphs = resumo.split(/\r?\n/);
+        for (const p of rParagraphs) {
+            const wrapped = wrapLine(p, 80);
+            for (const wl of wrapped) {
+                allContentLines.push({ type: 'summary', text: wl });
+            }
         }
-        flatLines.push('');
-        flatLines.push('--- CONTEUDO COMPLETO ---');
-        flatLines.push('');
+        allContentLines.push({ type: 'text', text: '' });
+        allContentLines.push({ type: 'section_header', text: '======================================================================' });
+        allContentLines.push({ type: 'section_header', text: '   TRANSCRIÇÃO COMPLETA DAS MENSAGENS' });
+        allContentLines.push({ type: 'section_header', text: '======================================================================' });
+        allContentLines.push({ type: 'text', text: '' });
     }
+
+    // ─── 2. LINHAS DE MENSAGENS E LORES ──────────────────────────────────
+    let isSkippingHeader = true;
 
     for (const entry of (fileTextLines || [])) {
         if (typeof entry === 'string') {
-            for (const l of entry.split('\n')) flatLines.push(l);
+            const lines = entry.split(/\r?\n/);
+            for (const l of lines) {
+                const trimmed = l.trim();
+
+                // Ignora cabeçalhos duplicados do arquivo TXT original
+                if (isSkippingHeader) {
+                    if (
+                        trimmed.startsWith('ARQUIVO DE REGISTRO') ||
+                        trimmed.startsWith('LEGENDA:') ||
+                        trimmed.startsWith('INFORMAÇÕES') ||
+                        trimmed.startsWith('- Categoria:') ||
+                        trimmed.startsWith('- Fórum/Canal:') ||
+                        trimmed.startsWith('- Título da Postagem:') ||
+                        trimmed.startsWith('- Intervalo de Mensagens:') ||
+                        trimmed.startsWith('- Filtro de Usuário:') ||
+                        trimmed.startsWith('- Total de Mensagens') ||
+                        trimmed.startsWith('- Data de Geração:') ||
+                        trimmed.startsWith('- Modo:') ||
+                        trimmed === 'CONTEÚDO' ||
+                        (trimmed.startsWith('===') && !trimmed.includes('[LORE:')) ||
+                        trimmed.startsWith('---')
+                    ) {
+                        continue;
+                    }
+                    if (trimmed.length > 0) {
+                        isSkippingHeader = false;
+                    } else {
+                        continue;
+                    }
+                }
+
+                // Identifica seções especiais
+                if (trimmed.includes('[LORE:') && trimmed.includes('===')) {
+                    allContentLines.push({ type: 'lore_start', text: trimmed.slice(0, 80) });
+                } else if (trimmed.includes('[FIM DA LORE]')) {
+                    allContentLines.push({ type: 'lore_end', text: trimmed.slice(0, 80) });
+                } else if (trimmed.startsWith('>> CAPÍTULO:')) {
+                    allContentLines.push({ type: 'lore_chapter', text: trimmed.slice(0, 80) });
+                } else if (trimmed.startsWith('Canal:') && trimmed.includes('Autor:') && trimmed.includes('Data:')) {
+                    allContentLines.push({ type: 'lore_meta', text: trimmed.slice(0, 80) });
+                } else if (trimmed.startsWith('------------------------------------------------------------') || trimmed.startsWith('======')) {
+                    allContentLines.push({ type: 'divider', text: '-'.repeat(70) });
+                } else if (trimmed.match(/^\[.+?\]\s*\[.+?\]\s*.+?:$/)) {
+                    allContentLines.push({ type: 'msg_header', text: trimmed });
+                } else if (trimmed.length === 0) {
+                    allContentLines.push({ type: 'text', text: '' });
+                } else {
+                    const wrapped = wrapLine(l, 80);
+                    for (const wl of wrapped) {
+                        allContentLines.push({ type: 'text', text: wl });
+                    }
+                }
+            }
         }
     }
 
-    const LINES_PER_PAGE = 48;
-    const pages = [];
-    for (let i = 0; i < flatLines.length; i += LINES_PER_PAGE) {
-        pages.push(flatLines.slice(i, i + LINES_PER_PAGE));
+    if (allContentLines.length === 0) {
+        allContentLines.push({ type: 'text', text: '(Nenhuma mensagem gravada neste registro)' });
     }
-    if (pages.length === 0) pages.push(['(Nenhum conteudo registrado)']);
+
+    // ─── 3. PAGINAÇÃO INTELIGENTE ────────────────────────────────────────
+    const PAGE1_MAX_LINES = 45;
+    const PAGEX_MAX_LINES = 50;
+
+    const pages = [];
+    let curPageLines = [];
+    let curMax = PAGE1_MAX_LINES;
+
+    for (let i = 0; i < allContentLines.length; i++) {
+        const item = allContentLines[i];
+
+        // Evita cabeçalhos órfãos na última linha da página
+        if (curPageLines.length === curMax - 1 && (item.type === 'msg_header' || item.type === 'section_header' || item.type === 'lore_start' || item.type === 'lore_chapter')) {
+            pages.push(curPageLines);
+            curPageLines = [];
+            curMax = PAGEX_MAX_LINES;
+        } else if (curPageLines.length >= curMax) {
+            pages.push(curPageLines);
+            curPageLines = [];
+            curMax = PAGEX_MAX_LINES;
+        }
+
+        curPageLines.push(item);
+    }
+    if (curPageLines.length > 0) pages.push(curPageLines);
 
     const totalPages = pages.length;
     const pageObjNums = [];
     const contentObjNums = [];
-    let curObj = 3;
+    let curObj = 5;
 
     for (let p = 0; p < totalPages; p++) {
         curObj++;
@@ -218,35 +395,98 @@ function generateNativeFallbackPdf(params) {
     const catalogObj = '<< /Type /Catalog /Pages 2 0 R >>';
     const pagesKids = pageObjNums.map(n => n + ' 0 R').join(' ');
     const pagesObj = '<< /Type /Pages /Kids [' + pagesKids + '] /Count ' + totalPages + ' >>';
-    const fontObj = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+    const fontRegular = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+    const fontBold = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+    const fontItalic = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>';
 
-    const fullObjects = [catalogObj, pagesObj, fontObj];
+    const fullObjects = [catalogObj, pagesObj, fontRegular, fontBold, fontItalic];
 
     for (let p = 0; p < totalPages; p++) {
-        const pageLines = pages[p];
-        const streamLines = ['BT', '/F1 10 Tf', '40 800 Td', '15 TL'];
-        
-        streamLines.push('(Galatic Bot - ' + titulo.slice(0, 50).replace(/[()\\\\]/g, '') + ' [Pagina ' + (p + 1) + '/' + totalPages + ']) Tj');
-        streamLines.push('T*');
-        streamLines.push('(' + '-'.repeat(75) + ') Tj');
-        streamLines.push('T*');
+        const pageItems = pages[p];
+        const streamLines = [];
 
-        for (const line of pageLines) {
-            const clean = String(line)
-                .replace(/[\r\n]/g, ' ')
-                .replace(/[\u0080-\uffff]/g, c => {
-                    const map = { 'á':'a','à':'a','ã':'a','â':'a','é':'e','ê':'e','í':'i','ó':'o','ô':'o','õ':'o','ú':'u','ç':'c','Á':'A','À':'A','Ã':'A','Â':'A','É':'E','Ê':'E','Í':'I','Ó':'O','Ô':'O','Õ':'O','Ú':'U','Ç':'C' };
-                    return map[c] || '';
-                })
-                .replace(/[()\\\\]/g, '');
-            streamLines.push('(' + clean.slice(0, 95) + ') Tj');
+        // Linha divisória do rodapé
+        streamLines.push('0.8 0.85 0.9 RG 0.5 w 45 42 m 550 42 l S');
+
+        // Rodapé permanente em Y = 30
+        streamLines.push('BT');
+        streamLines.push('/F1 7.5 Tf');
+        streamLines.push('0.4 0.45 0.5 rg');
+        streamLines.push('45 30 Td');
+        streamLines.push('(' + escapePdfString('Página ' + (p + 1) + ' de ' + totalPages + '   •   Galatic Bot   •   ' + dataGeracao) + ') Tj');
+        streamLines.push('ET');
+
+        // Bloco principal de texto
+        streamLines.push('BT');
+        streamLines.push('13.5 TL');
+
+        if (p === 0) {
+            // Cabeçalho da Primeira Página
+            streamLines.push('45 805 Td');
+            streamLines.push('/F2 13 Tf');
+            streamLines.push('0.1 0.15 0.25 rg');
+            streamLines.push('(' + escapePdfString(cleanDocTitle.slice(0, 70)) + ') Tj');
+            streamLines.push('T*');
+
+            streamLines.push('/F1 8 Tf');
+            streamLines.push('0.3 0.35 0.4 rg');
+            const meta1 = 'Categoria: ' + categoria + ' | Canal: ' + canal + (postTitle && postTitle !== 'N/A' ? ' (' + postTitle + ')' : '');
+            streamLines.push('(' + escapePdfString(meta1.slice(0, 95)) + ') Tj');
+            streamLines.push('T*');
+            const meta2 = 'Modo: ' + modo + ' | Intervalo: ' + mensagensRange + ' | Gerado em: ' + dataGeracao;
+            streamLines.push('(' + escapePdfString(meta2.slice(0, 95)) + ') Tj');
+            streamLines.push('T*');
+
+            streamLines.push('0.7 0.75 0.8 RG 0.5 w');
+            streamLines.push('(' + escapePdfString('-'.repeat(75)) + ') Tj');
+            streamLines.push('T*');
+        } else {
+            // Cabeçalho das Páginas Seguintes
+            streamLines.push('45 810 Td');
+            streamLines.push('/F3 8 Tf');
+            streamLines.push('0.4 0.45 0.5 rg');
+            streamLines.push('(' + escapePdfString('Galatic Bot — ' + cleanDocTitle.slice(0, 50) + '  [Página ' + (p + 1) + '/' + totalPages + ']') + ') Tj');
+            streamLines.push('T*');
+            streamLines.push('/F1 8 Tf');
+            streamLines.push('(' + escapePdfString('-'.repeat(75)) + ') Tj');
             streamLines.push('T*');
         }
+
+        // Renderização dos itens da página
+        for (const item of pageItems) {
+            if (item.type === 'section_header' || item.type === 'lore_start') {
+                streamLines.push('/F2 9.5 Tf');
+                streamLines.push('0.05 0.2 0.35 rg');
+            } else if (item.type === 'summary') {
+                streamLines.push('/F1 9 Tf');
+                streamLines.push('0.05 0.35 0.15 rg');
+            } else if (item.type === 'msg_header') {
+                streamLines.push('/F2 9 Tf');
+                streamLines.push('0.1 0.15 0.3 rg');
+            } else if (item.type === 'lore_chapter') {
+                streamLines.push('/F2 9 Tf');
+                streamLines.push('0.7 0.35 0.05 rg');
+            } else if (item.type === 'lore_meta') {
+                streamLines.push('/F3 8 Tf');
+                streamLines.push('0.45 0.3 0.1 rg');
+            } else if (item.type === 'divider' || item.type === 'lore_end') {
+                streamLines.push('/F1 8.5 Tf');
+                streamLines.push('0.65 0.7 0.75 rg');
+            } else {
+                streamLines.push('/F1 9 Tf');
+                streamLines.push('0.15 0.2 0.25 rg');
+            }
+
+            streamLines.push('(' + escapePdfString(item.text) + ') Tj');
+            streamLines.push('T*');
+        }
+
         streamLines.push('ET');
+
         const streamContent = streamLines.join('\n');
         const streamLen = Buffer.byteLength(streamContent);
 
-        const pageContent = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents ' + contentObjNums[p] + ' 0 R /Resources << /Font << /F1 3 0 R >> >> >>';
+        const pageContent = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents ' + contentObjNums[p] + ' 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> >>';
         const streamObj = '<< /Length ' + streamLen + ' >>\nstream\n' + streamContent + '\nendstream';
 
         fullObjects.push(pageContent);
@@ -268,34 +508,13 @@ function generateNativeFallbackPdf(params) {
         output += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
     }
     output += 'trailer\n<< /Size ' + (fullObjects.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF';
-    return Buffer.from(output, 'binary');
+    return Buffer.from(output, 'latin1');
 }
 
 /**
- * Gera um Buffer de PDF pesquisável e leve a partir dos dados de RP utilizando PDFKit (ou fallback nativo).
- * Não requer Chromium, Puppeteer ou bibliotecas nativas do sistema operacional (como libglib).
- *
- * @param {Object} params
- * @param {string} params.titulo - Título do documento
- * @param {string} params.categoria - Nome da categoria
- * @param {string} params.canal - Nome do canal/fórum
- * @param {string} params.postTitle - Título do tópico
- * @param {string} params.mensagensRange - Intervalo de mensagens
- * @param {string} params.modo - Modo de geração
- * @param {string[]} params.fileTextLines - Array de linhas do arquivo TXT
- * @param {string|null} [params.resumo=null] - Resumo gerado por IA (opcional)
- * @returns {Promise<Buffer>} Buffer do PDF gerado
+ * Renderizador de PDF via PDFKit (layout visual rico com caixas e badges coloridos).
  */
-async function generatePdf(params) {
-    if (!PDFDocument) {
-        try {
-            PDFDocument = require('pdfkit');
-        } catch (_) {}
-    }
-
-    if (!PDFDocument) {
-        return generateNativeFallbackPdf(params);
-    }
+async function generatePdfKit(params) {
     const {
         titulo = 'Registro de Roleplay',
         categoria = 'N/A',
@@ -621,6 +840,32 @@ async function generatePdf(params) {
     });
 }
 
+/**
+ * Gera um Buffer de PDF pesquisável e leve a partir dos dados de RP utilizando PDFKit (se disponível)
+ * ou o gerador nativo puro em JavaScript (fallback leve e resiliente para ambientes como Discloud).
+ *
+ * @param {Object} params
+ * @returns {Promise<Buffer>} Buffer do PDF gerado
+ */
+async function generatePdf(params) {
+    if (!PDFDocument) {
+        try {
+            PDFDocument = require('pdfkit');
+        } catch (_) {}
+    }
+
+    if (!PDFDocument) {
+        return generateNativeFallbackPdf(params);
+    }
+
+    try {
+        return await generatePdfKit(params);
+    } catch (err) {
+        console.warn('[PDF] Falha na renderização via PDFKit. Usando fallback nativo com word-wrap:', err.message);
+        return generateNativeFallbackPdf(params);
+    }
+}
+
 // Helpers mantidos para compatibilidade retroativa
 function escapeHtml(text) {
     if (!text) return '';
@@ -714,6 +959,7 @@ function splitLinesForNotebookLM(fileTextLines, contextLabel = 'Registro de RP',
 
 module.exports = {
     generatePdf,
+    generateNativeFallbackPdf,
     cleanDiscordText,
     parseFileTextLines,
     fileTextToHtmlBlocks,

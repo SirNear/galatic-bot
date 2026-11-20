@@ -33,7 +33,7 @@ function getChapterReleaseDate(chapter, loreDoc) {
     if (chapter?._id) {
         try {
             return new mongoose.Types.ObjectId(String(chapter._id)).getTimestamp();
-        } catch (_) {}
+        } catch (_) { }
     }
     if (loreDoc?.createdAt) {
         const dt = new Date(loreDoc.createdAt);
@@ -189,7 +189,7 @@ async function recoverChapterImagesFromBackupZip(client, loreDoc, chapIdx) {
         await client.database.Lore.updateOne(
             { messageId: loreDoc.messageId },
             { $set: { [`chapters.${chapIdx}.pages`]: chapter.pages } }
-        ).catch(() => {});
+        ).catch(() => { });
 
         return chapter.pages;
     } catch (err) {
@@ -220,7 +220,351 @@ async function resolveValidLoreImageUrl(imageUrl, client, loreDoc = null, chapId
     return imageUrl.startsWith('http') ? imageUrl : null;
 }
 
+/**
+ * Constrói o modal de configuração/edição da Main Page da Lore.
+ */
+function buildMainPageConfigModal(loreState) {
+    const modal = new ModalBuilder()
+        .setCustomId('lore_modal_mainpage')
+        .setTitle('Configurar Página Inicial da Lore');
+
+    const titleInput = new TextInputBuilder()
+        .setCustomId('lore_title')
+        .setLabel("Título da Lore")
+        .setStyle(TextInputStyle.Short)
+        .setValue((loreState?.title || 'Minha Lore').substring(0, 100))
+        .setRequired(true);
+
+    const chapterInput = new TextInputBuilder()
+        .setCustomId('lore_chapter')
+        .setLabel("Nome/Número do Capítulo")
+        .setStyle(TextInputStyle.Short)
+        .setValue((loreState?.chapter || 'Capítulo 1').substring(0, 100))
+        .setPlaceholder('Ex: "Capítulo 1", "Prólogo", etc.')
+        .setRequired(true);
+
+    const synopsisInput = new TextInputBuilder()
+        .setCustomId('lore_synopsis')
+        .setLabel("Descritor / Sinopse (Página Inicial)")
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue((loreState?.synopsis || '').substring(0, 4000))
+        .setPlaceholder('Resumo ou apresentação para a mensagem eterna da lore no canal (Opcional)...')
+        .setRequired(false);
+
+    const coverInput = new TextInputBuilder()
+        .setCustomId('lore_cover_image')
+        .setLabel("URL da Imagem de Capa (Opcional)")
+        .setStyle(TextInputStyle.Short)
+        .setValue((loreState?.coverImageUrl || '').substring(0, 500))
+        .setPlaceholder('https://exemplo.com/capa.png')
+        .setRequired(false);
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(titleInput),
+        new ActionRowBuilder().addComponents(chapterInput),
+        new ActionRowBuilder().addComponents(synopsisInput),
+        new ActionRowBuilder().addComponents(coverInput)
+    );
+
+    return modal;
+}
+
+/**
+ * Exibe a pré-visualização da Página Inicial (Main Page) para revisão do autor antes de sacramentar.
+ */
+async function showMainPagePreview(interaction, client, loreState) {
+    const title = loreState.title || 'Sem Título';
+    const chapter = loreState.chapter || 'Capítulo 1';
+    const synopsis = loreState.synopsis || '';
+    const coverUrl = loreState.coverImageUrl || loreState.pages?.[0]?.imageUrl || null;
+    const eternalDescription = synopsis || loreState.pages?.[0]?.content || 'Clique em Ler Lore para iniciar a leitura.';
+
+    const previewEmbed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor('#0099ff')
+        .setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+        .setDescription(eternalDescription.substring(0, 4096))
+        .setFooter({ text: synopsis ? `📚 1 capítulo • Clique em "📖 Ler Lore" para iniciar a leitura` : `${chapter} - Parte 1 de ${loreState.pages.length}` })
+        .setTimestamp(new Date());
+
+    if (coverUrl && coverUrl.startsWith('http')) {
+        previewEmbed.setImage(coverUrl);
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('lore_btn_sacramentar')
+            .setLabel('Salvar Lore')
+            .setEmoji('✅')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId('lore_btn_edit_mainpage')
+            .setLabel('Editar Main Page')
+            .setEmoji('✏️')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId('lore_btn_preview_pages_0')
+            .setLabel('Ver Páginas do Texto')
+            .setEmoji('📖')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('lore_btn_cancel')
+            .setLabel('Cancelar')
+            .setEmoji('❌')
+            .setStyle(ButtonStyle.Danger)
+    );
+
+    const payload = {
+        content:
+            '✨ **Pré-visualização da Página Inicial (Main Page):**\n' +
+            'Esta é a mensagem eterna de apresentação da sua lore como ela aparecerá no canal.\n' +
+            'Se quiser ajustar título, sinopse ou imagem de capa, clique em **Editar Main Page**.\n' +
+            'Quando estiver tudo pronto, clique em **Sacramentar Lore** para salvar e publicar!',
+        embeds: [previewEmbed],
+        components: [row],
+    };
+
+    if (interaction.replied || interaction.deferred) {
+        return interaction.editReply(payload);
+    } else if (interaction.isButton()) {
+        return interaction.update(payload).catch(() => interaction.editReply(payload));
+    } else {
+        return interaction.reply({ ...payload, flags: 64 });
+    }
+}
+
+/**
+ * Exibe a pré-visualização das páginas de conteúdo da Lore durante a criação.
+ */
+async function showPagesPreview(interaction, pageIndex, loreState) {
+    const pages = loreState.pages || [];
+    const idx = Math.max(0, Math.min(pageIndex, pages.length - 1));
+    const page = pages[idx] || { content: 'Sem conteúdo.', imageUrl: null };
+
+    const pageEmbed = new EmbedBuilder()
+        .setTitle(`<a:spinnyman:1433853169884205106> | Lore: ${loreState.title || 'Sem Título'}`)
+        .setDescription(page.content.substring(0, 4096))
+        .setColor('#0099ff')
+        .setFooter({ text: `Página ${idx + 1} de ${pages.length} (${loreState.chapter || 'Capítulo 1'})` });
+
+    if (page.imageUrl && page.imageUrl.startsWith('http')) {
+        pageEmbed.setImage(page.imageUrl);
+    }
+
+    const navRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`lore_btn_preview_pages_${idx - 1}`)
+            .setLabel('◀️ Anterior')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(idx <= 0),
+        new ButtonBuilder()
+            .setCustomId(`lore_btn_preview_pages_${idx + 1}`)
+            .setLabel('Próximo ▶️')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(idx >= pages.length - 1),
+        new ButtonBuilder()
+            .setCustomId('lore_back_to_mainpage')
+            .setLabel('Voltar à Main Page')
+            .setEmoji('↩️')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId('lore_btn_sacramentar')
+            .setLabel('Sacramentar Lore')
+            .setEmoji('✅')
+            .setStyle(ButtonStyle.Success)
+    );
+
+    const payload = {
+        content: `📖 **Visualizando Páginas do Texto** (Página ${idx + 1} de ${pages.length}):`,
+        embeds: [pageEmbed],
+        components: [navRow],
+    };
+
+    if (interaction.replied || interaction.deferred) {
+        return interaction.editReply(payload);
+    } else if (interaction.isButton()) {
+        return interaction.update(payload).catch(() => interaction.editReply(payload));
+    } else {
+        return interaction.reply({ ...payload, flags: 64 });
+    }
+}
+
+/**
+ * Executa a sacramentação oficial da Lore: salva no MongoDB, posta no canal e cria backups.
+ */
+async function sacramentarLore(interaction, client, loreState) {
+    if (!loreState || !loreState.pages || loreState.pages.length === 0) {
+        const errPayload = { content: '❌ Sessão de lore não encontrada ou expirada. Por favor, inicie novamente com `/lore`.', components: [], embeds: [] };
+        if (interaction.replied || interaction.deferred) return interaction.editReply(errPayload);
+        return interaction.reply({ ...errPayload, flags: 64 });
+    }
+
+    if (interaction.isButton()) {
+        await interaction.update({ content: '⏳ Sacramentando sua lore e preparando backups no servidor... Isso pode levar alguns segundos.', components: [], embeds: [] }).catch(() => { });
+    } else if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: 64 });
+    }
+
+    const title = loreState.title || 'Minha Lore';
+    const chapter = loreState.chapter || 'Capítulo 1';
+    const synopsis = loreState.synopsis || '';
+    const coverImageInput = loreState.coverImageUrl || '';
+    const { pages } = loreState;
+
+    const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
+    if (!bacCha) {
+        return interaction.followUp({ content: '⚠️ O canal de backup não foi encontrado. A operação foi cancelada para evitar perda de dados.', flags: 64 });
+    }
+
+    // Faz backup individual de imagens de páginas
+    for (let i = 0; i < pages.length; i++) {
+        if (pages[i].imageUrl && !pages[i].imageUrl.includes(process.env.BACKUP_CHANNEL_ID)) {
+            try {
+                const backupImgMsg = await bacCha.send({ files: [pages[i].imageUrl] });
+                const persistentUrl = backupImgMsg.attachments.first()?.url;
+                if (persistentUrl) pages[i].imageUrl = persistentUrl;
+            } catch (imgErr) {
+                console.warn(`[LORE] Falha ao fazer backup individual de imagem da página ${i + 1}:`, imgErr.message);
+            }
+        }
+    }
+
+    let finalCoverUrl = null;
+    if (coverImageInput && coverImageInput.startsWith('http')) {
+        finalCoverUrl = coverImageInput;
+        try {
+            const backupCoverMsg = await bacCha.send({ files: [coverImageInput] });
+            if (backupCoverMsg.attachments.first()?.url) {
+                finalCoverUrl = backupCoverMsg.attachments.first().url;
+            }
+        } catch (_) { }
+    } else if (pages[0]?.imageUrl) {
+        finalCoverUrl = pages[0].imageUrl;
+    }
+
+    const firstMsgDate = loreState.rawMessages?.[0]?.createdAt ? new Date(loreState.rawMessages[0].createdAt) : new Date();
+    const eternalDescription = synopsis || pages[0].content;
+
+    const eternalEmbed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor('#0099ff')
+        .setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+        .setDescription(eternalDescription.substring(0, 4096))
+        .setFooter({ text: synopsis ? `📚 1 capítulo • Clique em "📖 Ler Lore" para iniciar a leitura` : `${chapter} - Parte 1 de ${pages.length}` })
+        .setTimestamp(firstMsgDate);
+
+    if (finalCoverUrl) {
+        eternalEmbed.setImage(finalCoverUrl);
+    }
+
+    const targetChannel = interaction.channel;
+    const loreMessage = await targetChannel.send({ embeds: [eternalEmbed] });
+
+    const publicButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`lore_read_${loreMessage.id}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${loreMessage.id}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+        new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${loreMessage.id}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+    );
+    await loreMessage.edit({ components: [publicButtons] });
+
+    await client.database.Lore.create({
+        messageId: loreMessage.id,
+        channelId: loreMessage.channel.id,
+        guildId: loreMessage.guild.id,
+        createdBy: interaction.user.id,
+        title: title,
+        synopsis: synopsis || null,
+        coverImageUrl: finalCoverUrl || null,
+        chapters: [{ name: chapter, pages: pages, createdAt: firstMsgDate }]
+    });
+
+    client.fichaStates.delete(interaction.user.id);
+
+    await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi sacramentada e publicada com sucesso!`, flags: 64 });
+
+    const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
+    const anexos = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
+    if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
+
+    const backupEnviado = await bacCha.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: anexos }).catch(() => null);
+    if (!backupEnviado) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro ao enviar o backup para o servidor.', flags: 64 });
+
+    const linhaConfirmacao = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('lore_dm_confirm_yes').setLabel('Sim, por favor').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('lore_dm_confirm_no').setLabel('Não, obrigado').setStyle(ButtonStyle.Secondary)
+    );
+    const msgConfirmacao = await interaction.followUp({ content: 'O backup principal foi salvo. Você deseja receber uma cópia do backup em suas mensagens diretas (DM)?', components: [linhaConfirmacao], flags: 64, fetchReply: true });
+
+    const filtroColetor = i => i.user.id === interaction.user.id && i.customId.startsWith('lore_dm_confirm_');
+    const coletor = msgConfirmacao.createMessageComponentCollector({ filter: filtroColetor, componentType: ComponentType.Button, time: 60000, max: 1 });
+
+    coletor.on('collect', async i => {
+        if (i.customId === 'lore_dm_confirm_yes') {
+            let dmEnviada = true;
+            await i.user.send({ content: `Backup da sua lore **${title}**.`, files: anexos }).catch(() => {
+                dmEnviada = false;
+            });
+            if (dmEnviada) await i.update({ content: '✅ Backup enviado para sua DM!', components: [] });
+            else await i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade.', components: [] });
+        } else {
+            await i.update({ content: 'Ok! O backup não será enviado por DM.', components: [] });
+        }
+
+        // Limpeza de mensagens originais apenas se forem mensagens reais do canal e deletáveis
+        if (Array.isArray(loreState.rawMessages)) {
+            const duasSemanasAtras = Date.now() - 1209600000;
+            const msgsRecentes = loreState.rawMessages.filter(m => m.createdTimestamp > duasSemanasAtras && m.deletable);
+            const msgsAntigas = loreState.rawMessages.filter(m => m.createdTimestamp <= duasSemanasAtras && m.deletable);
+            if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => { });
+            for (const msg of msgsAntigas) await msg.delete().catch(() => { });
+        }
+    });
+
+    coletor.on('end', async (collected, reason) => {
+        if (reason === 'time') {
+            await msgConfirmacao.edit({ content: '⏰ Tempo esgotado para confirmação de DM.', components: [] }).catch(() => { });
+        }
+    });
+}
+
 async function handleLoreInteraction(interaction, client) {
+    // ─── Botões do Fluxo de Criação da Lore (Main Page, Prévia e Sacramentação) ───
+    if (interaction.isButton()) {
+        if (interaction.customId === 'lore_btn_setup_mainpage' || interaction.customId === 'lore_btn_edit_mainpage') {
+            const loreState = client.fichaStates.get(interaction.user.id);
+            if (!loreState) {
+                return interaction.reply({ content: '❌ Sessão de criação de lore não encontrada ou expirada.', flags: 64 });
+            }
+            return interaction.showModal(buildMainPageConfigModal(loreState));
+        }
+
+        if (interaction.customId === 'lore_btn_cancel') {
+            client.fichaStates.delete(interaction.user.id);
+            return interaction.update({ content: '❌ Criação de lore cancelada.', embeds: [], components: [] });
+        }
+
+        if (interaction.customId === 'lore_back_to_mainpage') {
+            const loreState = client.fichaStates.get(interaction.user.id);
+            if (!loreState) {
+                return interaction.reply({ content: '❌ Sessão de criação de lore não encontrada.', flags: 64 });
+            }
+            return showMainPagePreview(interaction, client, loreState);
+        }
+
+        if (interaction.customId.startsWith('lore_btn_preview_pages_')) {
+            const pageIdx = parseInt(interaction.customId.replace('lore_btn_preview_pages_', ''), 10) || 0;
+            const loreState = client.fichaStates.get(interaction.user.id);
+            if (!loreState) {
+                return interaction.reply({ content: '❌ Sessão de criação de lore não encontrada.', flags: 64 });
+            }
+            return showPagesPreview(interaction, pageIdx, loreState);
+        }
+
+        if (interaction.customId === 'lore_btn_sacramentar') {
+            const loreState = client.fichaStates.get(interaction.user.id);
+            return sacramentarLore(interaction, client, loreState);
+        }
+    }
     // Lógica de botões da Lore
     if (interaction.isButton() || (interaction.isStringSelectMenu() && interaction.customId.startsWith('lore_read_'))) {
         if (interaction.customId.startsWith('lore_manage_')) {
@@ -349,7 +693,7 @@ async function handleLoreInteraction(interaction, client) {
                 }
                 if (action !== 'upg') descPageIndex = 0;
             } else {
-                 return; // Ação desconhecida
+                return; // Ação desconhecida
             }
 
             const lore = await client.database.Lore.findOne({ messageId: messageId }).lean();
@@ -368,7 +712,7 @@ async function handleLoreInteraction(interaction, client) {
                     break;
                 case 'upg': {
                     if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para usar isso.', flags: 64 });
-                    
+
                     // Upgrade abrange o capítulo inteiro (contexto geral)
                     const chapterObj = lore.chapters[chapterIndex];
                     const loreText = chapterObj.pages.map(p => p.content).join('\n\n');
@@ -377,7 +721,7 @@ async function handleLoreInteraction(interaction, client) {
                     try {
                         const ficha = await client.database.Ficha.findOne({ userId: interaction.user.id, guildId: interaction.guildId }).sort({ updatedAt: -1 });
                         if (ficha && ficha.nome) personagem = ficha.nome;
-                    } catch (_) {}
+                    } catch (_) { }
 
                     const { cacheUpgradeSystem } = require('./upgradeInteractions.js');
                     cacheUpgradeSystem.set(interaction.user.id, {
@@ -391,7 +735,7 @@ async function handleLoreInteraction(interaction, client) {
                         loreTitle: lore.title,
                         chapterName: chapterObj.name
                     });
-                    
+
                     const embAi = new EmbedBuilder()
                         .setTitle('<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | <a:MEE6_LEVLEUP:1503159176690405426>')
                         .setDescription(`🏆 **Central de Upgrades da Lore**\n**Lore:** ${lore.title}\n**Capítulo:** ${chapterObj.name}${personagem !== 'Não informado' ? `\n**Personagem:** ${personagem}` : ''}\n\nO texto deste capítulo foi capturado como base do seu treino!\n**Como você deseja definir os seus upgrades?**`)
@@ -403,7 +747,7 @@ async function handleLoreInteraction(interaction, client) {
                         new ButtonBuilder().setCustomId('upgrade_mode_partes').setLabel('Fazer em Partes (10m)').setStyle(ButtonStyle.Success).setEmoji('⏱️'),
                         new ButtonBuilder().setCustomId('upgrade_mode_chat').setLabel('Coletar do Chat (IA)').setStyle(ButtonStyle.Secondary).setEmoji('💬')
                     );
-                    
+
                     // Pré-envia no chat (canal público) para que toda a navegação e confirmação ocorram no chat, como no comando
                     await interaction.channel.send({ content: `<@${interaction.user.id}>`, embeds: [embAi], components: [rowAi] });
 
@@ -560,7 +904,7 @@ async function handleLoreInteraction(interaction, client) {
                     new ButtonBuilder().setCustomId(`lore_prev_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('<< Cap. Anterior').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx === 0),
                     new ButtonBuilder().setCustomId(`lore_next_chapter_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setLabel('Cap. Próximo >>').setStyle(ButtonStyle.Secondary).setDisabled(chapIdx >= totalChapters - 1)
                 );
-                
+
                 if (interaction.user.id === loreDoc.createdBy) {
                     row2.addComponents(
                         new ButtonBuilder().setCustomId(`lore_upg_chap_${messageId}_${chapIdx}_${pIdx}_${descPIdx}`).setEmoji('1503159176690405426').setStyle(ButtonStyle.Success)
@@ -606,7 +950,7 @@ async function handleLoreInteraction(interaction, client) {
             if (!lore || interaction.user.id !== lore.createdBy) {
                 return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
             }
-            
+
             if (lore.chapters.length <= 1) {
                 return interaction.reply({ content: '❌ Você não pode excluir o único capítulo da lore.', flags: 64 });
             }
@@ -616,7 +960,7 @@ async function handleLoreInteraction(interaction, client) {
                 new ButtonBuilder().setCustomId(`lore_delete_chapter_confirmed_${messageId}_${chapterIndex}`).setLabel('Sim, deletar!').setStyle(ButtonStyle.Danger),
                 new ButtonBuilder().setCustomId(`lore_delete_chapter_cancel_${messageId}`).setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
             );
-            
+
             await interaction.reply({
                 content: `⚠️ **ATENÇÃO!** Tem certeza que deseja excluir permanentemente o capítulo **"${selectedChapter.name}"** e suas ${selectedChapter.pages.length} página(s)? Esta ação não pode ser desfeita.`,
                 components: [confirmRow],
@@ -659,7 +1003,7 @@ async function handleLoreInteraction(interaction, client) {
                 lore.chapters.splice(chapterIndex, 1);
                 await lore.save();
 
-                await interaction.update({ content: `✅ O capítulo **"${chapterName}"** foi excluído com sucesso. Você pode fechar esta mensagem.`, components: []});
+                await interaction.update({ content: `✅ O capítulo **"${chapterName}"** foi excluído com sucesso. Você pode fechar esta mensagem.`, components: [] });
             } else if (interaction.customId === 'delete_chapter_cancel') {
                 await interaction.update({ content: 'Operação de exclusão cancelada.', components: [] });
             }
@@ -767,7 +1111,7 @@ async function handleLoreInteraction(interaction, client) {
                         // Lógica de Backup e Limpeza
 
                         const { txtBuffer, zipBuffer } = await messagesToTxt(newMessages, `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`);
-                        
+
                         const criarAnexos = () => {
                             const anc = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
                             if (zipBuffer) anc.push(new AttachmentBuilder(zipBuffer, { name: `capitulo_${newChapterName}_imagens.zip` }));
@@ -794,7 +1138,7 @@ async function handleLoreInteraction(interaction, client) {
                                     await i.user.send({ content: `Backup do novo capítulo **${newChapterName}** da sua lore **${loreDB.title}**.`, files: anexos }).catch(() => {
                                         dmEnviada = false;
                                     });
-                                    
+
                                     if (dmEnviada) await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
                                     else await i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade. Iniciando limpeza...', components: [] });
                                 } else {
@@ -803,8 +1147,8 @@ async function handleLoreInteraction(interaction, client) {
                                 const duasSemanasAtras = Date.now() - 1209600000;
                                 const msgsRecentes = newMessages.filter(m => m.createdTimestamp > duasSemanasAtras && m.deletable);
                                 const msgsAntigas = newMessages.filter(m => m.createdTimestamp <= duasSemanasAtras && m.deletable);
-                                if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => {});
-                                for (const msg of msgsAntigas) await msg.delete().catch(() => {});
+                                if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => { });
+                                for (const msg of msgsAntigas) await msg.delete().catch(() => { });
                                 await interaction.followUp({ content: '✅ Mensagens originais do novo capítulo foram limpas.', flags: 64 });
                             } catch (cleanupErr) {
                                 console.error("Erro ao limpar mensagens:", cleanupErr);
@@ -814,7 +1158,7 @@ async function handleLoreInteraction(interaction, client) {
 
                         coletor.on('end', async (collected, reason) => {
                             if (reason === 'time') {
-                                await msgConfirmacao.edit({ content: '⏰ Tempo esgotado. A limpeza das mensagens originais foi cancelada. Você pode excluí-las manualmente.', components: [] }).catch(() => {});
+                                await msgConfirmacao.edit({ content: '⏰ Tempo esgotado. A limpeza das mensagens originais foi cancelada. Você pode excluí-las manualmente.', components: [] }).catch(() => { });
                             }
                         });
 
@@ -843,11 +1187,11 @@ async function handleLoreInteraction(interaction, client) {
             collector.on('collect', async msg => {
                 try {
                     await interaction.editReply({ content: '📥 Arquivos recebidos. Processando o backup...' });
-                    
+
                     // Buscar arquivo .txt
                     const txtAttachment = msg.attachments.find(att => att.name.endsWith('.txt'));
                     const zipAttachment = msg.attachments.find(att => att.name.endsWith('.zip'));
-                    
+
                     if (!txtAttachment) return interaction.followUp({ content: '❌ Nenhum arquivo .txt encontrado na mensagem.', flags: 64 });
 
                     const response = await fetch(txtAttachment.url);
@@ -909,7 +1253,7 @@ async function handleLoreInteraction(interaction, client) {
 
                     const { paginateText } = require('../commands/rpg/lore.js');
                     const paginasTex = paginateText(contApe);
-                    
+
                     // Processar imagens do ZIP se existir
                     let imagensMap = {};
                     if (zipAttachment) {
@@ -918,18 +1262,18 @@ async function handleLoreInteraction(interaction, client) {
                             const zipBuffer = await zipResponse.buffer();
                             const zip = new AdmZip(zipBuffer);
                             const zipEntries = zip.getEntries();
-                            
+
                             // Extrair e fazer upload das imagens
                             const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
-                            
+
                             if (bacCha) {
                                 for (let i = 0; i < zipEntries.length; i++) {
                                     const entry = zipEntries[i];
                                     if (!entry.isDirectory && entry.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
                                         try {
                                             const imagemBuffer = entry.getData();
-                                            const backupMsg = await bacCha.send({ 
-                                                files: [new AttachmentBuilder(imagemBuffer, { name: entry.name })] 
+                                            const backupMsg = await bacCha.send({
+                                                files: [new AttachmentBuilder(imagemBuffer, { name: entry.name })]
                                             });
                                             const imagemUrl = backupMsg.attachments.first()?.url;
                                             if (imagemUrl) imagensMap[i] = imagemUrl;
@@ -943,22 +1287,22 @@ async function handleLoreInteraction(interaction, client) {
                             console.warn(`Erro ao processar ZIP de imagens:`, zipErr.message);
                         }
                     }
-                    
-                    const novasPagObj = paginasTex.map((contPag, idx) => ({ 
-                        content: contPag, 
-                        imageUrl: imagensMap[idx] || null 
+
+                    const novasPagObj = paginasTex.map((contPag, idx) => ({
+                        content: contPag,
+                        imageUrl: imagensMap[idx] || null
                     }));
-                    
+
                     lore.chapters.push({ name: newChapterName, pages: novasPagObj });
                     await lore.save();
                     await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, flags: 64 });
-                    await msg.delete().catch(() => {});
+                    await msg.delete().catch(() => { });
                 } catch (error) {
                     console.error("Erro ao processar backup de lore:", error);
                     await interaction.followUp({ content: '❌ Ocorreu um erro ao processar o arquivo de backup.', flags: 64 });
                 }
             });
-            collector.on('end', (collected, reason) => { if (reason === 'time') interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada.', flags: 64 }).catch(() => {}); });
+            collector.on('end', (collected, reason) => { if (reason === 'time') interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada.', flags: 64 }).catch(() => { }); });
         }
 
         if (interaction.customId.startsWith('edit_page_modal_')) {
@@ -973,24 +1317,24 @@ async function handleLoreInteraction(interaction, client) {
                 await interaction.deferReply({ flags: 64 });
                 const lore = await client.database.Lore.findOne({ messageId: messageId });
                 if (!lore || interaction.user.id !== lore.createdBy) return interaction.followUp({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
-    
+
                 const loreCmd = require('../commands/rpg/lore.js');
                 const paginateText = loreCmd.paginateText;
-    
+
                 const originalPage = lore.chapters[chapterIndex].pages[pageIndex];
                 const newTextPages = paginateText(newPageContent).map(content => ({
                     content: content,
-                    imageUrl: null 
+                    imageUrl: null
                 }));
-    
+
                 if (newTextPages.length > 0 && originalPage.imageUrl) {
                     newTextPages[0].imageUrl = originalPage.imageUrl;
                 }
-    
+
                 lore.chapters[chapterIndex].pages.splice(pageIndex, 1, ...newTextPages);
                 lore.chapters[chapterIndex].name = newChapterTitle;
                 await client.database.Lore.updateOne({ messageId: messageId }, { $set: { chapters: lore.chapters } });
-    
+
                 await interaction.editReply({ content: '✅ Página atualizada com sucesso! A lore foi repaginada para acomodar o novo texto. Por favor, navegue novamente para ver as alterações.' });
             } catch (error) {
                 console.error("Erro ao editar a página da lore:", error);
@@ -1030,7 +1374,7 @@ async function handleLoreInteraction(interaction, client) {
                             finalPageImageUrl = sent.attachments.first().url;
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
 
             lore.chapters[chapterIndex].pages[pageIndex].imageUrl = finalPageImageUrl;
@@ -1048,10 +1392,10 @@ async function handleLoreInteraction(interaction, client) {
             let newCoverInput = '';
             try {
                 newSynopsis = interaction.fields.getTextInputValue('lore_synopsis_input')?.trim() || '';
-            } catch (_) {}
+            } catch (_) { }
             try {
                 newCoverInput = interaction.fields.getTextInputValue('lore_cover_image_input')?.trim() || '';
-            } catch (_) {}
+            } catch (_) { }
 
             const lore = await client.database.Lore.findOne({ messageId: messageId });
             if (!lore || interaction.user.id !== lore.createdBy) {
@@ -1083,7 +1427,7 @@ async function handleLoreInteraction(interaction, client) {
                                 finalCoverUrl = sent.attachments.first().url;
                             }
                         }
-                    } catch (_) {}
+                    } catch (_) { }
                 }
             }
 
@@ -1114,7 +1458,7 @@ async function handleLoreInteraction(interaction, client) {
                     new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
                 );
 
-                await loreMessage.edit({ embeds: [updatedEmbed], components: [publicButtons] }).catch(() => {});
+                await loreMessage.edit({ embeds: [updatedEmbed], components: [publicButtons] }).catch(() => { });
             };
 
             await updateEternalMessage(lore.coverImageUrl);
@@ -1140,13 +1484,13 @@ async function handleLoreInteraction(interaction, client) {
                                 files: [att]
                             });
                             uploadedCoverUrl = backupMsg.attachments.first()?.url || att.url;
-                        } catch (_) {}
+                        } catch (_) { }
                     }
                     lore.coverImageUrl = uploadedCoverUrl;
                     await lore.save();
                     await updateEternalMessage(uploadedCoverUrl);
-                    await msg.delete().catch(() => {});
-                    await interaction.editReply({ content: '✅ Página inicial da Lore (Título, Descritor e Imagem de Capa) atualizada com sucesso!' }).catch(() => {});
+                    await msg.delete().catch(() => { });
+                    await interaction.editReply({ content: '✅ Página inicial da Lore (Título, Descritor e Imagem de Capa) atualizada com sucesso!' }).catch(() => { });
                 });
                 return;
             }
@@ -1154,138 +1498,38 @@ async function handleLoreInteraction(interaction, client) {
             await interaction.editReply({ content: `✅ Página inicial da lore (**Título, Descritor e Imagem de Capa**) atualizada com sucesso!` });
         }
 
-        if (interaction.customId === 'lore_modal_config') {
+        if (interaction.customId === 'lore_modal_mainpage' || interaction.customId === 'lore_modal_config') {
             try {
-                await interaction.deferReply({ flags: 64 });
-                await interaction.editReply({ content: 'Salvando sua lore e preparando os backups... Isso pode levar um momento.' });
-
-                const title = interaction.fields.getTextInputValue('lore_title').trim();
-                const chapter = interaction.fields.getTextInputValue('lore_chapter').trim();
+                const title = interaction.fields.getTextInputValue('lore_title')?.trim() || 'Minha Lore';
+                const chapter = interaction.fields.getTextInputValue('lore_chapter')?.trim() || 'Capítulo 1';
                 let synopsis = '';
                 let coverImageInput = '';
                 try {
                     synopsis = interaction.fields.getTextInputValue('lore_synopsis')?.trim() || '';
-                } catch (_) {}
+                } catch (_) { }
                 try {
                     coverImageInput = interaction.fields.getTextInputValue('lore_cover_image')?.trim() || '';
-                } catch (_) {}
+                } catch (_) { }
 
                 const loreState = client.fichaStates.get(interaction.user.id);
-                if (!loreState || !loreState.pages) return interaction.editReply({ content: '❌ Não foi possível encontrar a lore para salvar. Por favor, tente novamente.' });
-
-                const { pages } = loreState;
-                const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
-                if (!bacCha) return interaction.followUp({ content: '⚠️ O canal de backup não foi encontrado. A operação foi cancelada para evitar perda de dados.', flags: 64 });
-
-                // Faz backup individual das imagens do Capítulo 1 no canal de backup antes da exclusão das mensagens originais
-                for (let i = 0; i < pages.length; i++) {
-                    if (pages[i].imageUrl && !pages[i].imageUrl.includes(process.env.BACKUP_CHANNEL_ID)) {
-                        try {
-                            const backupImgMsg = await bacCha.send({ files: [pages[i].imageUrl] });
-                            const persistentUrl = backupImgMsg.attachments.first()?.url;
-                            if (persistentUrl) {
-                                pages[i].imageUrl = persistentUrl;
-                            }
-                        } catch (imgErr) {
-                            console.warn(`[LORE] Falha ao fazer backup individual de imagem da página ${i + 1}:`, imgErr.message);
-                        }
-                    }
+                if (!loreState || !loreState.pages) {
+                    return interaction.reply({
+                        content: '❌ Não foi possível encontrar a sessão da sua lore. Por favor, inicie novamente com `/lore`.',
+                        flags: 64,
+                    });
                 }
 
-                let finalCoverUrl = null;
-                if (coverImageInput && coverImageInput.startsWith('http')) {
-                    finalCoverUrl = coverImageInput;
-                    try {
-                        const backupCoverMsg = await bacCha.send({ files: [coverImageInput] });
-                        if (backupCoverMsg.attachments.first()?.url) {
-                            finalCoverUrl = backupCoverMsg.attachments.first().url;
-                        }
-                    } catch (_) {}
-                } else if (pages[0]?.imageUrl) {
-                    finalCoverUrl = pages[0].imageUrl;
+                loreState.title = title;
+                loreState.chapter = chapter;
+                loreState.synopsis = synopsis;
+                loreState.coverImageUrl = coverImageInput;
+
+                await showMainPagePreview(interaction, client, loreState);
+            } catch (err) {
+                console.error('[LORE-MODAL] Erro ao processar modal da Main Page:', err);
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: '❌ Erro ao processar os dados da Main Page.', flags: 64 }).catch(() => { });
                 }
-
-                const firstMsgDate = loreState.rawMessages?.[0]?.createdAt ? new Date(loreState.rawMessages[0].createdAt) : new Date();
-                const eternalDescription = synopsis || pages[0].content;
-
-                const eternalEmbed = new EmbedBuilder()
-                    .setTitle(title)
-                    .setColor('#0099ff')
-                    .setAuthor({ name: `Lore por ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-                    .setDescription(eternalDescription.substring(0, 4096))
-                    .setFooter({ text: synopsis ? `📚 1 capítulo • Clique em "📖 Ler Lore" para iniciar a leitura` : `${chapter} - Parte 1 de ${pages.length}` })
-                    .setTimestamp(firstMsgDate);
-
-                if (finalCoverUrl) {
-                    eternalEmbed.setImage(finalCoverUrl);
-                }
-
-                const loreMessage = await interaction.channel.send({ embeds: [eternalEmbed] });
-
-                const publicButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`lore_read_${loreMessage.id}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${loreMessage.id}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
-                    new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${loreMessage.id}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-                );
-                await loreMessage.edit({ components: [publicButtons] });
-
-                await client.database.Lore.create({
-                    messageId: loreMessage.id,
-                    channelId: loreMessage.channel.id,
-                    guildId: loreMessage.guild.id,
-                    createdBy: interaction.user.id,
-                    title: title,
-                    synopsis: synopsis || null,
-                    coverImageUrl: finalCoverUrl || null,
-                    chapters: [{ name: chapter, pages: pages, createdAt: firstMsgDate }]
-                });
-                client.fichaStates.delete(interaction.user.id);
-                await interaction.followUp({ content: `✅ Sua lore **"${title}"** foi salva com sucesso!`, flags: 64 });
-
-                const { txtBuffer, zipBuffer } = await messagesToTxt(loreState.rawMessages, `lore-${title}-${chapter}.txt`, `Backup para ${title}`);
-                const anexos = [new AttachmentBuilder(txtBuffer, { name: `lore_${loreMessage.id}.txt` })];
-                if (zipBuffer) anexos.push(new AttachmentBuilder(zipBuffer, { name: `lore_imagens_${loreMessage.id}.zip` }));
-
-                const backupEnviado = await bacCha.send({ content: `Backup da lore **${title}** criada por ${interaction.user.tag}.`, files: anexos }).catch(() => null);
-                if (!backupEnviado) return interaction.followUp({ content: '⚠️ A lore foi salva, mas ocorreu um erro crítico ao enviar o backup para o servidor. As mensagens originais não foram excluídas para evitar perda de dados.', flags: 64 });
-
-                const linhaConfirmacao = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('lore_dm_confirm_yes').setLabel('Sim, por favor').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId('lore_dm_confirm_no').setLabel('Não, obrigado').setStyle(ButtonStyle.Secondary)
-                );
-                const msgConfirmacao = await interaction.followUp({ content: 'O backup principal foi salvo. Você deseja receber uma cópia do backup em suas mensagens diretas (DM)?', components: [linhaConfirmacao], flags: 64, fetchReply: true });
-
-                const filtroColetor = i => i.user.id === interaction.user.id && i.customId.startsWith('lore_dm_confirm_');
-                const coletor = msgConfirmacao.createMessageComponentCollector({ filter: filtroColetor, componentType: ComponentType.Button, time: 60000, max: 1 });
-
-                coletor.on('collect', async i => {
-                    if (i.customId === 'lore_dm_confirm_yes') {
-                        let dmEnviada = true;
-                        await i.user.send({ content: `Backup da sua lore **${title}**.`, files: anexos }).catch(() => {
-                            dmEnviada = false;
-                        });
-                        
-                        if (dmEnviada) await i.update({ content: '✅ Backup enviado para sua DM! Iniciando limpeza das mensagens originais...', components: [] });
-                        else await i.update({ content: '⚠️ Não foi possível enviar a DM. Verifique suas configurações de privacidade. Iniciando limpeza...', components: [] });
-                    } else {
-                        await i.update({ content: 'Ok! O backup não será enviado por DM. Iniciando limpeza das mensagens originais...', components: [] });
-                    }
-                    const duasSemanasAtras = Date.now() - 1209600000;
-                    const msgsRecentes = loreState.rawMessages.filter(m => m.createdTimestamp > duasSemanasAtras && m.deletable);
-                    const msgsAntigas = loreState.rawMessages.filter(m => m.createdTimestamp <= duasSemanasAtras && m.deletable);
-                    if (msgsRecentes.length > 0) await interaction.channel.bulkDelete(msgsRecentes, true).catch(() => {});
-                    for (const msg of msgsAntigas) await msg.delete().catch(() => {});
-                    await interaction.followUp({ content: '✅ Mensagens originais da lore foram limpas.', flags: 64 });
-                });
-
-                coletor.on('end', async (collected, reason) => {
-                    if (reason === 'time') {
-                        await msgConfirmacao.edit({ content: '⏰ Tempo esgotado. A limpeza das mensagens originais foi cancelada. Você pode excluí-las manualmente.', components: [] }).catch(() => {});
-                    }
-                });
-
-            } catch (error) {
-                console.error("Erro ao processar o modal da lore:", error);
             }
         }
     }
@@ -1309,18 +1553,18 @@ async function handleLoreInteraction(interaction, client) {
                         { name: `📖 Capítulo Selecionado`, value: `**${selectedChapter.name}** (${selectedChapter.pages.length} página(s))`, inline: false }
                     )
                     .setColor('#2b2d31');
-                
+
                 const actionButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_read_${messageId}_${selectedChapterIndex}_0_0`).setEmoji('📖').setLabel('Navegar Capítulo').setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId(`lore_delete_chapter_confirm_${messageId}_${selectedChapterIndex}`).setEmoji('🗑️').setLabel('Deletar Capítulo').setStyle(ButtonStyle.Danger)
                 );
-                
+
                 const moveButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`lore_move-chapter_up_${messageId}_${selectedChapterIndex}`).setEmoji('⬆️').setLabel('Mover para Cima').setStyle(ButtonStyle.Secondary).setDisabled(selectedChapterIndex === 0),
                     new ButtonBuilder().setCustomId(`lore_move-chapter_down_${messageId}_${selectedChapterIndex}`).setEmoji('⬇️').setLabel('Mover para Baixo').setStyle(ButtonStyle.Secondary).setDisabled(selectedChapterIndex === lore.chapters.length - 1),
                     new ButtonBuilder().setCustomId(`lore_chapters-list_${messageId}`).setLabel('Voltar à Lista').setStyle(ButtonStyle.Secondary)
                 );
-                
+
                 await interaction.update({ embeds: [embed], components: [actionButtons, moveButtons] });
             } else {
                 // Simula uma nova interação de leitura para o capítulo selecionado
@@ -1352,12 +1596,12 @@ async function syncPreExistingLores(client) {
                 let wasArchived = false;
                 if (channel.isThread?.() && channel.archived) {
                     wasArchived = true;
-                    await channel.setArchived(false).catch(() => {});
+                    await channel.setArchived(false).catch(() => { });
                 }
 
                 const message = await channel.messages.fetch(lore.messageId).catch(() => null);
                 if (!message) {
-                    if (wasArchived) await channel.setArchived(true).catch(() => {});
+                    if (wasArchived) await channel.setArchived(true).catch(() => { });
                     continue;
                 }
 
@@ -1375,7 +1619,7 @@ async function syncPreExistingLores(client) {
                 }
 
                 if (wasArchived) {
-                    await channel.setArchived(true).catch(() => {});
+                    await channel.setArchived(true).catch(() => { });
                 }
             } catch (err) {
                 // Silencioso para canais ou mensagens não mais acessíveis

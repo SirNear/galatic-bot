@@ -87,6 +87,9 @@ module.exports = class {
                 } else if (customId.startsWith('genesis_')) {
                     const { handleGenesisInteraction } = require('../api/statusEvolution.js');
                     await handleGenesisInteraction(interaction, this.client);
+                } else if (customId.startsWith('cortador_')) {
+                    const { handleCortadorInteraction } = require('../commands/util/cortador.js');
+                    await handleCortadorInteraction(interaction);
                 }
             }
             
