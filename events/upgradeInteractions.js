@@ -47,6 +47,47 @@ function divText(text, maxLength = 3900) {
     return parts.length ? parts : ['Sem texto'];
 }
 
+function chunkText(text, maxLen = 1000) {
+    const raw = String(text || '').trim();
+    if (!raw) return [];
+    if (raw.length <= maxLen) return [raw];
+    const chunks = [];
+    let rem = raw;
+    while (rem.length > 0) {
+        if (rem.length <= maxLen) {
+            chunks.push(rem.trim());
+            break;
+        }
+        let cut = rem.lastIndexOf('\n\n', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf('\n', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf('. ', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf(' ', maxLen);
+        if (cut === -1 || cut < 1) cut = maxLen;
+        else cut += 1; // inclui quebra/espaço
+        chunks.push(rem.substring(0, cut).trim());
+        rem = rem.substring(cut).trim();
+    }
+    return chunks.length ? chunks : [raw];
+}
+
+function buildUpgradePages(upg, maxChunk = 1000) {
+    const descChunks = chunkText(upg.descricao || 'Sem descrição', maxChunk);
+    const resumoChunks = chunkText(upg.resumo || 'Sem justificativa.', maxChunk);
+    const totalPages = Math.max(1, descChunks.length, resumoChunks.length);
+    const pages = [];
+    for (let i = 0; i < totalPages; i++) {
+        pages.push({
+            pageIndex: i,
+            totalPages,
+            descricao: descChunks[i] || (i === 0 ? 'Sem descrição' : '*(Continuação da descrição na página anterior)*'),
+            resumo: resumoChunks[i] || (i === 0 ? 'Sem justificativa.' : '*(Continuação da justificativa na página anterior)*'),
+            descPart: descChunks.length > 1 ? ` (Parte ${i + 1}/${descChunks.length})` : '',
+            resumoPart: resumoChunks.length > 1 ? ` (Parte ${i + 1}/${resumoChunks.length})` : ''
+        });
+    }
+    return pages;
+}
+
 function formatLocalTime(ms) {
     if (!ms || isNaN(ms)) return 'Nenhum tempo';
     const horas = Math.floor(ms / 3600000);
@@ -593,7 +634,22 @@ async function listenerInteractionUpg(interaction, client) {
         const upgDoc = await client.database.UpgradeModel.findById(upgId);
         if (!upgDoc) return interaction.editReply({ content: '❌ Upgrade não encontrado no sistema.', embeds: [], components: [] });
         if (upgDoc.userId !== interaction.user.id) return interaction.followUp({ content: '❌ Você não é o dono destes upgrades.', flags: 64 });
-        return mosFilaUpg(interaction, upgDoc, index, true);
+        return mosFilaUpg(interaction, upgDoc, index, 0, true);
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_queue_subpage_')) {
+        await interaction.deferUpdate();
+        const parts = interaction.customId.split('_');
+        const dir = parts[3]; // prev ou next
+        const upgId = parts[4];
+        const index = parseInt(parts[5], 10) || 0;
+        let subPage = parseInt(parts[6], 10) || 0;
+        if (dir === 'prev') subPage--;
+        if (dir === 'next') subPage++;
+        const upgDoc = await client.database.UpgradeModel.findById(upgId);
+        if (!upgDoc) return interaction.editReply({ content: '❌ Upgrade não encontrado no sistema.', embeds: [], components: [] });
+        if (upgDoc.userId !== interaction.user.id) return interaction.followUp({ content: '❌ Você não é o dono destes upgrades.', flags: 64 });
+        return mosFilaUpg(interaction, upgDoc, index, subPage, true);
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_start')) {
@@ -1091,6 +1147,20 @@ async function listenerInteractionUpg(interaction, client) {
         timeoutIniReact = setTimeout(() => { client.removeListener('messageReactionAdd', lidIniUpg); safeEditReply(interaction, { content: '❌ Tempo esgotado para marcar o início.', embeds: [] }); }, 300000);
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_ai_subpage_')) {
+        const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
+        if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
+
+        const subAcao = interaction.customId.replace('upgrade_ai_subpage_', '');
+        if (subAcao === 'noop') return;
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+
+        const currentSub = cacheUpgradeSystemAtu.subPage || 0;
+        if (subAcao === 'prev') cacheUpgradeSystemAtu.subPage = Math.max(0, currentSub - 1);
+        if (subAcao === 'next') cacheUpgradeSystemAtu.subPage = currentSub + 1;
+        return mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
+    }
+
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_ai_nav_')) {
         const cacheUpgradeSystemAtu = cacheUpgradeSystem.get(interaction.user.id);
         if (!cacheUpgradeSystemAtu) return interaction.reply({ content: 'Sessão expirada.', flags: 64 });
@@ -1100,10 +1170,12 @@ async function listenerInteractionUpg(interaction, client) {
         if (acao === 'prev' && cacheUpgradeSystemAtu.currentStep > 0) {
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             cacheUpgradeSystemAtu.currentStep--;
+            cacheUpgradeSystemAtu.subPage = 0;
             await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'next' && cacheUpgradeSystemAtu.currentStep < cacheUpgradeSystemAtu.upgAmount - 1) {
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             cacheUpgradeSystemAtu.currentStep++;
+            cacheUpgradeSystemAtu.subPage = 0;
             await mosAiUpg(interaction, cacheUpgradeSystemAtu, true);
         } else if (acao === 'edit') {
             cacheUpgradeSystemAtu.addingNew = false;
@@ -1115,6 +1187,7 @@ async function listenerInteractionUpg(interaction, client) {
             if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
             cacheUpgradeSystemAtu.upgrades.splice(cacheUpgradeSystemAtu.currentStep, 1);
             cacheUpgradeSystemAtu.upgAmount--;
+            cacheUpgradeSystemAtu.subPage = 0;
             if (cacheUpgradeSystemAtu.currentStep >= cacheUpgradeSystemAtu.upgAmount) {
                 cacheUpgradeSystemAtu.currentStep = Math.max(0, cacheUpgradeSystemAtu.upgAmount - 1);
             }
@@ -1263,6 +1336,23 @@ async function listenerInteractionUpg(interaction, client) {
         await navAdmUpg(interaction, client, docDbUpgAtual);
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_adm_subpage_')) {
+        await interaction.deferUpdate();
+        const parts = interaction.customId.split('_');
+        const dir = parts[3]; // prev ou next
+        const idNav = parts[4];
+        const cacheAdmNav = cacheAdmNavigationState.get(interaction.user.id);
+        if (!cacheAdmNav) return interaction.editReply({ content: 'Sua sessão expirou.', embeds: [], components: [] });
+
+        const docNavUpg = await client.database.UpgradeModel.findById(idNav);
+        if (!docNavUpg) return interaction.editReply({ content: '❌ Upgrade não encontrado.' });
+
+        const curSub = cacheAdmNav.subPage || 0;
+        if (dir === 'prev') cacheAdmNav.subPage = Math.max(0, curSub - 1);
+        if (dir === 'next') cacheAdmNav.subPage = curSub + 1;
+        return navAdmUpg(interaction, client, docNavUpg, true);
+    }
+
     if (interaction.isButton() && interaction.customId.startsWith('upgrade_adm_navegar_')) {
         if (interaction.customId.includes('_accept_') || interaction.customId.includes('_reject_') || interaction.customId.includes('_lorePrev_') || interaction.customId.includes('_loreNext_')) {
             // Deixa a interação passar para o handler adequado abaixo
@@ -1275,8 +1365,8 @@ async function listenerInteractionUpg(interaction, client) {
             const docNavUpg = await client.database.UpgradeModel.findById(idNav);
             if (!docNavUpg) return interaction.editReply({ content: '❌ Upgrade não encontrado.' });
             
-            if (acaoNavAdm === 'previousUpgd') { cacheAdmNavigationStateAtu.currentIndex--; }
-            if (acaoNavAdm === 'nextUpgd') { cacheAdmNavigationStateAtu.currentIndex++; }
+            if (acaoNavAdm === 'previousUpgd') { cacheAdmNavigationStateAtu.currentIndex--; cacheAdmNavigationStateAtu.subPage = 0; }
+            if (acaoNavAdm === 'nextUpgd') { cacheAdmNavigationStateAtu.currentIndex++; cacheAdmNavigationStateAtu.subPage = 0; }
             if (acaoNavAdm === 'lore') return mosLorUpg(interaction, docNavUpg, 0);
             if (acaoNavAdm === 'context') {
                 const upgAtualParaContexto = docNavUpg.upgrades[cacheAdmNavigationStateAtu.currentIndex];
@@ -1825,14 +1915,20 @@ async function iniciarUpgradesEmPartes(interaction, client, cacheData) {
 
 async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     const upg = cacheData.upgrades[cacheData.currentStep];
+    const subPage = cacheData.subPage || 0;
+    const pages = buildUpgradePages(upg, 1000);
+    const safeSubPage = Math.min(Math.max(0, subPage), pages.length - 1);
+    cacheData.subPage = safeSubPage;
+    const currentPage = pages[safeSubPage];
     
+    const pageIndication = pages.length > 1 ? ` • Pág. ${safeSubPage + 1}/${pages.length}` : '';
     const embed = new EmbedBuilder()
         .setTitle(`<a:rahhh:1502049620640006257> | CENTRAL DE UPGRADES | PRÉVIA & CONFIRMAÇÃO | <a:rahhh:1502049620640006257>`)
         .setDescription(`**Foram listados ${cacheData.upgAmount} upgrade(s)!**\nRevise seus ganhos antes de enviar para aprovação dos ADMs.\nVocê pode **adicionar**, **modificar**, **escrever justificativa** ou **usar IA para justificar**!`)
         .addFields(
-            { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}`, value: `**Nome:** ${String(upg.nome || 'Desconhecido').substring(0, 300)}\n**Tipo:** ${String(upg.tipo || 'Desconhecido').substring(0, 300)}\n**Categoria:** ${String(upg.categoria || 'Desconhecida').substring(0, 300)}` },
-            { name: 'Descrição / Mecânica', value: String(upg.descricao || 'Sem descrição').substring(0, 1024) },
-            { name: 'Justificativa Narrativa (Lore)', value: String(upg.resumo || 'Sem justificativa. Clique em "🤖 Justificar c/ IA" ou "✍️ Justificativa" para preencher.').substring(0, 1024) }
+            { name: `Upgrade ${cacheData.currentStep + 1}/${cacheData.upgAmount}${pageIndication}`, value: `**Nome:** ${String(upg.nome || 'Desconhecido').substring(0, 300)}\n**Tipo:** ${String(upg.tipo || 'Desconhecido').substring(0, 300)}\n**Categoria:** ${String(upg.categoria || 'Desconhecida').substring(0, 300)}` },
+            { name: `Descrição / Mecânica${currentPage.descPart}`, value: String(currentPage.descricao || 'Sem descrição').substring(0, 1024) },
+            { name: `Justificativa Narrativa (Lore)${currentPage.resumoPart}`, value: String(currentPage.resumo || 'Sem justificativa. Clique em "🤖 Justificar c/ IA" ou "✍️ Justificativa" para preencher.').substring(0, 1024) }
         )
         .setColor('#2b2d31');
 
@@ -1850,7 +1946,30 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
         new ButtonBuilder().setCustomId('upgrade_ai_nav_confirm').setLabel('Confirmar e Enviar').setStyle(ButtonStyle.Success).setEmoji('✅')
     );
 
-    const payload = { embeds: [embed], components: [rowNav, rowAcao] };
+    const components = [rowNav];
+    if (pages.length > 1) {
+        const rowSubPage = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('upgrade_ai_subpage_prev')
+                .setLabel('📄 Pág. Ant.')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage === 0),
+            new ButtonBuilder()
+                .setCustomId('upgrade_ai_subpage_noop')
+                .setLabel(`Pág. ${safeSubPage + 1} de ${pages.length}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId('upgrade_ai_subpage_next')
+                .setLabel('Próx. Pág. 📄')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage >= pages.length - 1)
+        );
+        components.push(rowSubPage);
+    }
+    components.push(rowAcao);
+
+    const payload = { embeds: [embed], components };
     try {
         if (isUpdate) { 
             await interaction.editReply(payload); 
@@ -1870,7 +1989,7 @@ async function mosAiUpg(interaction, cacheData, isUpdate = false) {
     }
 }
 
-async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
+async function mosFilaUpg(interaction, upgDoc, index, subPageIndex = 0, isUpdate = false) {
     if (!upgDoc || !upgDoc.upgrades || upgDoc.upgrades.length === 0) {
         const payload = { content: '❌ Este documento não possui upgrades válidos.', embeds: [], components: [], flags: 64 };
         if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
@@ -1889,28 +2008,57 @@ async function mosFilaUpg(interaction, upgDoc, index, isUpdate = false) {
         return interaction.reply(payload);
     }
 
+    const pages = buildUpgradePages(upg, 1000);
+    const safeSubPage = Math.min(Math.max(0, subPageIndex), pages.length - 1);
+    const currentPage = pages[safeSubPage];
+
     const isUpgRejected = upg.status === 'recusado';
     let corStatus = 'Blue';
     if (upg.status === 'aprovado') corStatus = 'Green';
     if (upg.status === 'recusado') corStatus = 'Red';
 
+    const pageIndication = pages.length > 1 ? ` • Pág. ${safeSubPage + 1}/${pages.length}` : '';
     const embed = new EmbedBuilder()
-        .setTitle(`Seu Upgrade: ${upg.nome} (${index + 1}/${upgDoc.upgrades.length})`)
+        .setTitle(`Seu Upgrade: ${upg.nome} (${index + 1}/${upgDoc.upgrades.length})${pageIndication}`)
         .setColor(corStatus)
-        .setDescription(String(upg.descricao || 'Sem descrição').substring(0, 4000))
+        .setDescription(String(currentPage.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
             { name: 'Tipo/Categoria', value: `${String(upg.tipo || 'Desconhecido').substring(0, 100)} | ${String(upg.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status', value: upg.status, inline: true },
-            { name: 'Justificativa', value: String(upg.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: `Justificativa${currentPage.resumoPart}`, value: String(currentPage.resumo || 'Sem resumo').substring(0, 1024) }
         ).setFooter({ text: `Central de Upgrades` });
 
     if (upg.motivo) embed.addFields({ name: isUpgRejected ? 'Motivo da Recusa' : 'Resultado/Feedback', value: upg.motivo });
 
+    const components = [];
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`upgrade_queue_nav_prev_${upgDoc._id}_${index}`).setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(index === 0),
         new ButtonBuilder().setCustomId(`upgrade_queue_nav_next_${upgDoc._id}_${index}`).setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(index === upgDoc.upgrades.length - 1)
     );
-    const payload = { embeds: [embed], components: [row], flags: 64 };
+    components.push(row);
+
+    if (pages.length > 1) {
+        const rowSubPage = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`upgrade_queue_subpage_prev_${upgDoc._id}_${index}_${safeSubPage}`)
+                .setLabel('📄 Pág. Ant.')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage === 0),
+            new ButtonBuilder()
+                .setCustomId(`upgrade_queue_subpage_noop_${upgDoc._id}_${index}`)
+                .setLabel(`Pág. ${safeSubPage + 1} de ${pages.length}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId(`upgrade_queue_subpage_next_${upgDoc._id}_${index}_${safeSubPage}`)
+                .setLabel('Próx. Pág. 📄')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage >= pages.length - 1)
+        );
+        components.push(rowSubPage);
+    }
+
+    const payload = { embeds: [embed], components, flags: 64 };
     if (interaction.deferred || interaction.replied) {
         await interaction.editReply(payload);
     } else if (isUpdate) {
@@ -2077,15 +2225,22 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
     const isDevOwner = (client.owners && client.owners.includes(interaction.user.id)) || interaction.user.id === '540725346241216534';
     const isCurrentStatusUpg = isStatusUpgrade(upgAtual);
 
+    const subPage = AdmAtual.subPage || 0;
+    const pages = buildUpgradePages(upgAtual, 1000);
+    const safeSubPage = Math.min(Math.max(0, subPage), pages.length - 1);
+    AdmAtual.subPage = safeSubPage;
+    const currentPage = pages[safeSubPage];
+    const pageIndication = pages.length > 1 ? ` • Pág. ${safeSubPage + 1}/${pages.length}` : '';
+
     const embedUpgAtual = new EmbedBuilder()
-        .setTitle(`Avaliação: ${upgAtual.nome || 'Desconhecido'} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})`)
+        .setTitle(`Avaliação: ${upgAtual.nome || 'Desconhecido'} (${AdmAtual.currentIndex + 1}/${upgDocDb.upgrades.length})${pageIndication}`)
         .setColor(upgAtual.status === 'aprovado' ? 'Green' : 'Blue')
-        .setDescription(String(upgAtual.descricao || 'Sem descrição').substring(0, 4000))
+        .setDescription(String(currentPage.descricao || 'Sem descrição').substring(0, 4000))
         .addFields(
             { name: 'Personagem', value: `${upgDocDb.personagem || 'Não informado'}`, inline: true },
             { name: 'Tipo/Categoria', value: `${String(upgAtual.tipo || 'Desconhecido').substring(0, 100)} | ${String(upgAtual.categoria || 'Desconhecida').substring(0, 100)}`, inline: true },
             { name: 'Status do Upgrade', value: upgAtual.status, inline: true },
-            { name: 'Justificativa', value: String(upgAtual.resumo || 'Sem resumo').substring(0, 1024) }
+            { name: `Justificativa${currentPage.resumoPart}`, value: String(currentPage.resumo || 'Sem resumo').substring(0, 1024) }
         )
         .setFooter({ text: `Jogador <@${upgDocDb.userId}>` });
 
@@ -2118,7 +2273,28 @@ async function navAdmUpg(interaction, client, upgDocDb, updated = false) {
         new ButtonBuilder().setCustomId(`upgrade_adm_navegar_reject_allUpgd_${upgDocDb._id}`).setEmoji('🗑️').setStyle(ButtonStyle.Danger)
     );
 
-    const admRows = [row1, row2];
+    const admRows = [row1];
+    if (pages.length > 1) {
+        const rowSubPage = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`upgrade_adm_subpage_prev_${upgDocDb._id}`)
+                .setLabel('📄 Pág. Ant.')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage === 0),
+            new ButtonBuilder()
+                .setCustomId(`upgrade_adm_subpage_noop_${upgDocDb._id}`)
+                .setLabel(`Pág. ${safeSubPage + 1} de ${pages.length}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId(`upgrade_adm_subpage_next_${upgDocDb._id}`)
+                .setLabel('Próx. Pág. 📄')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage >= pages.length - 1)
+        );
+        admRows.push(rowSubPage);
+    }
+    admRows.push(row2);
     if (isDevOwner) {
         const rowDev = new ActionRowBuilder().addComponents(
             new ButtonBuilder()

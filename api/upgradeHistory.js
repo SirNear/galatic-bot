@@ -2,10 +2,51 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const moment = require('moment');
 moment.locale('pt-br');
 
+function chunkText(text, maxLen = 950) {
+    const raw = String(text || '').trim();
+    if (!raw) return [];
+    if (raw.length <= maxLen) return [raw];
+    const chunks = [];
+    let rem = raw;
+    while (rem.length > 0) {
+        if (rem.length <= maxLen) {
+            chunks.push(rem.trim());
+            break;
+        }
+        let cut = rem.lastIndexOf('\n\n', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf('\n', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf('. ', maxLen);
+        if (cut === -1 || cut < maxLen * 0.3) cut = rem.lastIndexOf(' ', maxLen);
+        if (cut === -1 || cut < 1) cut = maxLen;
+        else cut += 1;
+        chunks.push(rem.substring(0, cut).trim());
+        rem = rem.substring(cut).trim();
+    }
+    return chunks.length ? chunks : [raw];
+}
+
+function buildUpgradePages(upg, maxChunk = 950) {
+    const descChunks = chunkText(upg.descricao || 'Sem descrição', maxChunk);
+    const resumoChunks = chunkText(upg.resumo || 'Sem justificativa.', maxChunk);
+    const totalPages = Math.max(1, descChunks.length, resumoChunks.length);
+    const pages = [];
+    for (let i = 0; i < totalPages; i++) {
+        pages.push({
+            pageIndex: i,
+            totalPages,
+            descricao: descChunks[i] || (i === 0 ? 'Sem descrição' : '*(Continuação da descrição na página anterior)*'),
+            resumo: resumoChunks[i] || (i === 0 ? 'Sem justificativa.' : '*(Continuação da justificativa na página anterior)*'),
+            descPart: descChunks.length > 1 ? ` (Parte ${i + 1}/${descChunks.length})` : '',
+            resumoPart: resumoChunks.length > 1 ? ` (Parte ${i + 1}/${resumoChunks.length})` : ''
+        });
+    }
+    return pages;
+}
+
 /**
  * Renderiza a interface efêmera do histórico de upgrades do jogador.
  */
-async function renderUpgradeHistory(interaction, client, { filter = 'all', docIndex = 0, upgIndex = 0, isUpdate = false } = {}) {
+async function renderUpgradeHistory(interaction, client, { filter = 'all', docIndex = 0, upgIndex = 0, subPageIndex = 0, isUpdate = false } = {}) {
     const userId = interaction.user.id;
 
     if (!client.database || !client.database.UpgradeModel) {
@@ -110,11 +151,10 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
         ? '⏳ `#pendente` (Na Fila de Avaliação)'
         : `✅ \`#avaliado\`${currentDoc.AdmodAvaliou ? ` por <@${currentDoc.AdmodAvaliou}>` : ''}`;
 
-    let descUpg = String(currentUpg.descricao || 'Sem descrição').trim();
-    if (descUpg.length > 950) descUpg = descUpg.substring(0, 940) + '... [TRUNCADO]';
-
-    let resumoUpg = String(currentUpg.resumo || 'Sem justificativa narrativa').trim();
-    if (resumoUpg.length > 950) resumoUpg = resumoUpg.substring(0, 940) + '... [TRUNCADO]';
+    const pages = buildUpgradePages(currentUpg, 900);
+    const safeSubPage = Math.min(Math.max(0, subPageIndex), pages.length - 1);
+    const currentPage = pages[safeSubPage];
+    const pageIndication = pages.length > 1 ? ` • Pág. ${safeSubPage + 1}/${pages.length}` : '';
 
     const embed = new EmbedBuilder()
         .setTitle(`<a:rahhh:1502049620640006257> | Histórico: ${currentDoc.personagem || 'Personagem'}`)
@@ -122,7 +162,7 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
         .setDescription(
             `📑 **Treino:** \`${safeDocIndex + 1}\` de \`${filteredDocs.length}\`  •  **Enviado em:** <t:${timestampEnvio}:f> (<t:${timestampEnvio}:R>)\n` +
             `**Status Geral do Treino:** ${docStatusLabel}\n` +
-            `**Upgrade Atual:** \`${safeUpgIndex + 1}\` de \`${totalUpgs}\`  •  **Status:** ${badgeStatus}\n`
+            `**Upgrade Atual:** \`${safeUpgIndex + 1}\` de \`${totalUpgs}\`${pageIndication}  •  **Status:** ${badgeStatus}\n`
         )
         .addFields(
             {
@@ -136,13 +176,13 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
                 inline: true
             },
             {
-                name: '📜 Descrição da Habilidade / Atributo',
-                value: descUpg || 'Sem descrição.',
+                name: `📜 Descrição da Habilidade / Atributo${currentPage.descPart}`,
+                value: currentPage.descricao || 'Sem descrição.',
                 inline: false
             },
             {
-                name: '📖 Justificativa / Resumo Narrativo',
-                value: resumoUpg || 'Sem justificativa.',
+                name: `📖 Justificativa / Resumo Narrativo${currentPage.resumoPart}`,
+                value: currentPage.resumo || 'Sem justificativa.',
                 inline: false
             }
         )
@@ -179,7 +219,29 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
     );
     components.push(filterRow);
 
-    // Linha 2: Navegação de Upgrades deste Treino (se houver mais de 1 upgrade)
+    // Linha de Sub-página (se o upgrade atual tiver texto longo e páginas > 1)
+    if (pages.length > 1) {
+        const subPageRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`upgrade_hist_subpage_${filter}_${safeDocIndex}_${safeUpgIndex}_${safeSubPage - 1}`)
+                .setLabel('📄 Pág. Ant.')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage === 0),
+            new ButtonBuilder()
+                .setCustomId('upgrade_hist_subpage_noop')
+                .setLabel(`Pág. ${safeSubPage + 1} de ${pages.length}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId(`upgrade_hist_subpage_${filter}_${safeDocIndex}_${safeUpgIndex}_${safeSubPage + 1}`)
+                .setLabel('Próx. Pág. 📄')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safeSubPage >= pages.length - 1)
+        );
+        components.push(subPageRow);
+    }
+
+    // Linha de Navegação de Upgrades deste Treino (se houver mais de 1 upgrade)
     if (totalUpgs > 1) {
         const upgNavRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -201,7 +263,7 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
         components.push(upgNavRow);
     }
 
-    // Linha 3: Navegação entre Treinos (se houver mais de 1 treino no filtro atual)
+    // Linha de Navegação entre Treinos (se houver mais de 1 treino no filtro atual)
     if (filteredDocs.length > 1) {
         const docNavRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -223,7 +285,7 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
         components.push(docNavRow);
     }
 
-    // Linha 4: Select Menu rápido para pular direto para qualquer treino (se houver mais de 1 treino e espaço de linhas)
+    // Select Menu rápido para pular direto para qualquer treino (apenas se houver espaço < 5 componentes)
     if (filteredDocs.length > 1 && components.length < 4) {
         const selectOptions = filteredDocs.slice(0, 25).map((doc, idx) => {
             const dt = doc.createdAt ? moment(doc.createdAt).format('DD/MM/YYYY') : 'Data desc.';
@@ -247,15 +309,17 @@ async function renderUpgradeHistory(interaction, client, { filter = 'all', docIn
         components.push(selectRow);
     }
 
-    // Linha Final: Botão Fechar
-    const closeRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('upgrade_hist_close')
-            .setLabel('Fechar Histórico')
-            .setEmoji('❌')
-            .setStyle(ButtonStyle.Danger)
-    );
-    components.push(closeRow);
+    // Linha Final: Botão Fechar (se couber nas 5 linhas de ActionRow)
+    if (components.length < 5) {
+        const closeRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('upgrade_hist_close')
+                .setLabel('Fechar Histórico')
+                .setEmoji('❌')
+                .setStyle(ButtonStyle.Danger)
+        );
+        components.push(closeRow);
+    }
 
     const payload = { embeds: [embed], components, flags: 64 };
     if (isUpdate) return interaction.update(payload);
@@ -272,8 +336,18 @@ async function handleUpgradeHistoryInteraction(interaction, client) {
         return interaction.update({ content: '✅ Histórico de upgrades fechado.', embeds: [], components: [] }).catch(() => {});
     }
 
-    if (customId === 'upgrade_hist_upg_noop' || customId === 'upgrade_hist_doc_noop') {
+    if (customId === 'upgrade_hist_upg_noop' || customId === 'upgrade_hist_doc_noop' || customId === 'upgrade_hist_subpage_noop') {
         return;
+    }
+
+    // Navegação de sub-página de upgrade longo
+    if (customId.startsWith('upgrade_hist_subpage_')) {
+        const parts = customId.replace('upgrade_hist_subpage_', '').split('_');
+        const filter = parts[0] || 'all';
+        const docIndex = parseInt(parts[1], 10) || 0;
+        const upgIndex = parseInt(parts[2], 10) || 0;
+        const subPageIndex = parseInt(parts[3], 10) || 0;
+        return renderUpgradeHistory(interaction, client, { filter, docIndex, upgIndex, subPageIndex, isUpdate: true });
     }
 
     // Abertura a partir do botão no comando /upgrade
