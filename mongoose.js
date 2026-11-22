@@ -507,4 +507,13 @@ const panelConfigSchema = new mongoose.Schema({
 });
 module.exports.PanelConfig = mongoose.model("PanelConfig", panelConfigSchema);
 
+const cronConfigSchema = new mongoose.Schema({
+    jobId: { type: String, required: true, unique: true },
+    schedule: { type: String, required: true },
+    paused: { type: Boolean, default: false },
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: String, default: null }
+});
+module.exports.CronConfig = mongoose.model("CronConfig", cronConfigSchema);
+
 module.exports.connect = connectToDatabase;

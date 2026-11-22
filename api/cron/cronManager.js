@@ -6,7 +6,7 @@ try {
 } catch (_) {
     // cron-parser opcional: fallback nativo utilizado para evitar MODULE_NOT_FOUND em ambientes restritos
 }
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const mongoose = require('../../mongoose.js');
 
 const jobs = new Map();
@@ -25,12 +25,15 @@ function setClient(client) {
 function humanizeSchedule(schedule) {
     if (!schedule) return 'Não agendado';
     const s = schedule.trim();
+    if (s === '*/1 * * * *' || s === '* * * * *') return '⏱️ A cada 1 minuto';
+    if (s === '*/2 * * * *') return '⏱️ A cada 2 minutos';
     if (s === '*/5 * * * *') return '⏱️ A cada 5 minutos';
     if (s === '*/10 * * * *') return '⏱️ A cada 10 minutos';
     if (s === '*/15 * * * *') return '⏱️ A cada 15 minutos';
     if (s === '*/30 * * * *') return '⏱️ A cada 30 minutos';
     if (s === '0 * * * *') return '⏱️ De hora em hora';
     if (s === '0 */2 * * *') return '⏱️ A cada 2 horas';
+    if (s === '0 */4 * * *') return '⏱️ A cada 4 horas';
     if (s === '0 */6 * * *') return '⏱️ A cada 6 horas';
     if (s === '0 */12 * * *') return '⏱️ A cada 12 horas';
     if (s === '0 3 * * 0') return '📅 Todo domingo às 03:00';
@@ -48,6 +51,11 @@ function humanizeSchedule(schedule) {
         }
         if (dom === '*' && mon === '*' && dow === '*') {
             return `📅 Diariamente às ${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
+        }
+        if (dom === '*' && mon === '*' && !isNaN(parseInt(dow, 10))) {
+            const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+            const diaNome = diasSemana[parseInt(dow, 10)] || `Dia ${dow}`;
+            return `📅 Toda semana (${diaNome}) às ${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
         }
     }
     return `Expressão: \`${schedule}\``;
@@ -108,6 +116,86 @@ function getNextExecution(schedule) {
 }
 
 /**
+ * Cria a instância agendada do node-cron para um jobData.
+ */
+function startScheduledJob(jobData) {
+    if (jobData.cronJob) {
+        try { jobData.cronJob.stop(); } catch (_) {}
+    }
+
+    jobData.cronJob = cron.schedule(jobData.schedule, async () => {
+        jobData.status = 'Executando';
+        jobData.lastRun = new Date();
+        const start = Date.now();
+
+        try {
+            const resultMsg = await jobData.taskFn();
+            const durationMs = Date.now() - start;
+            jobData.lastDurationMs = durationMs;
+            jobData.status = 'Ativo';
+            jobData.nextRun = getNextExecution(jobData.schedule);
+
+            const logEntry = {
+                time: new Date(),
+                success: true,
+                durationMs,
+                log: typeof resultMsg === 'string' ? resultMsg : "Executado com sucesso"
+            };
+
+            jobData.history.unshift(logEntry);
+            if (jobData.history.length > 5) jobData.history.pop();
+
+            if (mongoose.CronLog) {
+                await mongoose.CronLog.create({
+                    jobId: jobData.id,
+                    jobName: jobData.name,
+                    executedAt: new Date(),
+                    success: true,
+                    durationMs,
+                    log: logEntry.log,
+                    triggeredBy: 'agendado'
+                }).catch(err => console.error(`[CRON] Erro ao salvar log no banco:`, err));
+            }
+        } catch (err) {
+            const durationMs = Date.now() - start;
+            jobData.lastDurationMs = durationMs;
+            jobData.status = 'Ativo';
+            jobData.nextRun = getNextExecution(jobData.schedule);
+
+            console.error(`[CRON] Job [${jobData.name}] falhou:`, err);
+            const logEntry = {
+                time: new Date(),
+                success: false,
+                durationMs,
+                log: err.message
+            };
+
+            jobData.history.unshift(logEntry);
+            if (jobData.history.length > 5) jobData.history.pop();
+
+            if (mongoose.CronLog) {
+                await mongoose.CronLog.create({
+                    jobId: jobData.id,
+                    jobName: jobData.name,
+                    executedAt: new Date(),
+                    success: false,
+                    durationMs,
+                    log: 'Falha na execução',
+                    error: err.message,
+                    triggeredBy: 'agendado'
+                }).catch(e => console.error(`[CRON] Erro ao salvar log de erro no banco:`, e));
+            }
+        }
+
+        scheduleDashboardUpdate();
+    });
+
+    if (jobData.status === 'Pausado') {
+        jobData.cronJob.stop();
+    }
+}
+
+/**
  * Registra um cron job no gerenciador. Suporta objeto de configuração ou parâmetros posicionais.
  */
 function registerJob(idOrOptions, name, schedule, taskFn) {
@@ -135,6 +223,7 @@ function registerJob(idOrOptions, name, schedule, taskFn) {
     const jobData = {
         id,
         name: jobName,
+        defaultSchedule: cronSchedule,
         schedule: cronSchedule,
         humanSchedule: humanizeSchedule(cronSchedule),
         description,
@@ -147,76 +236,58 @@ function registerJob(idOrOptions, name, schedule, taskFn) {
         cronJob: null
     };
 
-    jobData.cronJob = cron.schedule(cronSchedule, async () => {
-        jobData.status = 'Executando';
-        jobData.lastRun = new Date();
-        const start = Date.now();
-
-        try {
-            const resultMsg = await fn();
-            const durationMs = Date.now() - start;
-            jobData.lastDurationMs = durationMs;
-            jobData.status = 'Ativo';
-            jobData.nextRun = getNextExecution(cronSchedule);
-
-            const logEntry = {
-                time: new Date(),
-                success: true,
-                durationMs,
-                log: typeof resultMsg === 'string' ? resultMsg : "Executado com sucesso"
-            };
-
-            jobData.history.unshift(logEntry);
-            if (jobData.history.length > 5) jobData.history.pop();
-
-            // Salva no banco de dados MongoDB
-            if (mongoose.CronLog) {
-                await mongoose.CronLog.create({
-                    jobId: id,
-                    jobName,
-                    executedAt: new Date(),
-                    success: true,
-                    durationMs,
-                    log: logEntry.log,
-                    triggeredBy: 'agendado'
-                }).catch(err => console.error(`[CRON] Erro ao salvar log no banco:`, err));
-            }
-        } catch (err) {
-            const durationMs = Date.now() - start;
-            jobData.lastDurationMs = durationMs;
-            jobData.status = 'Ativo';
-            jobData.nextRun = getNextExecution(cronSchedule);
-
-            console.error(`[CRON] Job [${jobName}] falhou:`, err);
-            const logEntry = {
-                time: new Date(),
-                success: false,
-                durationMs,
-                log: err.message
-            };
-
-            jobData.history.unshift(logEntry);
-            if (jobData.history.length > 5) jobData.history.pop();
-
-            if (mongoose.CronLog) {
-                await mongoose.CronLog.create({
-                    jobId: id,
-                    jobName,
-                    executedAt: new Date(),
-                    success: false,
-                    durationMs,
-                    log: 'Falha na execução',
-                    error: err.message,
-                    triggeredBy: 'agendado'
-                }).catch(e => console.error(`[CRON] Erro ao salvar log de erro no banco:`, e));
-            }
-        }
-
-        scheduleDashboardUpdate();
-    });
-
+    startScheduledJob(jobData);
     jobs.set(id, jobData);
+
+    // Carrega override salvo no MongoDB de forma assíncrona
+    if (mongoose.CronConfig && mongoose.connection?.readyState === 1) {
+        mongoose.CronConfig.findOne({ jobId: id }).lean().then(savedConfig => {
+            if (savedConfig && savedConfig.schedule && cron.validate(savedConfig.schedule)) {
+                jobData.schedule = savedConfig.schedule;
+                jobData.humanSchedule = humanizeSchedule(savedConfig.schedule);
+                jobData.nextRun = getNextExecution(savedConfig.schedule);
+                if (savedConfig.paused) {
+                    jobData.status = 'Pausado';
+                }
+                startScheduledJob(jobData);
+                scheduleDashboardUpdate();
+            }
+        }).catch(() => {});
+    }
+
     scheduleDashboardUpdate();
+}
+
+/**
+ * Altera a periodicidade (expressão cron) de um job em tempo de execução e persiste no MongoDB.
+ */
+async function updateJobSchedule(jobId, newSchedule, updatedBy = null) {
+    const job = jobs.get(jobId);
+    if (!job) throw new Error('Job não encontrado.');
+    if (!cron.validate(newSchedule)) throw new Error('Expressão cron inválida. Use o formato padrão com 5 campos (ex: */10 * * * *).');
+
+    job.schedule = newSchedule.trim();
+    job.humanSchedule = humanizeSchedule(job.schedule);
+    job.nextRun = getNextExecution(job.schedule);
+
+    startScheduledJob(job);
+
+    if (mongoose.CronConfig && mongoose.connection?.readyState === 1) {
+        await mongoose.CronConfig.findOneAndUpdate(
+            { jobId },
+            {
+                jobId,
+                schedule: job.schedule,
+                paused: job.status === 'Pausado',
+                updatedAt: new Date(),
+                updatedBy
+            },
+            { upsert: true }
+        ).catch(err => console.error(`[CRON] Erro ao persistir nova periodicidade para ${jobId}:`, err));
+    }
+
+    scheduleDashboardUpdate();
+    return job;
 }
 
 function getJobs() {
@@ -413,13 +484,66 @@ async function handleCronInteraction(interaction) {
                 .setStyle(job.status === 'Ativo' ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setEmoji(job.status === 'Ativo' ? '⏸️' : '▶️'),
             new ButtonBuilder()
+                .setCustomId(`cron_edit_schedule_${job.id}`)
+                .setLabel('Alterar Periodicidade')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('⏱️'),
+            new ButtonBuilder()
                 .setCustomId(`cron_history_${job.id}`)
-                .setLabel('Histórico Completo (Database)')
+                .setLabel('Histórico (Database)')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('🗄️')
         );
 
         return interaction.reply({ embeds: [embed], components: [btnRow], flags: 64 });
+    }
+
+    if (customId.startsWith('cron_edit_schedule_')) {
+        const jobId = customId.replace('cron_edit_schedule_', '');
+        const job = jobs.get(jobId);
+        if (!job) return interaction.reply({ content: '❌ Job não encontrado.', flags: 64 });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`cron_modal_schedule_${job.id}`)
+            .setTitle(`Editar Periodicidade: ${job.name}`.substring(0, 45));
+
+        const scheduleInput = new TextInputBuilder()
+            .setCustomId('cron_schedule_input')
+            .setLabel('Expressão Cron (5 campos)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(job.schedule)
+            .setPlaceholder('Ex: */5 * * * *, 0 */2 * * *, 0 3 * * 0')
+            .setMinLength(9)
+            .setMaxLength(35)
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(scheduleInput));
+        return interaction.showModal(modal);
+    }
+
+    if (interaction.isModalSubmit && interaction.isModalSubmit() && customId.startsWith('cron_modal_schedule_')) {
+        const jobId = customId.replace('cron_modal_schedule_', '');
+        const job = jobs.get(jobId);
+        if (!job) return interaction.reply({ content: '❌ Job não encontrado.', flags: 64 });
+
+        const newSchedule = interaction.fields.getTextInputValue('cron_schedule_input')?.trim();
+
+        try {
+            await updateJobSchedule(job.id, newSchedule, interaction.user.id);
+            return interaction.reply({
+                content: `✅ Periodicidade do job **${job.name}** alterada com sucesso!\n\n` +
+                         `• **Nova Frequência:** ${job.humanSchedule}\n` +
+                         `• **Expressão:** \`${job.schedule}\`\n` +
+                         `• **Próxima Execução:** ${job.nextRun ? `<t:${Math.floor(job.nextRun.getTime() / 1000)}:F> (<t:${Math.floor(job.nextRun.getTime() / 1000)}:R>)` : 'Não agendado'}\n\n` +
+                         `*A alteração já foi aplicada em tempo real e persistida na database.*`,
+                flags: 64
+            });
+        } catch (err) {
+            return interaction.reply({
+                content: `❌ Não foi possível atualizar a periodicidade: ${err.message}`,
+                flags: 64
+            });
+        }
     }
 
     if (customId.startsWith('cron_force_')) {
@@ -564,6 +688,7 @@ module.exports = {
     getJobs,
     humanizeSchedule,
     getNextExecution,
+    updateJobSchedule,
     handleCronInteraction,
     updateDashboard,
     scheduleDashboardUpdate

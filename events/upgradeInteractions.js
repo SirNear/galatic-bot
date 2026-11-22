@@ -893,7 +893,7 @@ async function listenerInteractionUpg(interaction, client) {
         if (sessao.managerMessage) {
             await sessao.managerMessage.edit({
                 embeds: [sessao.buildEmbedManager(sessao)],
-                components: [sessao.buildRowManager(sessao)]
+                components: sessao.buildRowManager(sessao)
             }).catch(() => {});
         }
 
@@ -901,6 +901,29 @@ async function listenerInteractionUpg(interaction, client) {
             content: `✅ Upgrade **"${novoUpgrade.nome}"** adicionado temporariamente (${sessao.upgrades.length} no total)! O prazo de **10 minutos** foi reiniciado.`,
             flags: 64
         });
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('upgrade_partes_page_')) {
+        const sessao = cacheUpgradePartes.get(interaction.user.id);
+        if (!sessao) return interaction.reply({ content: '❌ Sessão de upgrades em partes expirada ou não encontrada.', flags: 64 });
+
+        sessao.lastInteraction = interaction;
+
+        const partesSubPage = parseInt(interaction.customId.replace('upgrade_partes_page_', ''), 10) || 0;
+        sessao.currentPage = partesSubPage;
+
+        const maxPage = Math.max(0, Math.ceil(sessao.upgrades.length / 8) - 1);
+        if (sessao.currentPage > maxPage) sessao.currentPage = maxPage;
+        if (sessao.currentPage < 0) sessao.currentPage = 0;
+
+        if (sessao.managerMessage) {
+            await sessao.managerMessage.edit({
+                embeds: [sessao.buildEmbedManager(sessao)],
+                components: sessao.buildRowManager(sessao)
+            }).catch(() => {});
+        }
+
+        return interaction.deferUpdate().catch(() => {});
     }
 
     if (interaction.isButton() && interaction.customId === 'upgrade_partes_finish') {
@@ -982,7 +1005,7 @@ async function listenerInteractionUpg(interaction, client) {
             .setCustomId('hybrid_titles_input')
             .setLabel('Títulos dos Upgrades (1 por linha)')
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Liste apenas os títulos/nomes dos upgrades que deseja extrair do seu treino.\nEx:\nForça Física\nCorte Flamejante\nVelocidade')
+            .setPlaceholder('Ex: Força Física, Corte Flamejante, Velocidade (1 por linha)')
             .setRequired(true);
 
         modalHybrid.addComponents(
@@ -1792,6 +1815,7 @@ async function iniciarUpgradesEmPartes(interaction, client, cacheData) {
         loreTitle: cacheData.loreTitle,
         chapterName: cacheData.chapterName,
         upgrades: [],
+        currentPage: 0,
         lastUpdateTime: Date.now(),
         lastInteraction: interaction,
         managerMessage: null,
@@ -1800,23 +1824,69 @@ async function iniciarUpgradesEmPartes(interaction, client, cacheData) {
     };
 
     const buildEmbedManager = (s) => {
+        const pageSize = 8;
+        const totalUpgrades = s.upgrades.length;
+        const totalPages = Math.max(1, Math.ceil(totalUpgrades / pageSize));
+        const safePage = Math.min(Math.max(0, s.currentPage || 0), totalPages - 1);
+        s.currentPage = safePage;
+
         let listaTexto = '*Nenhum upgrade adicionado ainda. Clique no botão ➕ abaixo para registrar o primeiro.*';
-        if (s.upgrades.length > 0) {
-            listaTexto = s.upgrades.map((u, i) => `**${i + 1}.** \`[${u.tipo} | ${u.categoria}]\` **${u.nome}**\n↳ *${String(u.descricao).substring(0, 85)}...*`).join('\n');
+        if (totalUpgrades > 0) {
+            const startIdx = safePage * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, totalUpgrades);
+            const slice = s.upgrades.slice(startIdx, endIdx);
+            listaTexto = slice.map((u, i) => {
+                const globalIdx = startIdx + i + 1;
+                const descClean = String(u.descricao || '').replace(/\s+/g, ' ').trim();
+                const shortDesc = descClean.length > 70 ? descClean.substring(0, 67) + '...' : (descClean || 'Sem descrição');
+                return `**${globalIdx}.** \`[${String(u.tipo || 'Tipo').substring(0, 20)} | ${String(u.categoria || 'Cat').substring(0, 20)}]\` **${String(u.nome || 'Habilidade').substring(0, 50)}**\n↳ *${shortDesc}*`;
+            }).join('\n');
         }
 
+        const pageIndication = totalPages > 1 ? ` • Pág. ${safePage + 1}/${totalPages}` : '';
+        const headerInfo = `**Lore:** ${s.loreTitle || 'Lore'} | **Capítulo:** ${s.chapterName || 'Capítulo'}${s.personagem && s.personagem !== 'Não informado' ? `\n**Personagem:** ${s.personagem}` : ''}`;
+
         return new EmbedBuilder()
-            .setTitle('<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | REGISTRO EM PARTES')
-            .setDescription(`**Lore:** ${s.loreTitle || 'Lore'} | **Capítulo:** ${s.chapterName || 'Capítulo'}${s.personagem && s.personagem !== 'Não informado' ? `\n**Personagem:** ${s.personagem}` : ''}\n\nClique no botão **➕** abaixo para adicionar um upgrade por vez.\n\n⏳ **Regras de Tempo & Funcionamento:**\n• Você tem até **10 minutos** para adicionar novos upgrades.\n• A cada **2 minutos** você receberá um aviso de tempo em mensagem efêmera.\n• Cada vez que você adicionar um novo upgrade, o prazo de **10 minutos é reiniciado**.\n• Caso passem **10 minutos sem novas atualizações**, esta sessão será cancelada automaticamente.\n\n📝 **Upgrades salvos temporariamente (${s.upgrades.length}):**\n${listaTexto}\n\n⚠️ **Aviso:** Esta mensagem será excluída automaticamente após o término dos 10 minutos sem novas atualizações ou após a conclusão dos upgrades via confirmação no botão abaixo.`)
+            .setTitle(`<a:MEE6_LEVLEUP:1503159176690405426> | CENTRAL DE UPGRADES | REGISTRO EM PARTES${pageIndication}`)
+            .setDescription(`${headerInfo}\n\nClique no botão **➕** abaixo para adicionar um upgrade por vez.\n\n⏳ **Regras de Tempo & Funcionamento:**\n• Você tem até **10 minutos** para adicionar novos upgrades.\n• A cada **2 minutos** você receberá um aviso de tempo em mensagem efêmera.\n• Cada novo upgrade adicionado **reinicia o prazo de 10 minutos**.\n• Caso passem **10 minutos sem novas atualizações**, a sessão será cancelada automaticamente.\n\n📝 **Upgrades salvos temporariamente (${totalUpgrades}):**\n${listaTexto}\n\n⚠️ **Aviso:** Esta mensagem será excluída automaticamente após 10 minutos sem atualizações ou após a confirmação final.`)
             .setColor('#2ecc71');
     };
 
     const buildRowManager = (s) => {
-        return new ActionRowBuilder().addComponents(
+        const rows = [];
+        const pageSize = 8;
+        const totalPages = Math.max(1, Math.ceil(s.upgrades.length / pageSize));
+        const safePage = Math.min(Math.max(0, s.currentPage || 0), totalPages - 1);
+
+        if (totalPages > 1) {
+            const pageRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`upgrade_partes_page_${safePage - 1}`)
+                    .setLabel('📄 Pág. Ant.')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(safePage === 0),
+                new ButtonBuilder()
+                    .setCustomId('upgrade_partes_page_noop')
+                    .setLabel(`Pág. ${safePage + 1} de ${totalPages}`)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true),
+                new ButtonBuilder()
+                    .setCustomId(`upgrade_partes_page_${safePage + 1}`)
+                    .setLabel('Próx. Pág. 📄')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(safePage >= totalPages - 1)
+            );
+            rows.push(pageRow);
+        }
+
+        const actionRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('upgrade_partes_add').setEmoji('➕').setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId('upgrade_partes_finish').setLabel('Concluir e Revisar').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(s.upgrades.length === 0),
             new ButtonBuilder().setCustomId('upgrade_partes_cancel').setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Danger)
         );
+        rows.push(actionRow);
+
+        return rows;
     };
 
     sessao.buildEmbedManager = buildEmbedManager;
@@ -1900,7 +1970,7 @@ async function iniciarUpgradesEmPartes(interaction, client, cacheData) {
     const msgManager = await interaction.channel.send({
         content: `<@${interaction.user.id}>`,
         embeds: [buildEmbedManager(sessao)],
-        components: [buildRowManager(sessao)]
+        components: buildRowManager(sessao)
     });
 
     sessao.managerMessage = msgManager;
