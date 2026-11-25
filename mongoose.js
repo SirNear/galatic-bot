@@ -33,6 +33,8 @@ let Guild = new mongoose.Schema({
     uGlobal: { type: String, default: 'Desativado' },
     staffRole: { type: String, default: 'Não definido' },
     monitorCategory: { type: String, default: 'Não definido' },
+    deleteRestrictedCategories: { type: [String], default: [] },
+    deleteRestrictedChannels: { type: [String], default: [] },
     pokeball: { type: Boolean, default: true },
     batalha: { type: Boolean, default: true },
     customPerm: { type: Boolean, default: false },

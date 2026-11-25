@@ -90,6 +90,12 @@ module.exports = class {
                 } else if (customId.startsWith('cortador_')) {
                     const { handleCortadorInteraction } = require('../commands/util/cortador.js');
                     await handleCortadorInteraction(interaction);
+                } else if (customId.startsWith('painel_')) {
+                    const { handlePainelInteraction } = require('../commands/config/painel.js');
+                    await handlePainelInteraction(interaction, this.client);
+                } else if (customId.startsWith('botmsg_del_')) {
+                    const { handleBotMessageDeleteInteraction } = require('../api/botMessageDeletion.js');
+                    await handleBotMessageDeleteInteraction(interaction, this.client);
                 }
             }
             

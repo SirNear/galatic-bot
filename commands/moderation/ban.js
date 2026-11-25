@@ -1,137 +1,212 @@
-const { EmbedBuilder, Discord, PermissionsBitField } = require('discord.js');
+const {
+    SlashCommandBuilder,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    PermissionsBitField,
+    ComponentType
+} = require('discord.js');
 const Command = require('../../structures/Command');
-const error = require('../../api/error.js')
-const color = require('../../api/colors.json')
+const color = require('../../api/colors.json');
 
 module.exports = class ban extends Command {
+    constructor(client) {
+        super(client, {
+            name: 'ban',
+            category: 'moderation',
+            aliases: ['banir'],
+            description: 'Bane permanentemente um usuário do servidor com registro no canal de punições.',
+            UserPermission: ['BanMembers'],
+            clientPermission: ['BanMembers'],
+            OnlyDevs: false,
+            slash: true
+        });
 
-	constructor(client) {
-		super(client, {
-			name: "ban",
-			category: "moderation",
-			aliases: ["banir"],
-			description: "Bane permanentemente um usuário do servidor com registro de punição.",
-			UserPermission: ['BAN_MEMBERS'],
-			clientPermission: ["BAN_MEMBERS", "EMBED_LINKS"],
-			OnlyDevs: false
-		})
-	}
-  
- async run({ message, args, client, server}) {
-  const mb = await message.guild.members.cache.get(message.author.id)
-	 
-	 
- if (!mb.permissions.has(PermissionsBitField.Flags.BAN_MEMBERS)) return error.Adm(message)
+        this.data = new SlashCommandBuilder()
+            .setName('ban')
+            .setDescription('Bane permanentemente um usuário do servidor com registro de punição.')
+            .addUserOption(option =>
+                option
+                    .setName('usuario')
+                    .setDescription('Membro que será banido.')
+                    .setRequired(true)
+            )
+            .addStringOption(option =>
+                option
+                    .setName('motivo')
+                    .setDescription('Motivo do banimento.')
+                    .setRequired(false)
+            )
+            .addBooleanOption(option =>
+                option
+                    .setName('forcar')
+                    .setDescription('Executar banimento imediatamente sem pedir confirmação?')
+                    .setRequired(false)
+            )
+            .setDefaultMemberPermissions(PermissionsBitField.Flags.BanMembers);
+    }
 
-     
-     const embedh = new EmbedBuilder()
-.setTitle(`<:DuvidaMario:566084477114384387> | **AJUDA: COMANDO BAN** | <:DuvidaMario:566084477114384387>`)
-.setDescription(`Utilize \`${server.prefix}ban <usuario> <motivo>\``)
-.setFooter('Você sabia que se adicionar *force* ao final do motivo, não irá receber confirmação?')
-.setColor('RANDOM');
+    async execute(interaction) {
+        if (!interaction.member?.permissions?.has(PermissionsBitField.Flags.BanMembers) && !this.client.owners?.includes(interaction.user.id)) {
+            return interaction.reply({ content: '❌ Você não possui a permissão `Banir Membros`.', flags: 64 });
+        }
 
-if(!args[0]||args[0].includes("help","ajuda")) return message.channel.send(embedh)
+        const server = await this.client.database.Guilds.findById(interaction.guild.id)
+            || new this.client.database.Guilds({ _id: interaction.guild.id });
 
-let member = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
+        const targetUser = interaction.options.getUser('usuario');
+        const reason = interaction.options.getString('motivo')?.trim() || 'Sem motivo informado';
+        const force = interaction.options.getBoolean('forcar') || false;
+        const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
 
-let sChannel = message.guild.channels.cache.get(`${server.cPunicoes}`.replace(/[<#>]/g, ""))  
-if(!sChannel) return message.reply('***O canal ' + `${server.cPunicoes}` + ' não foi encontrado. Crie-o para que eu possa registrar os eventos de punição por lá. ***')
+        if (!member) {
+            return interaction.reply({ content: '❌ Membro não encontrado neste servidor.', flags: 64 });
+        }
 
-if(!member)return message.reply("Não encontrei esse usuário neste servidor");
-if (!member.bannable) return error.botLow(message)
+        await interaction.deferReply();
+        return this.handleBanFlow({
+            context: interaction,
+            isInteraction: true,
+            guild: interaction.guild,
+            author: interaction.user,
+            authorMember: interaction.member,
+            member,
+            reason,
+            force,
+            server
+        });
+    }
 
-let reason = args.slice(1).join(' ');
-if(!reason) reason = "Sem motivo";
+    async run({ message, args, server }) {
+        if (!message.member?.permissions?.has(PermissionsBitField.Flags.BanMembers) && !this.client.owners?.includes(message.author.id)) {
+            return message.reply('❌ Você não possui a permissão `Banir Membros`.');
+        }
 
-  
-  if(member == mb) return error.autoPuni(message)//tentar se punir
-  if(mb.roles.highest.rawPosition < member.roles.highest.rawPosition) return error.highRole(message)
-  if(mb.roles.highest.rawPosition == member.roles.highest.rawPosition) return error.equalRole(message)
-  
-  const sucesso = new EmbedBuilder()
-  .setTitle("Ban | Sucesso!")
-  .setDescription(`O membro ${member} foi banido com sucesso do servidor por ${message.author}`)
-  .setColor(color.moderation)
-  
-const reactembed = new EmbedBuilder()
-.setDescription(`**Deseja banir permanentemente o(a) ${member} do servidor?**`)
-.addFields('**Se sim, clique na reação:**', '**"<:sun_ban:589205510000082947>"**')
-.setColor(color.moderation);
+        if (!args[0] || ['help', 'ajuda'].includes(args[0].toLowerCase())) {
+            const embedH = new EmbedBuilder()
+                .setTitle('🔨 | Ajuda: Comando Ban')
+                .setDescription(`Utilize \`/ban usuario:@membro motivo:...\` ou \`${server?.prefix || 'g!'}ban <@usuario> <motivo>\`.`)
+                .setFooter({ text: 'Adicione "force" ao final do motivo para banir sem confirmação.' })
+                .setColor(color.moderation || '#e74c3c');
+            return message.reply({ embeds: [embedH] });
+        }
 
-if(reason.includes('force')) {
+        const member = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
+        if (!member) return message.reply('❌ Não encontrei esse usuário neste servidor.');
 
-  reason = reason.split("force")
+        let rawReason = args.slice(1).join(' ').trim() || 'Sem motivo informado';
+        const force = rawReason.toLowerCase().includes('force');
+        if (force) {
+            rawReason = rawReason.replace(/force/gi, '').trim() || 'Sem motivo informado';
+        }
 
-        const dmembed = new EmbedBuilder()
-        .setThumbnail(member.user.avatarURL)
-        .setAuthor(`${message.guild.name}`, message.guild.iconURL)
-        .setDescription(`Você foi banido do ${message.guild.name} por desrespeitar as regras!`)
-        .setTitle("*** Punição | Banimento***")
-        .addFields("👮🏻 |*** Staff***", `${message.author.username}`)
-        .addFields("🔧 | ***ID do staff***", `${message.author.id}`)
-        .addFields("📑 | ***Motivo***", reason)
-        .setColor(color.moderation)
-        .setTimestamp(new Date());
+        return this.handleBanFlow({
+            context: message,
+            isInteraction: false,
+            guild: message.guild,
+            author: message.author,
+            authorMember: message.member,
+            member,
+            reason: rawReason,
+            force,
+            server
+        });
+    }
 
-        
-    const banembed = new EmbedBuilder()
+    async handleBanFlow({ context, isInteraction, guild, author, authorMember, member, reason, force, server }) {
+        const respond = async (payload) => {
+            if (isInteraction) return context.editReply(payload);
+            return context.reply(payload);
+        };
 
-        .setThumbnail(member.user.avatarURL)
-        .setAuthor(`${message.guild.name}`, message.guild.iconURL)
-        .setDescription(`O usuário foi punido(a) por desrespeitar as regras do servidor!`)
-        .setTitle("*** Punição | Banimento***")
-        .addFields("👮🏻 |*** Staff***", `${message.author.username}`)
-        .addFields("🔧 | ***ID do staff***", `${message.author.id}`)
-        .addFields("👤 | ***Usuário***", `${member}`)
-        .addFields("⚙️ | ***ID do usuário***:", `${member.id}`)
-        .addFields("📑 | ***Motivo***", reason)
-        .setColor(color.moderation)
-        .setTimestamp(new Date());
+        if (member.id === author.id) {
+            return respond({ content: '❌ Você não pode banir a si mesmo.' });
+        }
 
-       member.send(dmembed).catch(error => message.reply(`Desculpe-me não consigo enviar mensagem a ele: ${error}`))
-      setTimeout(function() {
-       member.ban({days: 7, reason: reason})
-          }, 2000)
-      message.channel.send(sucesso)
-      sChannel.send(banembed)
-  
+        if (authorMember.roles.highest.rawPosition <= member.roles.highest.rawPosition && guild.ownerId !== author.id) {
+            return respond({ content: '❌ Seu cargo é igual ou inferior ao do membro que você tentou banir.' });
+        }
 
-}else {
+        if (!member.bannable) {
+            return respond({ content: '❌ Não posso banir este usuário (meu cargo é inferior ao dele).' });
+        }
 
-message.channel.send(reactembed).then(msg =>{
-    msg.react("589205510000082947");
+        const punicoesChannelId = String(server?.cPunicoes || '').replace(/[<#>]/g, '').trim();
+        const sChannel = guild.channels.cache.get(punicoesChannelId);
+        if (!sChannel) {
+            return respond({
+                content: `❌ O canal de punições (${server?.cPunicoes || 'Não definido'}) não foi encontrado. Configure-o através do comando \`/painel\`.`
+            });
+        }
 
-    let filtro = (reaction, usuario) => reaction.emoji.name === "sun_ban" && usuario.id === message.author.id;
-    const coletor = msg.createReactionCollector(filtro, {max: 1, time: 360000});
+        const dmEmbed = new EmbedBuilder()
+            .setThumbnail(member.user.displayAvatarURL())
+            .setAuthor({ name: guild.name, iconURL: guild.iconURL() || undefined })
+            .setTitle('🔨 | Punição: Banimento')
+            .setDescription(`Você foi banido do servidor **${guild.name}** por desrespeitar as regras!`)
+            .addFields(
+                { name: '👮 Staff', value: `${author.username} (\`${author.id}\`)`, inline: true },
+                { name: '📑 Motivo', value: reason, inline: false }
+            )
+            .setColor(color.moderation || '#e74c3c')
+            .setTimestamp();
 
-    coletor.on("collect", em =>{
+        const banEmbed = new EmbedBuilder()
+            .setThumbnail(member.user.displayAvatarURL())
+            .setAuthor({ name: guild.name, iconURL: guild.iconURL() || undefined })
+            .setTitle('🔨 | Punição: Banimento')
+            .setDescription('O usuário foi punido permanentemente por desrespeitar as regras do servidor!')
+            .addFields(
+                { name: '👮 Staff', value: `${author.username} (\`${author.id}\`)`, inline: true },
+                { name: '👤 Usuário', value: `${member} (\`${member.id}\`)`, inline: true },
+                { name: '📑 Motivo', value: reason, inline: false }
+            )
+            .setColor(color.moderation || '#e74c3c')
+            .setTimestamp();
 
-        msg.delete()
-       member.send(dmembed).catch(error => message.reply(`Desculpe-me não consigo enviar mensagem a ele: ${error}`))
-      setTimeout(function() {
-       member.ban({days: 7, reason: reason})
-          }, 2000)
-      message.channel.send(sucesso)
-      sChannel.send(banembed)
-    })
+        const sucessoEmbed = new EmbedBuilder()
+            .setTitle('🔨 Ban | Sucesso!')
+            .setDescription(`O membro ${member} (\`${member.user.tag}\`) foi banido com sucesso do servidor por ${author}.`)
+            .setColor(color.moderation || '#2ecc71')
+            .setTimestamp();
 
-})
+        const executeBan = async () => {
+            await member.send({ embeds: [dmEmbed] }).catch(() => {});
+            await member.ban({ deleteMessageSeconds: 7 * 86400, reason });
+            await sChannel.send({ embeds: [banEmbed] }).catch(() => {});
+        };
 
-}
-     
-     
-     
-     
-   }
-  
-  
-  getCategory(category, prefix) {
-		return this.client.commands.filter(c => c.config.category === category).map(c => `\`${prefix}${c.config.name}\``).join(", ")
-	}
-	
-	
-	getCommmandSize(category) {
-		return this.client.commands.filter(c => c.config.category === category).size
-	}
-  
-}
+        if (force) {
+            await executeBan();
+            return respond({ embeds: [sucessoEmbed], components: [] });
+        }
+
+        const confirmEmbed = new EmbedBuilder()
+            .setTitle('⚠️ | Confirmação de Banimento')
+            .setDescription(`Deseja banir permanentemente **${member.user.tag}** (${member}) do servidor?\n\n**Motivo:** ${reason}`)
+            .setColor(color.moderation || '#e67e22');
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ban_confirm_yes').setLabel('Confirmar Banimento').setEmoji('🔨').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('ban_confirm_no').setLabel('Cancelar').setEmoji('✖️').setStyle(ButtonStyle.Secondary)
+        );
+
+        const sent = await respond({ embeds: [confirmEmbed], components: [row] });
+        const collector = sent.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            filter: i => i.user.id === author.id,
+            time: 60000,
+            max: 1
+        });
+
+        collector.on('collect', async i => {
+            if (i.customId === 'ban_confirm_yes') {
+                await executeBan();
+                await i.update({ embeds: [sucessoEmbed], components: [] });
+            } else {
+                await i.update({ content: '❌ Banimento cancelado.', embeds: [], components: [] });
+            }
+        });
+    }
+};

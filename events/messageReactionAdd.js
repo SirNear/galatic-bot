@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const { handleBotMessageTrashReaction } = require('../api/botMessageDeletion.js');
 
 module.exports = class {
     constructor(client) {
@@ -19,6 +20,10 @@ module.exports = class {
                     return;
                 }
             }
+
+            // Verifica se é uma reação 🗑️ para apagar mensagem auxiliar do bot
+            const handledTrash = await handleBotMessageTrashReaction(this.client, reaction, user);
+            if (handledTrash) return;
 
             // Aguarda conexão com o banco
             if (!this.client.database?.ReactionRoles) {

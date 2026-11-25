@@ -4,6 +4,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   ComponentType,
   ModalBuilder,
   TextInputBuilder,
@@ -57,23 +58,45 @@ module.exports = class lore extends Command {
       this.data = new SlashCommandBuilder()
         .setName(this.config.name)
         .setDescription(this.config.description)
-        .addAttachmentOption((option) =>
-          option
-            .setName("arquivo")
-            .setDescription("Anexe um arquivo .txt ou .pdf com o conteúdo da lore para formatação automática.")
-            .setRequired(false)
+        .addSubcommand((sub) =>
+          sub
+            .setName("criar")
+            .setDescription("Organiza e publica uma nova lore em capítulos a partir do chat ou arquivo (.txt / .pdf)")
+            .addAttachmentOption((option) =>
+              option
+                .setName("arquivo")
+                .setDescription("Anexe um arquivo .txt ou .pdf com o conteúdo da lore para formatação automática.")
+                .setRequired(false)
+            )
+            .addStringOption((option) =>
+              option
+                .setName("titulo")
+                .setDescription("Título da Lore (opcional, pode definir na Main Page).")
+                .setRequired(false)
+            )
+            .addStringOption((option) =>
+              option
+                .setName("capitulo")
+                .setDescription("Nome ou número do Capítulo (opcional, padrão: Capítulo 1).")
+                .setRequired(false)
+            )
         )
-        .addStringOption((option) =>
-          option
-            .setName("titulo")
-            .setDescription("Título da Lore (opcional, pode definir na Main Page).")
-            .setRequired(false)
-        )
-        .addStringOption((option) =>
-          option
-            .setName("capitulo")
-            .setDescription("Nome ou número do Capítulo (opcional, padrão: Capítulo 1).")
-            .setRequired(false)
+        .addSubcommand((sub) =>
+          sub
+            .setName("lista")
+            .setDescription("Acessa o catálogo de todas as lores inclusas no sistema e permite navegar até elas")
+            .addStringOption((option) =>
+              option
+                .setName("busca")
+                .setDescription("Filtrar lores por título ou sinopse (opcional).")
+                .setRequired(false)
+            )
+            .addUserOption((option) =>
+              option
+                .setName("autor")
+                .setDescription("Filtrar lores criadas por um autor específico (opcional).")
+                .setRequired(false)
+            )
         );
     }
   }
@@ -210,7 +233,365 @@ module.exports = class lore extends Command {
     }
   }
 
+  /**
+   * Exibe o catálogo paginado de todas as lores inclusas no sistema e permite navegar diretamente até elas,
+   * abrir sua Main Page, ler os capítulos ou baixar o PDF.
+   */
+  async executeListaLores(interaction, options = {}) {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: 64 });
+    }
+
+    const guildId = interaction.guild?.id;
+    let searchTerm = (options.busca || '').trim();
+    const targetAuthor = options.autor || null;
+
+    const query = {};
+    if (guildId) query.guildId = guildId;
+    if (targetAuthor) query.createdBy = targetAuthor.id;
+
+    let allLores = await this.client.database.Lore.find(query).sort({ createdAt: -1 }).lean().catch(() => []);
+    if (!allLores || allLores.length === 0) {
+      // Fallback caso lores antigas tenham sido salvas sem guildId compatível
+      if (guildId && !targetAuthor) {
+        allLores = await this.client.database.Lore.find({}).sort({ createdAt: -1 }).lean().catch(() => []);
+      }
+    }
+
+    if (!allLores || allLores.length === 0) {
+      const emptyEmbed = new EmbedBuilder()
+        .setTitle('📚 Catálogo de Lores do Sistema')
+        .setColor('#0099ff')
+        .setDescription(
+          targetAuthor
+            ? `❌ Nenhuma lore encontrada para o autor <@${targetAuthor.id}>.`
+            : '❌ Ainda não há nenhuma lore registrada no sistema. Use `/lore criar` para publicar a primeira!'
+        );
+      return interaction.editReply({ embeds: [emptyEmbed], components: [] });
+    }
+
+    const getFilteredLores = () => {
+      if (!searchTerm) return allLores;
+      const lower = searchTerm.toLowerCase();
+      return allLores.filter(l => {
+        const t = (l.title || '').toLowerCase();
+        const s = (l.synopsis || '').toLowerCase();
+        const cNames = (l.chapters || []).map(c => (c?.name || '').toLowerCase()).join(' ');
+        return t.includes(lower) || s.includes(lower) || cNames.includes(lower);
+      });
+    };
+
+    const ITEMS_PER_PAGE = 8;
+    let currentPage = 0;
+
+    const buildCatalogView = (pageIndex) => {
+      const filtered = getFilteredLores();
+      const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+      const safePage = Math.max(0, Math.min(pageIndex, totalPages - 1));
+      const slice = filtered.slice(safePage * ITEMS_PER_PAGE, (safePage + 1) * ITEMS_PER_PAGE);
+
+      const embed = new EmbedBuilder()
+        .setTitle('📚 Catálogo de Lores do Sistema')
+        .setColor('#0099ff')
+        .setTimestamp();
+
+      const filterBadges = [];
+      if (targetAuthor) filterBadges.push(`👤 **Autor:** <@${targetAuthor.id}>`);
+      if (searchTerm) filterBadges.push(`🔍 **Filtro:** \`${searchTerm}\``);
+      const filterHeader = filterBadges.length > 0 ? `${filterBadges.join('  •  ')}\n\n` : '';
+
+      if (filtered.length === 0) {
+        embed.setDescription(
+          `${filterHeader}❌ Nenhuma lore encontrada com o termo **"${searchTerm}"**.\nClique em **Limpar Busca** ou **Buscar Lore** abaixo para tentar outro termo.`
+        );
+        embed.setFooter({ text: `0 de ${allLores.length} lore(s) no sistema` });
+      } else {
+        const lines = slice.map((loreItem, idx) => {
+          const globalNum = safePage * ITEMS_PER_PAGE + idx + 1;
+          const gId = loreItem.guildId || guildId || '@me';
+          const jumpUrl = (loreItem.channelId && loreItem.messageId)
+            ? `https://discord.com/channels/${gId}/${loreItem.channelId}/${loreItem.messageId}`
+            : null;
+
+          const chapCount = Array.isArray(loreItem.chapters) ? loreItem.chapters.length : 0;
+          const pageCount = (loreItem.chapters || []).reduce((acc, c) => acc + (Array.isArray(c?.pages) ? c.pages.length : 0), 0);
+          const dateTs = loreItem.createdAt ? Math.floor(new Date(loreItem.createdAt).getTime() / 1000) : null;
+          const synPreview = loreItem.synopsis
+            ? `\n   *“${loreItem.synopsis.replace(/\r?\n/g, ' ').substring(0, 110)}${loreItem.synopsis.length > 110 ? '...' : ''}”*`
+            : '';
+
+          return (
+            `**${globalNum}. ${loreItem.title || 'Lore Sem Título'}**\n` +
+            `   👤 <@${loreItem.createdBy}> • 📍 <#${loreItem.channelId}> • 📑 \`${chapCount}\` cap(s) (\`${pageCount}\` pág.)` +
+            `${dateTs ? ` • 🗓️ <t:${dateTs}:d>` : ''}` +
+            `${jumpUrl ? `\n   🔗 **[Ir para a Mensagem no Canal ↗](${jumpUrl})**` : ''}` +
+            `${synPreview}`
+          );
+        });
+
+        embed.setDescription(
+          `${filterHeader}Selecione uma lore no menu abaixo para **navegar até a Main Page**, **ler seus capítulos** ou **baixar o PDF completo (💾)**:\n\n` +
+          lines.join('\n\n')
+        );
+        embed.setFooter({
+          text: `Página ${safePage + 1} de ${totalPages} • Exibindo ${slice.length} de ${filtered.length} lore(s) (Total no sistema: ${allLores.length})`
+        });
+      }
+
+      const components = [];
+
+      if (slice.length > 0) {
+        const selectOptions = slice.map((loreItem, idx) => {
+          const globalNum = safePage * ITEMS_PER_PAGE + idx + 1;
+          const chapCount = Array.isArray(loreItem.chapters) ? loreItem.chapters.length : 0;
+          const pageCount = (loreItem.chapters || []).reduce((acc, c) => acc + (Array.isArray(c?.pages) ? c.pages.length : 0), 0);
+          return {
+            label: `${globalNum}. ${(loreItem.title || 'Lore Sem Título')}`.substring(0, 100),
+            description: `${chapCount} capítulo(s) • ${pageCount} página(s) • Clique para abrir e navegar`.substring(0, 100),
+            value: loreItem.messageId,
+            emoji: '📖',
+          };
+        });
+
+        components.push(
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('lore_catalog_select')
+              .setPlaceholder('📖 Selecione uma Lore desta página para navegar até ela...')
+              .addOptions(selectOptions)
+          )
+        );
+      }
+
+      const navRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('lore_catalog_prev')
+          .setLabel('◀️ Anterior')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(safePage <= 0),
+        new ButtonBuilder()
+          .setCustomId('lore_catalog_page_info')
+          .setLabel(`Pág. ${safePage + 1}/${totalPages}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true),
+        new ButtonBuilder()
+          .setCustomId('lore_catalog_next')
+          .setLabel('Próxima ▶️')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(safePage >= totalPages - 1),
+        new ButtonBuilder()
+          .setCustomId('lore_catalog_search')
+          .setLabel('Buscar Lore')
+          .setEmoji('🔍')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      if (searchTerm) {
+        navRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId('lore_catalog_clear_search')
+            .setLabel('Limpar Busca')
+            .setEmoji('🔄')
+            .setStyle(ButtonStyle.Danger)
+        );
+      }
+
+      components.push(navRow);
+      return { embed, components, safePage };
+    };
+
+    const buildLoreDetailView = async (loreDoc) => {
+      const gId = loreDoc.guildId || guildId || '@me';
+      const jumpUrl = (loreDoc.channelId && loreDoc.messageId)
+        ? `https://discord.com/channels/${gId}/${loreDoc.channelId}/${loreDoc.messageId}`
+        : null;
+
+      const creatorUser = await this.client.users.fetch(loreDoc.createdBy).catch(() => interaction.user);
+      const chapCount = Array.isArray(loreDoc.chapters) ? loreDoc.chapters.length : 0;
+      const pageCount = (loreDoc.chapters || []).reduce((acc, c) => acc + (Array.isArray(c?.pages) ? c.pages.length : 0), 0);
+      const eternalDescription = loreDoc.synopsis || loreDoc.chapters?.[0]?.pages?.[0]?.content || 'Clique em "📖 Ler Lore" abaixo para iniciar a leitura.';
+
+      const detailEmbed = new EmbedBuilder()
+        .setTitle(loreDoc.title || 'Lore')
+        .setColor('#0099ff')
+        .setAuthor({ name: `Lore por ${creatorUser.username}`, iconURL: creatorUser.displayAvatarURL() })
+        .setDescription(eternalDescription.substring(0, 4096))
+        .addFields(
+          { name: '📍 Canal da Lore', value: `<#${loreDoc.channelId}>`, inline: true },
+          { name: '📚 Estrutura', value: `\`${chapCount}\` capítulo(s) • \`${pageCount}\` página(s)`, inline: true },
+          { name: '🔗 Acesso Direto', value: jumpUrl ? `[Ir para a Mensagem Original ↗](${jumpUrl})` : 'Indisponível', inline: true }
+        )
+        .setFooter({ text: `📚 ${chapCount} capítulo(s) • Clique em "📖 Ler Lore" para ler ou "💾" para baixar em PDF` })
+        .setTimestamp(loreDoc.createdAt ? new Date(loreDoc.createdAt) : new Date());
+
+      const coverToUse = loreDoc.coverImageUrl || loreDoc.chapters?.[0]?.pages?.[0]?.imageUrl || null;
+      if (coverToUse) {
+        const { resolveValidLoreImageUrl } = require('../../events/loreInteraction.js');
+        const validCover = await resolveValidLoreImageUrl(coverToUse, this.client, loreDoc, 0, 0).catch(() => coverToUse);
+        if (validCover && validCover.startsWith('http')) {
+          detailEmbed.setImage(validCover);
+        }
+      }
+
+      const rowActions = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`lore_read_${loreDoc.messageId}_0_0_0_ephemeral`)
+          .setLabel('📖 Ler Lore')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`lore_download_pdf_${loreDoc.messageId}`)
+          .setEmoji('💾')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`lore_chapters-list_${loreDoc.messageId}`)
+          .setLabel('Capítulos')
+          .setEmoji('📚')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      if (jumpUrl) {
+        rowActions.addComponents(
+          new ButtonBuilder()
+            .setLabel('Ir até a Mensagem')
+            .setEmoji('🔗')
+            .setStyle(ButtonStyle.Link)
+            .setURL(jumpUrl)
+        );
+      }
+
+      rowActions.addComponents(
+        new ButtonBuilder()
+          .setCustomId('lore_catalog_back')
+          .setLabel('Voltar ao Catálogo')
+          .setEmoji('↩️')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      const rows = [rowActions];
+
+      if (interaction.user.id === loreDoc.createdBy) {
+        rows.push(
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`lore_manage_edit-title_${loreDoc.messageId}`)
+              .setLabel('Editar Informações')
+              .setEmoji('✏️')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId(`lore_add_chapter_${loreDoc.messageId}`)
+              .setLabel('Adicionar Capítulo')
+              .setEmoji('➕')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId(`lore_add_backup_${loreDoc.messageId}`)
+              .setLabel('Importar .TXT / .PDF')
+              .setEmoji('📥')
+              .setStyle(ButtonStyle.Secondary)
+          )
+        );
+      }
+
+      return { embed: detailEmbed, components: rows };
+    };
+
+    const initialView = buildCatalogView(currentPage);
+    currentPage = initialView.safePage;
+
+    const replyMsg = await interaction.editReply({
+      content: null,
+      embeds: [initialView.embed],
+      components: initialView.components,
+    });
+
+    const collector = replyMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === interaction.user.id && i.customId.startsWith('lore_catalog_'),
+      time: 300000,
+    });
+
+    collector.on('collect', async (i) => {
+      try {
+        if (i.customId === 'lore_catalog_prev') {
+          currentPage = Math.max(0, currentPage - 1);
+          const view = buildCatalogView(currentPage);
+          currentPage = view.safePage;
+          await i.update({ embeds: [view.embed], components: view.components });
+        } else if (i.customId === 'lore_catalog_next') {
+          currentPage++;
+          const view = buildCatalogView(currentPage);
+          currentPage = view.safePage;
+          await i.update({ embeds: [view.embed], components: view.components });
+        } else if (i.customId === 'lore_catalog_back') {
+          const view = buildCatalogView(currentPage);
+          currentPage = view.safePage;
+          await i.update({ embeds: [view.embed], components: view.components });
+        } else if (i.customId === 'lore_catalog_clear_search') {
+          searchTerm = '';
+          currentPage = 0;
+          const view = buildCatalogView(currentPage);
+          currentPage = view.safePage;
+          await i.update({ embeds: [view.embed], components: view.components });
+        } else if (i.customId === 'lore_catalog_search') {
+          const modalId = `lore_catalog_search_modal_${Date.now()}`;
+          const modal = new ModalBuilder()
+            .setCustomId(modalId)
+            .setTitle('Buscar Lore no Sistema');
+
+          const searchInput = new TextInputBuilder()
+            .setCustomId('lore_search_input')
+            .setLabel('Título, capítulo ou palavra-chave da sinopse')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ex: Tessitura, Mancha Negra, Prólogo...')
+            .setValue(searchTerm)
+            .setRequired(false);
+
+          modal.addComponents(new ActionRowBuilder().addComponents(searchInput));
+          await i.showModal(modal);
+
+          const submitted = await i.awaitModalSubmit({
+            filter: (m) => m.customId === modalId && m.user.id === interaction.user.id,
+            time: 60000,
+          }).catch(() => null);
+
+          if (submitted) {
+            searchTerm = submitted.fields.getTextInputValue('lore_search_input').trim();
+            currentPage = 0;
+            const view = buildCatalogView(currentPage);
+            currentPage = view.safePage;
+            await submitted.update({ embeds: [view.embed], components: view.components }).catch(() => {});
+          }
+        } else if (i.customId === 'lore_catalog_select' && i.isStringSelectMenu()) {
+          const selectedMessageId = i.values[0];
+          const selectedLore = allLores.find((l) => l.messageId === selectedMessageId)
+            || await this.client.database.Lore.findOne({ messageId: selectedMessageId }).lean().catch(() => null);
+
+          if (!selectedLore) {
+            return i.reply({ content: '❌ Esta lore não foi encontrada.', flags: 64 });
+          }
+
+          await i.deferUpdate().catch(() => {});
+          const detailView = await buildLoreDetailView(selectedLore);
+          await interaction.editReply({ embeds: [detailView.embed], components: detailView.components });
+        }
+      } catch (err) {
+        console.error('[LORE CATALOG] Erro na interação do catálogo de lores:', err);
+      }
+    });
+  }
+
   async execute(interaction) {
+    let subcommand = 'criar';
+    try {
+      subcommand = interaction.options.getSubcommand(false) || 'criar';
+    } catch (_) {
+      subcommand = 'criar';
+    }
+
+    if (subcommand === 'lista') {
+      const busca = interaction.options.getString('busca');
+      const autor = interaction.options.getUser('autor');
+      return this.executeListaLores(interaction, { busca, autor });
+    }
+
     const attachment = interaction.options.getAttachment('arquivo');
     const titulo = interaction.options.getString('titulo');
     const capitulo = interaction.options.getString('capitulo');
@@ -590,7 +971,7 @@ module.exports = class lore extends Command {
     }
 
     return message.reply(
-      "ℹ️ Para criar uma lore, use o comando slash `/lore` ou envie um arquivo anexado (.txt ou .pdf) junto com `!lore [título]`!"
+      "ℹ️ Para criar uma lore, use `/lore criar` (ou envie um arquivo `.txt` / `.pdf` junto com `!lore [título]`). Para ver e navegar por todas as lores do sistema, use `/lore lista`!"
     );
   }
 };

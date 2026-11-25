@@ -15,6 +15,110 @@ const AdmZip = require('adm-zip');
 const mongoose = require('mongoose');
 const { messagesToTxt } = require('../api/messagesToTxt.js');
 const { extractTextFromAttachment } = require('../api/documentParser.js');
+const { generatePdf, splitLinesForNotebookLM } = require('../api/pdfGenerator.js');
+
+/**
+ * Constrói a fileira de botões públicos da Main Page (mensagem eterna da Lore no canal).
+ */
+function buildPublicLoreMainPageButtons(messageId) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`lore_read_${messageId}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`lore_download_pdf_${messageId}`).setEmoji('💾').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${messageId}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+        new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+    );
+}
+
+/**
+ * Gera os arquivos PDF de uma Lore completa seguindo o padrão do Resumo Semanal
+ * (com word-wrap inteligente sem cortar texto, WinAnsiEncoding e divisão para NotebookLM).
+ */
+async function generateLorePdfAttachments(loreDoc, client, fallbackChannel = null) {
+    let channelObj = fallbackChannel;
+    if (loreDoc.channelId) {
+        channelObj = await client.channels.fetch(loreDoc.channelId).catch(() => fallbackChannel);
+    }
+
+    const catName = channelObj?.parent?.parent?.name || channelObj?.parent?.name || 'Lores do Servidor';
+    const forumChanName = channelObj?.isThread?.() ? (channelObj?.parent?.name || channelObj?.name || 'Canal de RP') : (channelObj?.name || 'Canal de RP');
+    const postTitle = channelObj?.isThread?.() ? channelObj.name : (loreDoc.title || 'Lore');
+
+    const creatorUser = await client.users.fetch(loreDoc.createdBy).catch(() => null);
+    const authorUsername = creatorUser?.username || loreDoc.createdBy || 'Desconhecido';
+    const createdDateStr = loreDoc.createdAt ? new Date(loreDoc.createdAt).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
+    const dataGeracao = new Date().toLocaleString('pt-BR');
+
+    const totalChapters = Array.isArray(loreDoc.chapters) ? loreDoc.chapters.length : 0;
+    const totalPages = (loreDoc.chapters || []).reduce((acc, c) => acc + (Array.isArray(c?.pages) ? c.pages.length : 0), 0);
+
+    const fileText = [];
+    fileText.push(`======================================================================`);
+    fileText.push(`                        ARQUIVO DE REGISTRO DE RP`);
+    fileText.push(`======================================================================\n`);
+    fileText.push(`- Categoria: ${catName}`);
+    fileText.push(`- Fórum/Canal: ${forumChanName}`);
+    fileText.push(`- Título da Postagem: ${postTitle}`);
+    fileText.push(`- Total de Mensagens Coletadas: ${totalPages}`);
+    fileText.push(`- Intervalo de Mensagens: ${totalChapters} capítulo(s) • ${totalPages} página(s)`);
+    fileText.push(`- Data de Geração: ${dataGeracao}\n`);
+    fileText.push(`======================================================================`);
+    fileText.push(`                        CONTEÚDO`);
+    fileText.push(`======================================================================\n`);
+
+    fileText.push(`\n${'='.repeat(20)} [LORE: ${(loreDoc.title || 'Sem Título').toUpperCase()}] ${'='.repeat(20)}`);
+    fileText.push(`Canal: ${channelObj?.name || 'Canal de RP'} | Autor: ${authorUsername} | Data: ${createdDateStr}\n`);
+
+    if (loreDoc.synopsis && loreDoc.synopsis.trim().length > 0) {
+        fileText.push(`>> CAPÍTULO: Sinopse / Apresentação`);
+        fileText.push('-'.repeat(40));
+        fileText.push(loreDoc.synopsis.trim());
+    }
+
+    for (const chapter of (loreDoc.chapters || [])) {
+        if (!chapter) continue;
+        fileText.push(`\n>> CAPÍTULO: ${chapter.name || 'Capítulo'}`);
+        fileText.push('-'.repeat(40));
+        for (const page of (chapter.pages || [])) {
+            if (page && page.content && page.content.trim().length > 0) {
+                fileText.push(page.content);
+            }
+        }
+    }
+
+    fileText.push(`\n${'='.repeat(20)} [FIM DA LORE] ${'='.repeat(20)}\n`);
+
+    const notebookParts = splitLinesForNotebookLM(fileText, `Lore: ${loreDoc.title || 'Sem Título'}`);
+    const totalParts = notebookParts.length;
+    const datStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const cleanLoreName = (loreDoc.title || 'Lore')
+        .replace(/[^a-zA-Z0-9-_\u00C0-\u017E ]/g, '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .substring(0, 45) || 'Lore';
+
+    const attachments = [];
+    for (let pIdx = 0; pIdx < totalParts; pIdx++) {
+        const partLines = notebookParts[pIdx];
+        const partSuffix = totalParts > 1 ? `_Parte-${pIdx + 1}-de-${totalParts}` : '';
+        const partTitleSuffix = totalParts > 1 ? ` (Parte ${pIdx + 1} de ${totalParts})` : '';
+        const pdfFileName = `Lore-${cleanLoreName}-${datStr}${partSuffix}.pdf`;
+
+        const pdfBuffer = await generatePdf({
+            titulo: `LORE — ${loreDoc.title || 'Sem Título'}${partTitleSuffix}`,
+            categoria: catName,
+            canal: forumChanName,
+            postTitle: `${authorUsername} (${totalChapters} cap. / ${totalPages} pág.)`,
+            mensagensRange: 'Início a Fim (Completo)',
+            modo: 'Exportação de Lore Completa (Padrão Resumo Semanal)',
+            fileTextLines: partLines,
+            resumo: null,
+        });
+
+        attachments.push(new AttachmentBuilder(pdfBuffer, { name: pdfFileName }));
+    }
+
+    return { attachments, totalChapters, totalPages, authorUsername };
+}
 
 // Cache em memória de URLs de imagens do Discord já renovadas (TTL de 12 horas)
 const refreshedImageCache = new Map();
@@ -461,11 +565,7 @@ async function sacramentarLore(interaction, client, loreState) {
     const targetChannel = interaction.channel;
     const loreMessage = await targetChannel.send({ embeds: [eternalEmbed] });
 
-    const publicButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`lore_read_${loreMessage.id}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${loreMessage.id}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
-        new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${loreMessage.id}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-    );
+    const publicButtons = buildPublicLoreMainPageButtons(loreMessage.id);
     await loreMessage.edit({ components: [publicButtons] });
 
     await client.database.Lore.create({
@@ -568,6 +668,33 @@ async function handleLoreInteraction(interaction, client) {
     }
     // Lógica de botões da Lore
     if (interaction.isButton() || (interaction.isStringSelectMenu() && interaction.customId.startsWith('lore_read_'))) {
+        if (interaction.customId.startsWith('lore_download_pdf_')) {
+            const messageId = interaction.customId.replace('lore_download_pdf_', '');
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply({ flags: 64 });
+            }
+
+            try {
+                const lore = await client.database.Lore.findOne({ messageId: messageId }).lean();
+                if (!lore) {
+                    return interaction.editReply({ content: '❌ Esta lore não foi encontrada no banco de dados.' });
+                }
+
+                const { attachments, totalChapters, totalPages } = await generateLorePdfAttachments(lore, client, interaction.channel);
+
+                return interaction.editReply({
+                    content:
+                        `💾 **PDF da Lore gerado com sucesso!**\n` +
+                        `📖 **Título:** ${lore.title}\n` +
+                        `📚 **Conteúdo:** \`${totalChapters}\` capítulo(s) • \`${totalPages}\` página(s) *(formatação completa sem cortes)*`,
+                    files: attachments.slice(0, 10)
+                });
+            } catch (pdfErr) {
+                console.error('[LORE PDF] Erro ao gerar PDF da lore:', pdfErr);
+                return interaction.editReply({ content: `❌ Ocorreu um erro ao gerar o PDF desta lore: ${pdfErr.message}` });
+            }
+        }
+
         if (interaction.customId.startsWith('lore_manage_')) {
             const parts = interaction.customId.split('_');
             const manageAction = parts[2];
@@ -1549,11 +1676,7 @@ async function handleLoreInteraction(interaction, client) {
                     .setImage(validCover || null)
                     .setFooter({ text: `📚 ${lore.chapters.length} capítulo(s) • Clique em "📖 Ler Lore" para iniciar a leitura` });
 
-                const publicButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`lore_read_${messageId}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`lore_manage_edit-title_${messageId}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
-                    new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-                );
+                const publicButtons = buildPublicLoreMainPageButtons(messageId);
 
                 await loreMessage.edit({ embeds: [updatedEmbed], components: [publicButtons] }).catch(() => { });
             };
@@ -1702,13 +1825,10 @@ async function syncPreExistingLores(client) {
                     continue;
                 }
 
-                const currentButton = message.components?.[0]?.components?.find(c => c.customId === `lore_manage_edit-title_${lore.messageId}`);
-                if (!currentButton || currentButton.label !== 'Editar Informações') {
-                    const newRow = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId(`lore_read_${lore.messageId}`).setLabel('📖 Ler Lore').setStyle(ButtonStyle.Success),
-                        new ButtonBuilder().setCustomId(`lore_manage_edit-title_${lore.messageId}`).setLabel('Editar Informações').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
-                        new ButtonBuilder().setCustomId(`lore_manage_delete-lore_${lore.messageId}`).setLabel('Excluir Lore').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-                    );
+                const currentEditBtn = message.components?.[0]?.components?.find(c => c.customId === `lore_manage_edit-title_${lore.messageId}`);
+                const currentPdfBtn = message.components?.[0]?.components?.find(c => c.customId === `lore_download_pdf_${lore.messageId}`);
+                if (!currentEditBtn || currentEditBtn.label !== 'Editar Informações' || !currentPdfBtn) {
+                    const newRow = buildPublicLoreMainPageButtons(lore.messageId);
                     await message.edit({ components: [newRow] }).catch(err => {
                         console.warn(`[LORE SYNC] Não foi possível atualizar lore ${lore.messageId}: ${err.message}`);
                     });
@@ -1735,5 +1855,7 @@ module.exports = {
     resolveValidLoreImageUrl,
     refreshDiscordAttachmentUrl,
     getChapterReleaseDate,
-    syncPreExistingLores
+    syncPreExistingLores,
+    buildPublicLoreMainPageButtons,
+    generateLorePdfAttachments
 };

@@ -134,12 +134,12 @@ module.exports.dmClose = (message) => { // DM Fechada
 
 module.exports.highRole = (message, args) => {
   
-let member = message.mentions.members.first() || message.guild.members.get(args[0]);  
+let member = message.mentions?.members?.first() || message.guild?.members?.cache?.get(args?.[0]);  
   
   let embed = new Discord.EmbedBuilder()
   .setColor(color.green)
-  .setTitle('<:error_2:676239899065843722 | **Erro de Cargo**')
-  .setDescription(`Seu cargo é menor que o de ${member}.`)
+  .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
+  .setDescription(`Seu cargo é menor que o de ${member || 'este membro'}.`)
   
   message.channel.send({ embeds: [embed] })
 }
@@ -149,8 +149,8 @@ module.exports.equalRole = (message, member) => {
   
   let embed = new Discord.EmbedBuilder()
   .setColor(color.green)
-  .setTitle('<:error_2:676239899065843722 | **Erro de Cargo**')
-  .setDescription(`Seu cargo é o mesmo que o do ${member}`)
+  .setTitle('<:error_2:676239899065843722> | **Erro de Cargo**')
+  .setDescription(`Seu cargo é o mesmo que o do ${member || 'membro'}`)
   
   message.channel.send({ embeds: [embed] })
 }
