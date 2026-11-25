@@ -14,6 +14,7 @@ const fetch = require('node-fetch');
 const AdmZip = require('adm-zip');
 const mongoose = require('mongoose');
 const { messagesToTxt } = require('../api/messagesToTxt.js');
+const { extractTextFromAttachment } = require('../api/documentParser.js');
 
 // Cache em memória de URLs de imagens do Discord já renovadas (TTL de 12 horas)
 const refreshedImageCache = new Map();
@@ -757,14 +758,21 @@ async function handleLoreInteraction(interaction, client) {
                     const isCreator = interaction.user.id === lore.createdBy;
                     const validChapters = lore.chapters.filter(c => c && c.name);
 
-                    const chapterOptions = validChapters.map((chap, idx) => ({
+                    const chapterOptions = validChapters.slice(0, 25).map((chap, idx) => ({
                         label: chap.name.substring(0, 100),
                         description: `Capítulo ${idx + 1} com ${chap.pages.length} página(s).`,
                         value: idx.toString(),
                     }));
                     const selectMenu = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`lore_select_chapter_${messageId}`).setPlaceholder(isCreator ? 'Selecione um capítulo para gerenciar' : 'Selecione um capítulo para ler').addOptions(chapterOptions));
+                    const componentsList = [selectMenu];
+                    if (isCreator) {
+                        componentsList.push(new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`lore_add_chapter_${messageId}`).setLabel('Adicionar Capítulo').setStyle(ButtonStyle.Success).setEmoji('➕'),
+                            new ButtonBuilder().setCustomId(`lore_add_backup_${messageId}`).setLabel('Importar .TXT / .PDF').setStyle(ButtonStyle.Secondary).setEmoji('📥')
+                        ));
+                    }
                     const embListCap = new EmbedBuilder().setTitle(`📚 Lista de Capítulos - ${lore.title}`).setDescription(validChapters.map((chap, idx) => `**${idx + 1}.** ${chap.name}`).join('\n')).setFooter({ text: 'Selecione um capítulo no menu abaixo.' }).setColor('#2b2d31');
-                    return interaction.reply({ embeds: [embListCap], components: [selectMenu], flags: 64 });
+                    return interaction.reply({ embeds: [embListCap], components: componentsList, flags: 64 });
                 }
                 case 'move-chapter': {
                     if (interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão para gerenciar esta lore.', flags: 64 });
@@ -817,7 +825,7 @@ async function handleLoreInteraction(interaction, client) {
                     const chapterNameInput = new TextInputBuilder().setCustomId('chapter_name_input').setLabel("Nome do Novo Capítulo").setStyle(TextInputStyle.Short).setPlaceholder('Ex: Capítulo 2: A Vingança').setRequired(true);
                     modal.addComponents(new ActionRowBuilder().addComponents(chapterNameInput));
                     if (type === 'backup') {
-                        modal.setCustomId(`lore_add_backup_modal_${messageId}`).setTitle('Adicionar Capítulo de Backup');
+                        modal.setCustomId(`lore_add_backup_modal_${messageId}`).setTitle('Importar Capítulo (.txt / .pdf)');
                     } else {
                         modal.setCustomId(`add_chapter_modal_${lore.messageId}`);
                     }
@@ -895,7 +903,7 @@ async function handleLoreInteraction(interaction, client) {
                         new ButtonBuilder().setCustomId(`lore_add_chapter_${messageId}`).setLabel('Adicionar Capítulo').setStyle(ButtonStyle.Success).setEmoji('➕'),
                         new ButtonBuilder().setCustomId(`lore_edit_page_${messageId}_${chapIdx}_${pIdx}`).setLabel('Editar Texto').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
                         new ButtonBuilder().setCustomId(`lore_add-image_${messageId}_${chapIdx}_${pIdx}`).setLabel('Imagem').setStyle(ButtonStyle.Secondary).setEmoji('🌄'),
-                        new ButtonBuilder().setCustomId(`lore_add_backup_${messageId}`).setLabel('Adicionar de Backup').setStyle(ButtonStyle.Secondary).setEmoji('📥'),
+                        new ButtonBuilder().setCustomId(`lore_add_backup_${messageId}`).setLabel('Importar .TXT / .PDF').setStyle(ButtonStyle.Secondary).setEmoji('📥'),
                         new ButtonBuilder().setCustomId(`lore_delete_chapter_${messageId}_${chapIdx}`).setLabel('Excluir Capítulo').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(totalChapters <= 1)
                     ));
                 }
@@ -1012,18 +1020,211 @@ async function handleLoreInteraction(interaction, client) {
 
     // Lógica de Modais da Lore
     if (interaction.isModalSubmit()) {
+        // Função compartilhada para importar capítulo a partir de mensagem contendo anexo (.txt / .pdf + .zip opcional)
+        const processChapterFileMessage = async (msg, messageId, newChapterName, isFormattedBackupMode = false) => {
+            try {
+                const docAttachment = msg.attachments.find(att => {
+                    const n = (att.name || '').toLowerCase();
+                    const ct = (att.contentType || '').toLowerCase();
+                    return n.endsWith('.txt') || n.endsWith('.pdf') || n.endsWith('.md') || n.endsWith('.log') || ct.includes('pdf') || ct.startsWith('text/');
+                });
+                const zipAttachment = msg.attachments.find(att => (att.name || '').toLowerCase().endsWith('.zip'));
+
+                if (!docAttachment) {
+                    return interaction.followUp({ content: '❌ Nenhum arquivo `.txt` ou `.pdf` válido foi encontrado na mensagem.', flags: 64 });
+                }
+
+                await interaction.editReply({ content: `📥 Arquivo **${docAttachment.name}** recebido! Extraindo texto e processando o capítulo **"${newChapterName}"**...` }).catch(() => {});
+
+                const parsed = await extractTextFromAttachment(docAttachment);
+                const rawText = parsed.text;
+
+                // Verifica se o arquivo segue o padrão de log de backup ([DD/MM/YYYY HH:mm:ss] Autor:\nConteúdo)
+                const regMen = /\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\] .*?:\s*\n([\s\S]*?)(?=\n?\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\]|$)/g;
+                const correspondencias = [...rawText.matchAll(regMen)];
+                let contApe = '';
+
+                if (correspondencias.length > 0) {
+                    const conteudos = correspondencias
+                        .map(corr => corr[1].trim())
+                        .filter(cont => cont && !cont.startsWith('[Mensagem sem texto]') && !cont.startsWith('[Anexo:'));
+                    contApe = conteudos.join('\n\n');
+                }
+
+                if (!contApe.trim() && rawText.trim().length > 0) {
+                    contApe = rawText;
+                }
+
+                if (!contApe.trim()) {
+                    return interaction.followUp({ content: '❌ O arquivo enviado parece estar vazio ou sem texto legível.', flags: 64 });
+                }
+
+                // Se era um arquivo de backup com timestamps (ou se foi enviado no modo backup e não tem markdown prévio), aplica formatação automática de diálogos/pensamentos se for backup log
+                if (correspondencias.length > 0) {
+                    const linTex = contApe.split(/\r?\n/);
+                    const linFor = [];
+                    let emPen = false;
+
+                    for (let lin of linTex) {
+                        let linTri = lin.trim();
+
+                        if (linTri.length === 0) {
+                            linFor.push(lin);
+                            continue;
+                        }
+
+                        if (/^[-—•]/.test(linTri)) {
+                            let conFal = linTri.replace(/^[-—•]\s*/, '');
+                            const parFal = conFal.split('—');
+                            let linNov = `— ${parFal[0].trim()}`;
+
+                            for (let i = 1; i < parFal.length; i++) {
+                                let parAtu = parFal[i].trim();
+                                if (!parAtu) continue;
+                                if (i % 2 !== 0) linNov += ` — **${parAtu}**`;
+                                else linNov += ` — ${parAtu}`;
+                            }
+                            linFor.push(linNov);
+                            emPen = false;
+                        } else if (emPen || (linTri.startsWith('('))) {
+                            if (!emPen) {
+                                if (linTri.endsWith(')')) linFor.push(`*${linTri}*`);
+                                else { emPen = true; linFor.push(`*${linTri}`); }
+                            } else {
+                                if (linTri.endsWith(')')) { emPen = false; linFor.push(`${linTri}*`); }
+                                else linFor.push(linTri);
+                            }
+                        } else {
+                            linFor.push(`**${linTri}**`);
+                            emPen = false;
+                        }
+                    }
+                    contApe = linFor.join('\n');
+                }
+
+                const { paginateText } = require('../commands/rpg/lore.js');
+                const paginasTex = paginateText(contApe);
+
+                if (paginasTex.length === 0) {
+                    return interaction.followUp({ content: '❌ Não foi possível paginar o texto do arquivo enviado.', flags: 64 });
+                }
+
+                const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
+
+                // Processar imagens do ZIP se existir
+                let imagensMap = {};
+                if (zipAttachment && bacCha) {
+                    try {
+                        const zipResponse = await fetch(zipAttachment.url);
+                        const zipBuffer = await zipResponse.buffer();
+                        const zip = new AdmZip(zipBuffer);
+                        const zipEntries = zip.getEntries();
+
+                        for (let i = 0; i < zipEntries.length; i++) {
+                            const entry = zipEntries[i];
+                            if (!entry.isDirectory && entry.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+                                try {
+                                    const imagemBuffer = entry.getData();
+                                    const backupMsg = await bacCha.send({
+                                        files: [new AttachmentBuilder(imagemBuffer, { name: entry.name })]
+                                    });
+                                    const imagemUrl = backupMsg.attachments.first()?.url;
+                                    if (imagemUrl) imagensMap[i] = imagemUrl;
+                                } catch (imgErr) {
+                                    console.warn(`Falha ao fazer upload da imagem ${entry.name}:`, imgErr.message);
+                                }
+                            }
+                        }
+                    } catch (zipErr) {
+                        console.warn(`Erro ao processar ZIP de imagens:`, zipErr.message);
+                    }
+                }
+
+                const novasPagObj = paginasTex.map((contPag, idx) => ({
+                    content: contPag,
+                    imageUrl: imagensMap[idx] || null
+                }));
+
+                const loreDB = await client.database.Lore.findOne({ messageId: messageId });
+                if (!loreDB) return interaction.editReply({ content: '❌ Lore original não encontrada.' });
+
+                loreDB.chapters.push({ name: newChapterName, pages: novasPagObj, createdAt: new Date() });
+                await loreDB.save();
+
+                // Atualiza o contador de capítulos no footer da mensagem principal da lore (se tiver sinopse)
+                try {
+                    const targetChannel = await client.channels.fetch(loreDB.channelId).catch(() => interaction.channel);
+                    const loreMessage = await targetChannel.messages.fetch(messageId).catch(() => null);
+                    if (loreMessage && loreMessage.embeds[0] && loreDB.synopsis) {
+                        const updatedEmbed = EmbedBuilder.from(loreMessage.embeds[0])
+                            .setFooter({ text: `📚 ${loreDB.chapters.length} capítulo(s) • Clique em "📖 Ler Lore" para iniciar a leitura` });
+                        await loreMessage.edit({ embeds: [updatedEmbed] }).catch(() => {});
+                    }
+                } catch (_) {}
+
+                // Salva backup do capítulo no canal de backup
+                if (bacCha) {
+                    const mockMsg = {
+                        createdAt: new Date(),
+                        createdTimestamp: Date.now(),
+                        author: interaction.user,
+                        channel: interaction.channel,
+                        content: contApe,
+                        attachments: { size: 0, forEach: () => {}, find: () => null }
+                    };
+                    const { txtBuffer } = await messagesToTxt([mockMsg], `lore-${loreDB.title}-${newChapterName}.txt`, `Backup para ${loreDB.title}`).catch(() => ({ txtBuffer: Buffer.from(contApe, 'utf-8') }));
+                    const anexos = [new AttachmentBuilder(txtBuffer, { name: `capitulo_${newChapterName}.txt` })];
+                    await bacCha.send({
+                        content: `Backup do novo capítulo **${newChapterName}** (${parsed.fileType.toUpperCase()}) para a lore **${loreDB.title}**.`,
+                        files: anexos
+                    }).catch(() => null);
+                }
+
+                await msg.delete().catch(() => {});
+                await interaction.editReply({
+                    content: `✅ O capítulo **"${newChapterName}"** (${novasPagObj.length} página(s)) foi importado com sucesso a partir do arquivo \`${parsed.fileName}\` (${parsed.fileType.toUpperCase()})!`
+                }).catch(() => {});
+            } catch (error) {
+                console.error("Erro ao processar arquivo de capítulo de lore:", error);
+                await interaction.followUp({ content: `❌ Ocorreu um erro ao processar o arquivo: ${error.message}`, flags: 64 }).catch(() => {});
+            }
+        };
+
         if (interaction.customId.startsWith('add_chapter_modal_')) {
             const messageId = interaction.customId.split('_')[3];
             const newChapterName = interaction.fields.getTextInputValue('chapter_name_input');
 
             await interaction.deferReply({ flags: 64 });
-            await interaction.editReply({ content: `Certo! Agora, para adicionar o capítulo **"${newChapterName}"**, reaja com ➕ na **primeira** mensagem do novo capítulo.` });
+            await interaction.editReply({
+                content:
+                    `Certo! Para adicionar o capítulo **"${newChapterName}"**, escolha uma das opções abaixo:\n\n` +
+                    `1️⃣ **Pelos Mensagens do Chat:** Reaja com ➕ na **primeira** mensagem do novo capítulo (e depois com ➖ na última).\n` +
+                    `📄 **Por Arquivo (.txt ou .pdf):** Simplesmente **envie o arquivo \`.txt\` ou \`.pdf\` neste canal agora** (junto com um \`.zip\` de imagens opcional)!`
+            });
 
             const reactionFilter = (reaction, user) => user.id === interaction.user.id;
+
+            // Coletor paralelo de arquivo (.txt / .pdf) caso o jogador prefira enviar um arquivo diretamente
+            const fileFilter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
+            const fileCollector = interaction.channel.createMessageCollector({ filter: fileFilter, time: 300000 });
+
+            fileCollector.on('collect', async (msg) => {
+                const hasDoc = msg.attachments.some(att => {
+                    const n = (att.name || '').toLowerCase();
+                    const ct = (att.contentType || '').toLowerCase();
+                    return n.endsWith('.txt') || n.endsWith('.pdf') || n.endsWith('.md') || n.endsWith('.log') || ct.includes('pdf') || ct.startsWith('text/');
+                });
+                if (!hasDoc) return;
+
+                client.removeListener('messageReactionAdd', startCollectorFn);
+                fileCollector.stop('file_uploaded');
+                await processChapterFileMessage(msg, messageId, newChapterName, false);
+            });
 
             const startCollectorFn = async (startReaction, user) => {
                 if (!reactionFilter(startReaction, user) || startReaction.emoji.name !== '➕') return;
                 client.removeListener('messageReactionAdd', startCollectorFn);
+                fileCollector.stop('reaction_started');
                 const newStartMessage = startReaction.message;
 
                 await interaction.editReply({ content: 'Ótimo! Agora reaja com ➖ na **última** mensagem do novo capítulo.' });
@@ -1106,6 +1307,17 @@ async function handleLoreInteraction(interaction, client) {
                         loreDB.chapters.push({ name: newChapterName, pages: newPagesAsObjects, createdAt: chapDate });
                         await loreDB.save();
 
+                        // Atualiza o contador de capítulos no footer da mensagem principal da lore
+                        try {
+                            const targetChannel = await client.channels.fetch(loreDB.channelId).catch(() => interaction.channel);
+                            const loreMessage = await targetChannel.messages.fetch(messageId).catch(() => null);
+                            if (loreMessage && loreMessage.embeds[0] && loreDB.synopsis) {
+                                const updatedEmbed = EmbedBuilder.from(loreMessage.embeds[0])
+                                    .setFooter({ text: `📚 ${loreDB.chapters.length} capítulo(s) • Clique em "📖 Ler Lore" para iniciar a leitura` });
+                                await loreMessage.edit({ embeds: [updatedEmbed] }).catch(() => {});
+                            }
+                        } catch (_) {}
+
                         await interaction.editReply({ content: '✅ Novo capítulo adicionado com sucesso! Iniciando backup e limpeza...' });
 
                         // Lógica de Backup e Limpeza
@@ -1179,128 +1391,13 @@ async function handleLoreInteraction(interaction, client) {
             if (!lore || interaction.user.id !== lore.createdBy) return interaction.reply({ content: '❌ Você não tem permissão ou a lore não foi encontrada.', flags: 64 });
 
             await interaction.deferReply({ flags: 64 });
-            await interaction.editReply({ content: `✅ Capítulo nomeado como **"${newChapterName}"**. Agora, por favor, envie os arquivos de backup (.txt e .zip opcional). Você tem 5 minutos.` });
+            await interaction.editReply({ content: `✅ Capítulo nomeado como **"${newChapterName}"**. Agora, envie o arquivo **.txt** ou **.pdf** neste canal (junto com um arquivo **.zip** de imagens opcional). Você tem 5 minutos.` });
 
             const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
             const collector = interaction.channel.createMessageCollector({ filter, time: 300000, max: 1 });
 
             collector.on('collect', async msg => {
-                try {
-                    await interaction.editReply({ content: '📥 Arquivos recebidos. Processando o backup...' });
-
-                    // Buscar arquivo .txt
-                    const txtAttachment = msg.attachments.find(att => att.name.endsWith('.txt'));
-                    const zipAttachment = msg.attachments.find(att => att.name.endsWith('.zip'));
-
-                    if (!txtAttachment) return interaction.followUp({ content: '❌ Nenhum arquivo .txt encontrado na mensagem.', flags: 64 });
-
-                    const response = await fetch(txtAttachment.url);
-                    if (!response.ok) throw new Error('Falha ao baixar o arquivo de backup.');
-                    const backupText = await response.text();
-                    const regMen = /\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\] .*?:\s*\n([\s\S]*?)(?=\n?\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}\]|$)/g;
-                    const correspondencias = [...backupText.matchAll(regMen)];
-                    const conteudos = correspondencias
-                        .map(corr => corr[1].trim())
-                        .filter(cont => cont && !cont.startsWith('[Mensagem sem texto]') && !cont.startsWith('[Anexo:'));
-                    let contApe = conteudos.join('\n\n');
-
-                    if (!contApe.trim() && backupText.trim().length > 0) {
-                        contApe = backupText;
-                    }
-
-                    if (!contApe.trim()) return interaction.followUp({ content: '❌ O arquivo de backup parece estar vazio ou em um formato incorreto.', flags: 64 });
-
-                    // Formatação automática (estilo /formatar)
-                    const linTex = contApe.split(/\r?\n/);
-                    const linFor = [];
-                    let emPen = false;
-
-                    for (let lin of linTex) {
-                        let linTri = lin.trim();
-
-                        if (linTri.length === 0) {
-                            linFor.push(lin);
-                            continue;
-                        }
-
-                        if (/^[-—•]/.test(linTri)) {
-                            let conFal = linTri.replace(/^[-—•]\s*/, '');
-                            const parFal = conFal.split('—');
-                            let linNov = `— ${parFal[0].trim()}`;
-
-                            for (let i = 1; i < parFal.length; i++) {
-                                let parAtu = parFal[i].trim();
-                                if (!parAtu) continue;
-                                if (i % 2 !== 0) linNov += ` — **${parAtu}**`;
-                                else linNov += ` — ${parAtu}`;
-                            }
-                            linFor.push(linNov);
-                            emPen = false;
-                        } else if (emPen || (linTri.startsWith('('))) {
-                            if (!emPen) {
-                                if (linTri.endsWith(')')) linFor.push(`*${linTri}*`);
-                                else { emPen = true; linFor.push(`*${linTri}`); }
-                            } else {
-                                if (linTri.endsWith(')')) { emPen = false; linFor.push(`${linTri}*`); }
-                                else linFor.push(linTri);
-                            }
-                        } else {
-                            linFor.push(`**${linTri}**`);
-                            emPen = false;
-                        }
-                    }
-                    contApe = linFor.join('\n');
-
-                    const { paginateText } = require('../commands/rpg/lore.js');
-                    const paginasTex = paginateText(contApe);
-
-                    // Processar imagens do ZIP se existir
-                    let imagensMap = {};
-                    if (zipAttachment) {
-                        try {
-                            const zipResponse = await fetch(zipAttachment.url);
-                            const zipBuffer = await zipResponse.buffer();
-                            const zip = new AdmZip(zipBuffer);
-                            const zipEntries = zip.getEntries();
-
-                            // Extrair e fazer upload das imagens
-                            const bacCha = await client.channels.fetch(process.env.BACKUP_CHANNEL_ID).catch(() => null);
-
-                            if (bacCha) {
-                                for (let i = 0; i < zipEntries.length; i++) {
-                                    const entry = zipEntries[i];
-                                    if (!entry.isDirectory && entry.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
-                                        try {
-                                            const imagemBuffer = entry.getData();
-                                            const backupMsg = await bacCha.send({
-                                                files: [new AttachmentBuilder(imagemBuffer, { name: entry.name })]
-                                            });
-                                            const imagemUrl = backupMsg.attachments.first()?.url;
-                                            if (imagemUrl) imagensMap[i] = imagemUrl;
-                                        } catch (imgErr) {
-                                            console.warn(`Falha ao fazer upload da imagem ${entry.name}:`, imgErr.message);
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (zipErr) {
-                            console.warn(`Erro ao processar ZIP de imagens:`, zipErr.message);
-                        }
-                    }
-
-                    const novasPagObj = paginasTex.map((contPag, idx) => ({
-                        content: contPag,
-                        imageUrl: imagensMap[idx] || null
-                    }));
-
-                    lore.chapters.push({ name: newChapterName, pages: novasPagObj });
-                    await lore.save();
-                    await interaction.followUp({ content: `✅ O capítulo **"${newChapterName}"** foi adicionado com sucesso a partir do backup!`, flags: 64 });
-                    await msg.delete().catch(() => { });
-                } catch (error) {
-                    console.error("Erro ao processar backup de lore:", error);
-                    await interaction.followUp({ content: '❌ Ocorreu um erro ao processar o arquivo de backup.', flags: 64 });
-                }
+                await processChapterFileMessage(msg, messageId, newChapterName, true);
             });
             collector.on('end', (collected, reason) => { if (reason === 'time') interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada.', flags: 64 }).catch(() => { }); });
         }

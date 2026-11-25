@@ -311,27 +311,49 @@ module.exports = class lore extends Command {
       return;
     }
 
-    // ─── MODO 2: Seleção Tradicional por Reações (1️⃣ e 2️⃣) ────────────────────
+    // ─── MODO 2: Seleção por Reações (1️⃣ e 2️⃣) OU Envio de Arquivo (.txt / .pdf) no Chat ────────────────────
     const embed = new EmbedBuilder()
       .setTitle('<a:spinnyman:1433853169884205106> | Organização de Lore')
       .setDescription(
         'Escolha como deseja criar sua Lore:\n\n' +
-        '1️⃣ Reaja com o emoji **1️⃣** na **primeira** mensagem do seu RP no chat (e depois **2️⃣** na última).\n\n' +
-        '💡 **Dica Rápida:** Você também pode anexar um arquivo `.txt` ou `.pdf` diretamente no comando `/lore arquivo:...` para formatar e publicar automaticamente!'
+        '1️⃣ **Via Mensagens do Chat:** Reaja com o emoji **1️⃣** na **primeira** mensagem do seu RP no chat (e depois **2️⃣** na última).\n' +
+        '📄 **Via Arquivo (.txt ou .pdf):** Simplesmente **envie o arquivo `.txt` ou `.pdf` neste canal agora** (ou use `/lore arquivo:...`) para formatar e publicar automaticamente!'
       )
       .setColor('#0099ff')
-      .setFooter({ text: 'Você tem 2 minutos para reagir à mensagem inicial.' });
+      .setFooter({ text: 'Você tem 2 minutos para reagir à mensagem inicial ou enviar um arquivo .txt/.pdf.' });
 
     await interaction.reply({ embeds: [embed], flags: 64 });
 
     const reactionFilter = (reaction, user) => user.id === interaction.user.id;
     let startTimeout, endTimeout;
 
+    // Coletor paralelo caso o usuário envie um arquivo .txt ou .pdf no canal após rodar /lore
+    const fileMsgFilter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
+    const fileCollector = interaction.channel.createMessageCollector({ filter: fileMsgFilter, time: 120000 });
+
+    fileCollector.on('collect', async (msg) => {
+      const docAtt = msg.attachments.find(att => {
+        const n = (att.name || '').toLowerCase();
+        const ct = (att.contentType || '').toLowerCase();
+        return n.endsWith('.txt') || n.endsWith('.pdf') || n.endsWith('.md') || n.endsWith('.log') || ct.includes('pdf') || ct.startsWith('text/');
+      });
+      if (!docAtt) return;
+
+      clearTimeout(startTimeout);
+      this.client.removeListener('messageReactionAdd', startCollector);
+      fileCollector.stop('file_received');
+
+      await interaction.editReply({ content: `📥 Arquivo **${docAtt.name}** recebido! Processando e paginando sua lore...`, embeds: [], components: [] }).catch(() => {});
+      await this.processFileLore(docAtt, interaction.user, interaction.channel, interaction, { titulo, capitulo });
+      await msg.delete().catch(() => {});
+    });
+
     const startCollector = async (reaction, user) => {
       if (!reactionFilter(reaction, user)) return;
 
       if (reaction.emoji.name === '1️⃣') {
         clearTimeout(startTimeout);
+        fileCollector.stop('reaction_started');
         const loreInicio = reaction.message;
         this.client.removeListener('messageReactionAdd', startCollector);
 
@@ -551,7 +573,8 @@ module.exports = class lore extends Command {
 
     startTimeout = setTimeout(() => {
       this.client.removeListener('messageReactionAdd', startCollector);
-      interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem inicial. Operação cancelada.', embeds: [] }).catch(() => { });
+      fileCollector.stop('timeout');
+      interaction.editReply({ content: '⏰ Tempo esgotado para reagir à mensagem inicial ou enviar um arquivo. Operação cancelada.', embeds: [] }).catch(() => { });
     }, 120000);
   }
 
