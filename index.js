@@ -82,6 +82,10 @@ const client = new Client({
             // Inicializa o Painel do Banco de Dados (MongoDB) no mesmo canal
             const dbMonitor = require("./api/dbMonitor.js");
             dbMonitor.ensureDbPanelExists(client).catch(console.error);
+
+            // Sincroniza botões das mensagens fixas de Lore pré-existentes (adiciona botão 💾 de download em PDF)
+            const { syncPreExistingLores } = require("./events/loreInteraction.js");
+            syncPreExistingLores(client).catch(err => console.error('[LORE SYNC] Erro ao sincronizar lores no startup:', err));
             
             client.on('messageCreate', async (message) => {
                 if (message.author.bot) return;

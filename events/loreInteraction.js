@@ -1801,9 +1801,9 @@ async function handleLoreInteraction(interaction, client) {
  */
 async function syncPreExistingLores(client) {
     try {
-        if (!client?.database?.Lore) return;
+        if (!client?.database?.Lore) return { updatedCount: 0, totalCount: 0 };
         const lores = await client.database.Lore.find({});
-        if (!lores || lores.length === 0) return;
+        if (!lores || lores.length === 0) return { updatedCount: 0, totalCount: 0 };
         console.log(`[LORE SYNC] Verificando ${lores.length} lore(s) pré-existente(s) no Discord...`);
         let updatedCount = 0;
 
@@ -1825,8 +1825,10 @@ async function syncPreExistingLores(client) {
                     continue;
                 }
 
-                const currentEditBtn = message.components?.[0]?.components?.find(c => c.customId === `lore_manage_edit-title_${lore.messageId}`);
-                const currentPdfBtn = message.components?.[0]?.components?.find(c => c.customId === `lore_download_pdf_${lore.messageId}`);
+                const allComponents = (message.components || []).flatMap(row => row.components || []);
+                const currentEditBtn = allComponents.find(c => (c.customId || c.data?.custom_id) === `lore_manage_edit-title_${lore.messageId}`);
+                const currentPdfBtn = allComponents.find(c => (c.customId || c.data?.custom_id) === `lore_download_pdf_${lore.messageId}`);
+
                 if (!currentEditBtn || currentEditBtn.label !== 'Editar Informações' || !currentPdfBtn) {
                     const newRow = buildPublicLoreMainPageButtons(lore.messageId);
                     await message.edit({ components: [newRow] }).catch(err => {
@@ -1839,14 +1841,18 @@ async function syncPreExistingLores(client) {
                     await channel.setArchived(true).catch(() => { });
                 }
             } catch (err) {
-                // Silencioso para canais ou mensagens não mais acessíveis
+                console.warn(`[LORE SYNC] Erro ao sincronizar lore ${lore.messageId}: ${err.message}`);
             }
         }
         if (updatedCount > 0) {
-            console.log(`[LORE SYNC] ✅ ${updatedCount} mensagem(ns) fixa(s) de lore atualizada(s) para "Editar Informações".`);
+            console.log(`[LORE SYNC] ✅ ${updatedCount} mensagem(ns) fixa(s) de lore atualizada(s) para "Editar Informações" e com o botão 💾.`);
+        } else {
+            console.log(`[LORE SYNC] ✅ Todas as ${lores.length} lore(s) já estavam sincronizadas com o botão 💾.`);
         }
+        return { updatedCount, totalCount: lores.length };
     } catch (err) {
         console.error('[LORE SYNC] Erro ao sincronizar mensagens de lore pré-existentes:', err);
+        return { updatedCount: 0, totalCount: 0, error: err.message };
     }
 }
 

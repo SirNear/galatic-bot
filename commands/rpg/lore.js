@@ -97,6 +97,11 @@ module.exports = class lore extends Command {
                 .setDescription("Filtrar lores criadas por um autor específico (opcional).")
                 .setRequired(false)
             )
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("sincronizar")
+            .setDescription("Sincroniza e adiciona o botão 💾 em todas as mensagens fixas de lores do servidor")
         );
     }
   }
@@ -590,6 +595,15 @@ module.exports = class lore extends Command {
       const busca = interaction.options.getString('busca');
       const autor = interaction.options.getUser('autor');
       return this.executeListaLores(interaction, { busca, autor });
+    }
+
+    if (subcommand === 'sincronizar') {
+      await interaction.deferReply({ flags: 64 });
+      const { syncPreExistingLores } = require('../../events/loreInteraction.js');
+      const result = await syncPreExistingLores(this.client);
+      return interaction.editReply({
+        content: `✅ Sincronização concluída! **${result?.updatedCount || 0}** mensagem(ns) de lore atualizada(s) com o botão 💾 (Total verificado: ${result?.totalCount || 0}).`
+      });
     }
 
     const attachment = interaction.options.getAttachment('arquivo');
